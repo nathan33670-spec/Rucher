@@ -51,6 +51,23 @@ export default defineConfig({
       'vuetify/components/VToolbar',
     ],
   },
+  // Optimisation du build de production : on isole les gros vendors (vuetify,
+  // vue, chart.js) dans des chunks séparés — ils changent rarement et restent
+  // donc en cache navigateur entre deux déploiements applicatifs.
+  build: {
+    target: 'es2020',
+    cssCodeSplit: true,
+    chunkSizeWarningLimit: 900,
+    rollupOptions: {
+      output: {
+        manualChunks: {
+          vue: ['vue', 'vue-router', 'pinia'],
+          vuetify: ['vuetify'],
+          charts: ['chart.js', 'vue-chartjs'],
+        },
+      },
+    },
+  },
   server: {
     host: '0.0.0.0',
     port: 3000,

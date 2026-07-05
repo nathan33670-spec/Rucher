@@ -14,6 +14,16 @@
             <v-alert v-if="error" type="error" density="compact" class="mb-3">{{ error }}</v-alert>
             <v-btn type="submit" color="primary" block size="large" :loading="loading">Se connecter</v-btn>
           </v-form>
+
+          <!-- Installation « comme une application » (mobile) -->
+          <template v-if="canInstall">
+            <v-divider class="my-4" />
+            <p class="text-caption text-grey text-center mb-2">
+              <v-icon size="16" class="mr-1">mdi-cellphone</v-icon>
+              Installez Rucher sur votre téléphone pour l'utiliser hors-ligne
+            </p>
+            <InstallButton block label="Ajouter à l'écran d'accueil" />
+          </template>
         </v-card>
       </v-col>
     </v-row>
@@ -24,6 +34,8 @@
 import { ref } from 'vue'
 import { useRouter } from 'vue-router'
 import { useAuthStore } from '../stores/auth'
+import { canInstall } from '../services/pwa'
+import InstallButton from '../components/InstallButton.vue'
 
 const auth = useAuthStore()
 const router = useRouter()

@@ -1,12 +1,24 @@
 {
   "name": "Rucher Manager",
   "short_name": "Rucher",
+  "description": "Gestion de rucher : ruches, visites terrain, inventaire, trésorerie, suivi sanitaire — utilisable hors-ligne.",
+  "id": "/",
   "start_url": "/",
+  "scope": "/",
   "display": "standalone",
+  "orientation": "portrait-primary",
+  "lang": "fr",
+  "dir": "ltr",
   "background_color": "#FFF8E1",
   "theme_color": "#F9A825",
+  "categories": ["productivity", "business", "utilities"],
   "icons": [
-    { "src": "/icon-192.png", "sizes": "192x192", "type": "image/png" },
-    { "src": "/icon-512.png", "sizes": "512x512", "type": "image/png" }
+    { "src": "/icon-192.png", "sizes": "192x192", "type": "image/png", "purpose": "any" },
+    { "src": "/icon-512.png", "sizes": "512x512", "type": "image/png", "purpose": "any" },
+    { "src": "/icon-maskable-512.png", "sizes": "512x512", "type": "image/png", "purpose": "maskable" }
+  ],
+  "shortcuts": [
+    { "name": "Tableau de bord", "short_name": "Accueil", "url": "/", "icons": [{ "src": "/icon-192.png", "sizes": "192x192" }] },
+    { "name": "Ruchers", "short_name": "Ruchers", "url": "/apiaries", "icons": [{ "src": "/icon-192.png", "sizes": "192x192" }] }
   ]
 }
