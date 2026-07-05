@@ -1,0 +1,120 @@
+═══ 1. Version Docker ═══
+Docker version 24.0.2, build 610b8d0
+Docker Compose version v2.20.1-6047-g6817716
+
+═══ 2. Fichiers présents ═══
+-rwxr-xr-x+ 1 root root  386 May 13 11:30 backend/Dockerfile.standard
+-rwxr-xr-x+ 1 root root  318 May 13 11:30 backend/requirements.txt
+-rwxr-xr-x+ 1 root root 2369 May 13 11:30 docker-compose.prod.yml
+-rwxr-xr-x+ 1 root root  205 May 13 02:48 .env
+
+═══ 3. Contenu .env ═══
+POSTGRES_PASSWORD=a81b664709a490616daa5fa93990037a
+SECRET_KEY=3925f87d9f4bc4d81560a15941e406029d65ab80be4527e67aa9ae6d8e5e09f2
+FIRST_ADMIN_EMAIL=admin@rucher.local
+FIRST_ADMIN_PASSWORD=admin1234
+PORT=7080
+
+═══ 4. État des containers ═══
+NAME                IMAGE               COMMAND                  SERVICE             CREATED             STATUS                          PORTS
+rucher-backend-1    rucher-backend      "uvicorn app.main:ap…"   backend             2 minutes ago       Restarting (3) 17 seconds ago   
+rucher-frontend-1   rucher-frontend     "docker-entrypoint.s…"   frontend            2 minutes ago       Up 2 minutes (healthy)          3000/tcp
+rucher-nginx-1      nginx:alpine        "/docker-entrypoint.…"   nginx               2 minutes ago       Created                         
+rucher-postgres-1   postgres:16         "docker-entrypoint.s…"   postgres            2 minutes ago       Up 2 minutes (healthy)          5432/tcp
+rucher-redis-1      redis:7-alpine      "docker-entrypoint.s…"   redis               2 minutes ago       Up 2 minutes (healthy)          6379/tcp
+
+═══ 5. Logs backend (50 dernières lignes) ═══
+rucher-backend-1  |   File "/usr/local/lib/python3.12/site-packages/sqlalchemy/pool/impl.py", line 179, in _do_get
+rucher-backend-1  |     with util.safe_reraise():
+rucher-backend-1  |          ^^^^^^^^^^^^^^^^^^^
+rucher-backend-1  |   File "/usr/local/lib/python3.12/site-packages/sqlalchemy/util/langhelpers.py", line 146, in __exit__
+rucher-backend-1  |     raise exc_value.with_traceback(exc_tb)
+rucher-backend-1  |   File "/usr/local/lib/python3.12/site-packages/sqlalchemy/pool/impl.py", line 177, in _do_get
+rucher-backend-1  |     return self._create_connection()
+rucher-backend-1  |            ^^^^^^^^^^^^^^^^^^^^^^^^^
+rucher-backend-1  |   File "/usr/local/lib/python3.12/site-packages/sqlalchemy/pool/base.py", line 390, in _create_connection
+rucher-backend-1  |     return _ConnectionRecord(self)
+rucher-backend-1  |            ^^^^^^^^^^^^^^^^^^^^^^^
+rucher-backend-1  |   File "/usr/local/lib/python3.12/site-packages/sqlalchemy/pool/base.py", line 674, in __init__
+rucher-backend-1  |     self.__connect()
+rucher-backend-1  |   File "/usr/local/lib/python3.12/site-packages/sqlalchemy/pool/base.py", line 900, in __connect
+rucher-backend-1  |     with util.safe_reraise():
+rucher-backend-1  |          ^^^^^^^^^^^^^^^^^^^
+rucher-backend-1  |   File "/usr/local/lib/python3.12/site-packages/sqlalchemy/util/langhelpers.py", line 146, in __exit__
+rucher-backend-1  |     raise exc_value.with_traceback(exc_tb)
+rucher-backend-1  |   File "/usr/local/lib/python3.12/site-packages/sqlalchemy/pool/base.py", line 896, in __connect
+rucher-backend-1  |     self.dbapi_connection = connection = pool._invoke_creator(self)
+rucher-backend-1  |                                          ^^^^^^^^^^^^^^^^^^^^^^^^^^
+rucher-backend-1  |   File "/usr/local/lib/python3.12/site-packages/sqlalchemy/engine/create.py", line 643, in connect
+rucher-backend-1  |     return dialect.connect(*cargs, **cparams)
+rucher-backend-1  |            ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+rucher-backend-1  |   File "/usr/local/lib/python3.12/site-packages/sqlalchemy/engine/default.py", line 621, in connect
+rucher-backend-1  |     return self.loaded_dbapi.connect(*cargs, **cparams)
+rucher-backend-1  |            ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+rucher-backend-1  |   File "/usr/local/lib/python3.12/site-packages/sqlalchemy/dialects/postgresql/asyncpg.py", line 953, in connect
+rucher-backend-1  |     await_only(creator_fn(*arg, **kw)),
+rucher-backend-1  |     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+rucher-backend-1  |   File "/usr/local/lib/python3.12/site-packages/sqlalchemy/util/_concurrency_py3k.py", line 132, in await_only
+rucher-backend-1  |     return current.parent.switch(awaitable)  # type: ignore[no-any-return,attr-defined] # noqa: E501
+rucher-backend-1  |            ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+rucher-backend-1  |   File "/usr/local/lib/python3.12/site-packages/sqlalchemy/util/_concurrency_py3k.py", line 196, in greenlet_spawn
+rucher-backend-1  |     value = await result
+rucher-backend-1  |             ^^^^^^^^^^^^
+rucher-backend-1  |   File "/usr/local/lib/python3.12/site-packages/asyncpg/connection.py", line 2329, in connect
+rucher-backend-1  |     return await connect_utils._connect(
+rucher-backend-1  |            ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+rucher-backend-1  |   File "/usr/local/lib/python3.12/site-packages/asyncpg/connect_utils.py", line 991, in _connect
+rucher-backend-1  |     conn = await _connect_addr(
+rucher-backend-1  |            ^^^^^^^^^^^^^^^^^^^^
+rucher-backend-1  |   File "/usr/local/lib/python3.12/site-packages/asyncpg/connect_utils.py", line 828, in _connect_addr
+rucher-backend-1  |     return await __connect_addr(params, True, *args)
+rucher-backend-1  |            ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+rucher-backend-1  |   File "/usr/local/lib/python3.12/site-packages/asyncpg/connect_utils.py", line 876, in __connect_addr
+rucher-backend-1  |     await connected
+rucher-backend-1  | asyncpg.exceptions.InvalidPasswordError: password authentication failed for user "rucher"
+rucher-backend-1  | 
+rucher-backend-1  | 
+rucher-backend-1  | ERROR:    Application startup failed. Exiting.
+
+═══ 6. Logs postgres (20 dernières lignes) ═══
+rucher-postgres-1  | 2026-05-13 09:33:06.371 UTC [50] FATAL:  password authentication failed for user "rucher"
+rucher-postgres-1  | 2026-05-13 09:33:06.371 UTC [50] DETAIL:  Connection matched file "/var/lib/postgresql/data/pg_hba.conf" line 128: "host all all all scram-sha-256"
+rucher-postgres-1  | 2026-05-13 09:33:09.696 UTC [59] FATAL:  password authentication failed for user "rucher"
+rucher-postgres-1  | 2026-05-13 09:33:09.696 UTC [59] DETAIL:  Connection matched file "/var/lib/postgresql/data/pg_hba.conf" line 128: "host all all all scram-sha-256"
+rucher-postgres-1  | 2026-05-13 09:33:13.485 UTC [67] FATAL:  password authentication failed for user "rucher"
+rucher-postgres-1  | 2026-05-13 09:33:13.485 UTC [67] DETAIL:  Connection matched file "/var/lib/postgresql/data/pg_hba.conf" line 128: "host all all all scram-sha-256"
+rucher-postgres-1  | 2026-05-13 09:33:17.634 UTC [68] FATAL:  password authentication failed for user "rucher"
+rucher-postgres-1  | 2026-05-13 09:33:17.634 UTC [68] DETAIL:  Connection matched file "/var/lib/postgresql/data/pg_hba.conf" line 128: "host all all all scram-sha-256"
+rucher-postgres-1  | 2026-05-13 09:33:22.489 UTC [78] FATAL:  password authentication failed for user "rucher"
+rucher-postgres-1  | 2026-05-13 09:33:22.489 UTC [78] DETAIL:  Connection matched file "/var/lib/postgresql/data/pg_hba.conf" line 128: "host all all all scram-sha-256"
+rucher-postgres-1  | 2026-05-13 09:33:28.938 UTC [95] FATAL:  password authentication failed for user "rucher"
+rucher-postgres-1  | 2026-05-13 09:33:28.938 UTC [95] DETAIL:  Connection matched file "/var/lib/postgresql/data/pg_hba.conf" line 128: "host all all all scram-sha-256"
+rucher-postgres-1  | 2026-05-13 09:33:38.745 UTC [104] FATAL:  password authentication failed for user "rucher"
+rucher-postgres-1  | 2026-05-13 09:33:38.745 UTC [104] DETAIL:  Connection matched file "/var/lib/postgresql/data/pg_hba.conf" line 128: "host all all all scram-sha-256"
+rucher-postgres-1  | 2026-05-13 09:33:54.923 UTC [138] FATAL:  password authentication failed for user "rucher"
+rucher-postgres-1  | 2026-05-13 09:33:54.923 UTC [138] DETAIL:  Connection matched file "/var/lib/postgresql/data/pg_hba.conf" line 128: "host all all all scram-sha-256"
+rucher-postgres-1  | 2026-05-13 09:34:24.004 UTC [179] FATAL:  password authentication failed for user "rucher"
+rucher-postgres-1  | 2026-05-13 09:34:24.004 UTC [179] DETAIL:  Connection matched file "/var/lib/postgresql/data/pg_hba.conf" line 128: "host all all all scram-sha-256"
+rucher-postgres-1  | 2026-05-13 09:35:18.520 UTC [271] FATAL:  password authentication failed for user "rucher"
+rucher-postgres-1  | 2026-05-13 09:35:18.520 UTC [271] DETAIL:  Connection matched file "/var/lib/postgresql/data/pg_hba.conf" line 128: "host all all all scram-sha-256"
+
+═══ 7. Logs frontend (20 dernières lignes) ═══
+rucher-frontend-1  | 
+rucher-frontend-1  | 
+rucher-frontend-1  |   VITE v5.4.21  ready in 1136 ms
+rucher-frontend-1  | 
+rucher-frontend-1  | 
+rucher-frontend-1  |   ➜  Local:   http://localhost:3000/
+rucher-frontend-1  |   ➜  Network: http://172.21.0.5:3000/
+
+═══ 8. Logs nginx (10 dernières lignes) ═══
+
+═══ 9. Architecture CPU ═══
+x86_64
+model name	: Intel(R) Celeron(R) J4125 CPU @ 2.00GHz
+
+═══ 10. Espace disque ═══
+Filesystem              Size  Used Avail Use% Mounted on
+/dev/mapper/cachedev_1  3.5T  3.5T   49G  99% /volume1
+
+═══ FIN DIAGNOSTIC ═══
