@@ -45,8 +45,20 @@ Le Synology (proxy inverse) gère ensuite le HTTPS et le domaine public.
 | **Inventaire** | Entrées/sorties de matériel, seuils d'alerte, lien trésorerie |
 | **Trésorerie** | Recettes/dépenses catégorisées, upload factures, bilan annuel |
 | **Sanitaire** | Suivi traitements (varroa…), comptages, calendrier |
-| **Utilisateurs** | 5 rôles, import CSV, reset mot de passe |
+| **Météo** | Météo de Bois-d'Arcy (température, hygrométrie, pluie, vent) + **créneau optimal de visite** |
+| **Utilisateurs** | 5 rôles, import CSV, création/suppression, reset mot de passe |
 | **Journal** | Historique complet des actions (audit) |
+
+> **Page d'accueil publique** : `/` affiche une page grand public de sensibilisation
+> à la protection des abeilles (photo du canal de la Croix Bonnet), avec un lien
+> « Accéder à l'application » vers la connexion. L'application est sous `/app`.
+>
+> 🖼️ La photo d'accueil est un visuel d'illustration : remplacez
+> `frontend/public/accueil-canal.jpg` par une vraie photo (même nom) pour la
+> personnaliser.
+>
+> 📲 **PWA** installable (Android/iOS) et utilisable **hors-ligne** (saisie des
+> visites sans réseau, synchronisées au retour).
 
 ### Mode Live (terrain)
 - Interface simplifiée sans texte superflu

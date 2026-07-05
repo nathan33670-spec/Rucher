@@ -11,7 +11,7 @@
       <v-list density="compact" nav>
         <v-list-item
           v-for="item in navItems"
-          :key="item.to"
+          :key="item.title"
           :to="item.to"
           :prepend-icon="item.icon"
           :title="item.title"
@@ -70,7 +70,7 @@
 
     <!-- Bottom nav mobile -->
     <v-bottom-navigation v-if="isMobile" grow app color="primary">
-      <v-btn v-for="item in mobileNav" :key="item.to" :to="item.to">
+      <v-btn v-for="item in mobileNav" :key="item.title" :to="item.to">
         <v-icon>{{ item.icon }}</v-icon>
         <span class="text-caption">{{ item.title }}</span>
       </v-btn>
@@ -150,25 +150,26 @@ const unreadAlerts = computed(() => notif.alerts.filter((a) => !a.read).length)
 
 const navItems = computed(() => {
   const items = [
-    { to: '/', icon: 'mdi-view-dashboard', title: 'Tableau de bord' },
-    { to: '/apiaries', icon: 'mdi-hexagon-multiple', title: 'Ruchers' },
-    { to: '/visits', icon: 'mdi-clipboard-text', title: 'Visites' },
-    { to: '/inventory', icon: 'mdi-package-variant-closed', title: 'Inventaire' },
-    { to: '/honey', icon: 'mdi-bee-flower', title: 'Miellée' },
-    { to: '/sanitary', icon: 'mdi-medical-bag', title: 'Sanitaire' },
-    { to: '/logs', icon: 'mdi-history', title: 'Journal' },
+    { to: { name: 'dashboard' }, icon: 'mdi-view-dashboard', title: 'Tableau de bord' },
+    { to: { name: 'apiaries' }, icon: 'mdi-hexagon-multiple', title: 'Ruchers' },
+    { to: { name: 'visits' }, icon: 'mdi-clipboard-text', title: 'Visites' },
+    { to: { name: 'weather' }, icon: 'mdi-weather-partly-cloudy', title: 'Météo' },
+    { to: { name: 'inventory' }, icon: 'mdi-package-variant-closed', title: 'Inventaire' },
+    { to: { name: 'honey' }, icon: 'mdi-bee-flower', title: 'Miellée' },
+    { to: { name: 'sanitary' }, icon: 'mdi-medical-bag', title: 'Sanitaire' },
+    { to: { name: 'logs' }, icon: 'mdi-history', title: 'Journal' },
   ]
-  if (auth.hasRole('treasurer') || auth.isAdmin) items.push({ to: '/treasury', icon: 'mdi-cash-register', title: 'Trésorerie' })
-  if (auth.isAdmin) items.push({ to: '/users', icon: 'mdi-account-cog', title: 'Utilisateurs' })
+  if (auth.hasRole('treasurer') || auth.isAdmin) items.push({ to: { name: 'treasury' }, icon: 'mdi-cash-register', title: 'Trésorerie' })
+  if (auth.isAdmin) items.push({ to: { name: 'users' }, icon: 'mdi-account-cog', title: 'Utilisateurs' })
   return items
 })
 
 const mobileNav = [
-  { to: '/', icon: 'mdi-home', title: 'Accueil' },
-  { to: '/apiaries', icon: 'mdi-hexagon-multiple', title: 'Ruchers' },
-  { to: '/visits', icon: 'mdi-clipboard-text', title: 'Visites' },
-  { to: '/inventory', icon: 'mdi-package-variant-closed', title: 'Stock' },
-  { to: '/logs', icon: 'mdi-history', title: 'Logs' },
+  { to: { name: 'dashboard' }, icon: 'mdi-home', title: 'Accueil' },
+  { to: { name: 'apiaries' }, icon: 'mdi-hexagon-multiple', title: 'Ruchers' },
+  { to: { name: 'visits' }, icon: 'mdi-clipboard-text', title: 'Visites' },
+  { to: { name: 'weather' }, icon: 'mdi-weather-partly-cloudy', title: 'Météo' },
+  { to: { name: 'logs' }, icon: 'mdi-history', title: 'Logs' },
 ]
 
 const pageTitle = computed(() => {
@@ -176,6 +177,7 @@ const pageTitle = computed(() => {
     dashboard: 'Tableau de bord',
     apiaries: 'Ruchers',
     visits: 'Visites',
+    weather: 'Météo',
     inventory: 'Inventaire',
     treasury: 'Trésorerie',
     honey: 'Miellée',

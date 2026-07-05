@@ -3,7 +3,7 @@
   "short_name": "Rucher",
   "description": "Gestion de rucher : ruches, visites terrain, inventaire, trésorerie, suivi sanitaire — utilisable hors-ligne.",
   "id": "/",
-  "start_url": "/",
+  "start_url": "/app",
   "scope": "/",
   "display": "standalone",
   "orientation": "portrait-primary",
@@ -18,7 +18,7 @@
     { "src": "/icon-maskable-512.png", "sizes": "512x512", "type": "image/png", "purpose": "maskable" }
   ],
   "shortcuts": [
-    { "name": "Tableau de bord", "short_name": "Accueil", "url": "/", "icons": [{ "src": "/icon-192.png", "sizes": "192x192" }] },
-    { "name": "Ruchers", "short_name": "Ruchers", "url": "/apiaries", "icons": [{ "src": "/icon-192.png", "sizes": "192x192" }] }
+    { "name": "Tableau de bord", "short_name": "Accueil", "url": "/app", "icons": [{ "src": "/icon-192.png", "sizes": "192x192" }] },
+    { "name": "Ruchers", "short_name": "Ruchers", "url": "/app/apiaries", "icons": [{ "src": "/icon-192.png", "sizes": "192x192" }] }
   ]
 }

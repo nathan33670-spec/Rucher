@@ -154,9 +154,24 @@ docker compose restart              # redémarrer
 
 ### Sauvegardes
 
-`--backup-db` crée un dump `./backups/rucher_backup_AAAAMMJJ_HHMMSS.sql.gz`
-(7 dernières conservées). Vous pouvez planifier une tâche Synology
-(Planificateur de tâches) exécutant `./deploy-synology.sh --backup-db`.
+**Automatiques** — un conteneur `backup` isolé effectue un `pg_dump` compressé
+toutes les 24 h (par défaut) dans `./backups/rucher_AAAAMMJJ_HHMMSS.sql.gz`
+(rétention : 14). Réglable via `.env` : `BACKUP_INTERVAL` (secondes) et
+`BACKUP_KEEP` (nombre conservé).
+
+> 🔒 **Segmentation** : le conteneur `backup` est sur un réseau interne dédié
+> (`backupnet`) qui ne voit **que** PostgreSQL et **n'a aucun accès Internet**.
+> Même compromis, il ne peut ni exfiltrer les données, ni atteindre le backend,
+> Redis ou l'extérieur.
+
+**Manuelles** — `./deploy-synology.sh --backup-db` (dump immédiat).
+
+**Restauration** — d'une sauvegarde :
+
+```bash
+gunzip -c ./backups/rucher_AAAAMMJJ_HHMMSS.sql.gz \
+  | docker compose exec -T postgres psql -U rucher -d rucher
+```
 
 ---
 

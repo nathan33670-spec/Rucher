@@ -185,7 +185,7 @@
         <v-icon size="64" color="success">mdi-check-circle</v-icon>
         <h3 class="mt-4">Visite terminée !</h3>
         <p class="text-grey">{{ savedCount }} ruches visitées</p>
-        <v-btn color="primary" class="mt-4" @click="$router.push('/apiaries')">Retour aux ruchers</v-btn>
+        <v-btn color="primary" class="mt-4" @click="$router.push({ name: 'apiaries' })">Retour aux ruchers</v-btn>
       </div>
     </div>
   </div>

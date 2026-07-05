@@ -2,9 +2,15 @@
 # Rucher Manager — stack Docker pour Synology (x86_64)
 #
 # Le TLS et le domaine public (ruches.corsicajack.fr) sont gérés par le
-# PROXY INVERSE du Synology (Panneau de configuration › Portail de connexion ›
-# Avancé › Proxy inversé). Cette stack n'expose donc qu'UN SEUL port HTTP local
+# PROXY INVERSE du Synology. Cette stack n'expose qu'UN SEUL port HTTP local
 # (WEB_PORT, 7080 par défaut) que le proxy inverse Synology cible en localhost.
+#
+# Segmentation réseau (défense en profondeur) :
+#   • edge      : web ↔ backend (seul « web » publie un port vers l'hôte)
+#   • data      : backend ↔ postgres/redis         (interne, sans accès Internet)
+#   • backupnet : backup ↔ postgres UNIQUEMENT      (interne, sans accès Internet)
+# Le conteneur « backup » ne voit QUE postgres et n'a AUCUN accès Internet :
+# même compromis, il ne peut ni exfiltrer les données, ni pivoter ailleurs.
 #
 # Démarrage :  ./deploy-synology.sh      (ou :  docker compose up -d --build)
 # ═══════════════════════════════════════════════════════════════════════════
@@ -19,6 +25,7 @@ services:
       POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-rucher_secret_2026}
     volumes:
       - pg_data:/var/lib/postgresql/data
+    networks: [data, backupnet]
     healthcheck:
       test: ["CMD-SHELL", "pg_isready -U rucher -d rucher"]
       interval: 5s
@@ -28,6 +35,7 @@ services:
   redis:
     image: redis:7-alpine
     restart: unless-stopped
+    networks: [data]
     healthcheck:
       test: ["CMD", "redis-cli", "ping"]
       interval: 5s
@@ -46,6 +54,7 @@ services:
       FIRST_ADMIN_PASSWORD: ${FIRST_ADMIN_PASSWORD:-admin1234}
     volumes:
       - upload_data:/app/uploads
+    networks: [edge, data]
     healthcheck:
       test: ["CMD", "python", "-c", "import urllib.request,sys; sys.exit(0) if urllib.request.urlopen('http://localhost:8000/api/health').status==200 else sys.exit(1)"]
       interval: 10s
@@ -67,10 +76,52 @@ services:
     volumes:
       # Uploads servis directement par nginx (lecture seule)
       - upload_data:/app/uploads:ro
+    networks: [edge]
     depends_on:
       backend:
         condition: service_healthy
 
+  # ─── Sauvegarde automatique isolée ────────────────────────────────
+  # Conteneur séparé qui « pull » la base via pg_dump, sur un réseau interne
+  # dédié (backupnet) sans accès Internet. Écrit des dumps compressés dans
+  # ./backups (rotation). Compromis, il ne peut rien exfiltrer.
+  backup:
+    image: postgres:16-alpine
+    restart: unless-stopped
+    environment:
+      PGPASSWORD: ${POSTGRES_PASSWORD:-rucher_secret_2026}
+      BACKUP_KEEP: ${BACKUP_KEEP:-14}
+      BACKUP_INTERVAL: ${BACKUP_INTERVAL:-86400}
+    volumes:
+      - ./backups:/backups
+    networks: [backupnet]
+    depends_on:
+      postgres:
+        condition: service_healthy
+    entrypoint:
+      - /bin/sh
+      - -c
+      - |
+        echo "[backup] démarré — intervalle $${BACKUP_INTERVAL}s, rétention $${BACKUP_KEEP}";
+        sleep 30;   # laisse le backend initialiser le schéma au tout premier démarrage
+        while true; do
+          ts=$$(date +%Y%m%d_%H%M%S);
+          if pg_dump -h postgres -U rucher -d rucher | gzip > /backups/rucher_$$ts.sql.gz; then
+            echo "[backup] $$ts OK";
+            ls -1t /backups/rucher_*.sql.gz | tail -n +$$(($${BACKUP_KEEP}+1)) | xargs -r rm -f;
+          else
+            echo "[backup] $$ts ÉCHEC"; rm -f /backups/rucher_$$ts.sql.gz;
+          fi;
+          sleep "$${BACKUP_INTERVAL}";
+        done
+
 volumes:
   pg_data:
   upload_data:
+
+networks:
+  edge:
+  data:
+    internal: true
+  backupnet:
+    internal: true

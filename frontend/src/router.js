@@ -2,9 +2,10 @@ import { createRouter, createWebHistory } from 'vue-router'
 import { useAuthStore } from './stores/auth'
 
 const routes = [
+  { path: '/', name: 'landing', component: () => import('./views/LandingView.vue') },
   { path: '/login', name: 'login', component: () => import('./views/LoginView.vue') },
   {
-    path: '/',
+    path: '/app',
     component: () => import('./layouts/MainLayout.vue'),
     meta: { requiresAuth: true },
     children: [
@@ -17,6 +18,7 @@ const routes = [
       { path: 'treasury', name: 'treasury', component: () => import('./views/TreasuryView.vue') },
       { path: 'honey', name: 'honey', component: () => import('./views/HoneyView.vue') },
       { path: 'sanitary', name: 'sanitary', component: () => import('./views/SanitaryView.vue') },
+      { path: 'weather', name: 'weather', component: () => import('./views/WeatherView.vue') },
       { path: 'users', name: 'users', component: () => import('./views/UsersView.vue') },
       { path: 'logs', name: 'logs', component: () => import('./views/LogsView.vue') },
     ],
@@ -31,9 +33,9 @@ router.beforeEach((to) => {
   if (to.meta.requiresAuth && !auth.isAuthenticated) {
     return { name: 'login' }
   }
-  // Déjà connecté mais on tente d'aller sur /login → vers l'accueil
+  // Déjà connecté mais on tente d'aller sur /login → vers le tableau de bord
   if (to.name === 'login' && auth.isAuthenticated) {
-    return { path: '/' }
+    return { name: 'dashboard' }
   }
   // Sinon, navigation autorisée
   return true

@@ -27,7 +27,7 @@
               size="large"
               class="text-none"
               prepend-icon="mdi-play-circle"
-              :to="'/visits/live/' + ap.id"
+              :to="{ name: 'visit-live', params: { apiaryId: ap.id } }"
             >
               {{ ap.name }} ({{ ap.hives_count || 0 }} ruches)
             </v-btn>

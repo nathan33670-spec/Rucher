@@ -10,7 +10,7 @@
 
     <v-row>
       <v-col v-for="apiary in apiaries" :key="apiary.id" cols="12" sm="6" md="4">
-        <v-card @click="$router.push(`/apiaries/${apiary.id}`)" class="cursor-pointer">
+        <v-card @click="$router.push({ name: 'apiary-detail', params: { id: apiary.id } })" class="cursor-pointer">
           <v-card-title>
             <v-icon color="primary" class="mr-2">mdi-hexagon-multiple</v-icon>
             {{ apiary.name }}
@@ -22,7 +22,7 @@
             </v-chip>
           </v-card-text>
           <v-card-actions>
-            <v-btn size="small" color="accent" variant="text" @click.stop="$router.push(`/visits/live/${apiary.id}`)">
+            <v-btn size="small" color="accent" variant="text" @click.stop="$router.push({ name: 'visit-live', params: { apiaryId: apiary.id } })">
               <v-icon class="mr-1">mdi-bee</v-icon> Mode Live
             </v-btn>
             <v-spacer />

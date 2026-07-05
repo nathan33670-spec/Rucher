@@ -51,7 +51,7 @@ async function doLogin() {
     await auth.login(email.value, password.value)
     // Attendre la fin de la navigation pour éviter toute redirection « redondante »
     const redirect = router.currentRoute.value.query.redirect
-    await router.replace(typeof redirect === 'string' ? redirect : '/')
+    await router.replace(typeof redirect === 'string' ? redirect : { name: 'dashboard' })
   } catch (e) {
     error.value = e.response?.data?.detail || 'Erreur de connexion'
   } finally {
