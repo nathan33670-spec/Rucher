@@ -1,0 +1,12 @@
+{
+  "name": "Rucher Manager",
+  "short_name": "Rucher",
+  "start_url": "/",
+  "display": "standalone",
+  "background_color": "#FFF8E1",
+  "theme_color": "#F9A825",
+  "icons": [
+    { "src": "/icon-192.png", "sizes": "192x192", "type": "image/png" },
+    { "src": "/icon-512.png", "sizes": "512x512", "type": "image/png" }
+  ]
+}
