@@ -9,7 +9,7 @@
             <p class="text-body-2 text-grey">Connexion à votre espace</p>
           </div>
           <v-form @submit.prevent="doLogin">
-            <v-text-field v-model="email" label="Email" type="email" prepend-inner-icon="mdi-email" required />
+            <v-text-field v-model="email" label="Identifiant" type="text" autocapitalize="none" autocomplete="username" prepend-inner-icon="mdi-account" required />
             <v-text-field v-model="password" label="Mot de passe" type="password" prepend-inner-icon="mdi-lock" required />
             <v-alert v-if="error" type="error" density="compact" class="mb-3">{{ error }}</v-alert>
             <v-btn type="submit" color="primary" block size="large" :loading="loading">Se connecter</v-btn>
