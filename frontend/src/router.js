@@ -5,6 +5,22 @@ const routes = [
   { path: '/', name: 'landing', component: () => import('./views/LandingView.vue') },
   { path: '/login', name: 'login', component: () => import('./views/LoginView.vue') },
   {
+    // Documentation — PUBLIQUE (accessible sans connexion)
+    path: '/docs',
+    component: () => import('./layouts/DocsLayout.vue'),
+    children: [
+      { path: '', name: 'docs-home', component: () => import('./views/docs/DocsHome.vue') },
+      { path: 'memo', name: 'docs-memo', component: () => import('./views/docs/MemoView.vue') },
+      { path: 'guide', name: 'docs-guide', component: () => import('./views/docs/GuideView.vue') },
+      { path: 'cycle-abeille', name: 'docs-cycle', component: () => import('./views/docs/CycleAbeilleView.vue') },
+      { path: 'varroa', name: 'docs-varroa', component: () => import('./views/docs/VarroaView.vue') },
+      { path: 'reglementation', name: 'docs-reglementation', component: () => import('./views/docs/ReglementationView.vue') },
+      { path: 'nouveau', name: 'docs-new', component: () => import('./views/docs/DocEditorView.vue'), meta: { requiresAuth: true } },
+      { path: 'editer/:slug', name: 'docs-edit', component: () => import('./views/docs/DocEditorView.vue'), props: true, meta: { requiresAuth: true } },
+      { path: 'p/:slug', name: 'docs-page', component: () => import('./views/docs/DynamicDocView.vue'), props: true },
+    ],
+  },
+  {
     path: '/app',
     component: () => import('./layouts/MainLayout.vue'),
     meta: { requiresAuth: true },

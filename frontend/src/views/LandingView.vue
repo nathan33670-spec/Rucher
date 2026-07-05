@@ -6,6 +6,9 @@
         <v-icon start>mdi-bee</v-icon> Rucher — Association apicole
       </v-app-bar-title>
       <v-spacer />
+      <v-btn variant="text" class="text-none d-none d-sm-flex" :to="{ name: 'docs-home' }" prepend-icon="mdi-book-open-variant">
+        Documentation
+      </v-btn>
       <v-btn variant="flat" color="amber-darken-3" class="text-none" :to="{ name: 'login' }" prepend-icon="mdi-login">
         Accéder à l'application
       </v-btn>

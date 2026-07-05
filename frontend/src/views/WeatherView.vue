@@ -119,7 +119,7 @@ const upcoming = computed(() => {
     .slice(0, 24)
     .map((h) => ({
       ...h,
-      hourLabel: new Date(h.time).toLocaleTimeString('fr-FR', { hour: '2-digit' }) + 'h',
+      hourLabel: new Date(h.time).getHours() + 'h',
     }))
 })
 

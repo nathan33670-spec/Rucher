@@ -24,6 +24,12 @@
             </p>
             <InstallButton block label="Ajouter à l'écran d'accueil" />
           </template>
+
+          <div class="text-center mt-4">
+            <v-btn variant="text" size="small" class="text-none" :to="{ name: 'docs-home' }" prepend-icon="mdi-book-open-variant">
+              Consulter la documentation
+            </v-btn>
+          </div>
         </v-card>
       </v-col>
     </v-row>

@@ -48,6 +48,7 @@ Le Synology (proxy inverse) gère ensuite le HTTPS et le domaine public.
 | **Météo** | Météo de Bois-d'Arcy (température, hygrométrie, pluie, vent) + **créneau optimal de visite** |
 | **Utilisateurs** | 5 rôles, import CSV, création/suppression, reset mot de passe |
 | **Journal** | Historique complet des actions (audit) |
+| **Documentation** | Centre d'aide **public** : mémo rapide, guide illustré, formation (cycle de l'abeille, varroa, réglementation & registres). Les admins créent leurs propres pages (Markdown). |
 
 > **Page d'accueil publique** : `/` affiche une page grand public de sensibilisation
 > à la protection des abeilles (photo du canal de la Croix Bonnet), avec un lien

@@ -6,8 +6,10 @@ from app.models.treasury import Transaction, Invoice, TransactionType, Transacti
 from app.models.sanitary import SanitaryRecord
 from app.models.audit import AuditLog
 from app.models.honey import HoneyCategory, HoneyHarvest, HoneyJar, HoneySale, OwnershipFilter
+from app.models.doc import DocPage
 
 __all__ = [
+    "DocPage",
     "User", "UserRole", "RoleEnum",
     "Apiary", "Hive", "hive_managers", "OwnershipType",
     "Visit",

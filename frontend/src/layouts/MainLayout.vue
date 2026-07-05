@@ -157,6 +157,7 @@ const navItems = computed(() => {
     { to: { name: 'inventory' }, icon: 'mdi-package-variant-closed', title: 'Inventaire' },
     { to: { name: 'honey' }, icon: 'mdi-bee-flower', title: 'Miellée' },
     { to: { name: 'sanitary' }, icon: 'mdi-medical-bag', title: 'Sanitaire' },
+    { to: { name: 'docs-home' }, icon: 'mdi-book-open-variant', title: 'Documentation' },
     { to: { name: 'logs' }, icon: 'mdi-history', title: 'Journal' },
   ]
   if (auth.hasRole('treasurer') || auth.isAdmin) items.push({ to: { name: 'treasury' }, icon: 'mdi-cash-register', title: 'Trésorerie' })
