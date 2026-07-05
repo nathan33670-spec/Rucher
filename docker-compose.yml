@@ -4,7 +4,7 @@
 # Le TLS et le domaine public (ruches.corsicajack.fr) sont gérés par le
 # PROXY INVERSE du Synology (Panneau de configuration › Portail de connexion ›
 # Avancé › Proxy inversé). Cette stack n'expose donc qu'UN SEUL port HTTP local
-# (WEB_PORT, 8080 par défaut) que le proxy inverse Synology cible en localhost.
+# (WEB_PORT, 7080 par défaut) que le proxy inverse Synology cible en localhost.
 #
 # Démarrage :  ./deploy-synology.sh      (ou :  docker compose up -d --build)
 # ═══════════════════════════════════════════════════════════════════════════
@@ -63,7 +63,7 @@ services:
     restart: unless-stopped
     ports:
       # host:container — cible du proxy inverse Synology + accès direct LAN
-      - "${WEB_PORT:-8080}:80"
+      - "${WEB_PORT:-7080}:80"
     volumes:
       # Uploads servis directement par nginx (lecture seule)
       - upload_data:/app/uploads:ro

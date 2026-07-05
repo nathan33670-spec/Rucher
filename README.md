@@ -14,7 +14,7 @@ cp .env.example .env      # puis adaptez les secrets (ou laissez deploy-synology
 docker compose up -d --build
 ```
 
-L'application est accessible sur **http://localhost:8080**
+L'application est accessible sur **http://localhost:7080**
 
 ### Déploiement sur Synology
 
@@ -22,7 +22,7 @@ Guide complet (proxy inverse DSM, certificat Let's Encrypt, routage de l'URL
 `ruches.corsicajack.fr`) : **[docs/DEPLOY-SYNOLOGY.md](docs/DEPLOY-SYNOLOGY.md)**.
 
 ```bash
-./deploy-synology.sh      # build + démarrage de la stack sur le port HTTP local 8080
+./deploy-synology.sh      # build + démarrage de la stack sur le port HTTP local 7080
 ```
 
 Le Synology (proxy inverse) gère ensuite le HTTPS et le domaine public.
@@ -122,7 +122,7 @@ rucher/
 | `SECRET_KEY` | `change-me-in-production` | Clé secrète JWT (`openssl rand -hex 32`) |
 | `FIRST_ADMIN_EMAIL` | `admin@rucher.local` | Email du premier admin |
 | `FIRST_ADMIN_PASSWORD` | `admin1234` | Mot de passe du premier admin |
-| `WEB_PORT` | `8080` | Port HTTP local exposé (cible du proxy inverse Synology + accès LAN) |
+| `WEB_PORT` | `7080` | Port HTTP local exposé (cible du proxy inverse Synology + accès LAN) |
 
 > ⚠️ Si vous changez `POSTGRES_PASSWORD` après le premier démarrage, vous
 > obtiendrez `password authentication failed`. Réinitialisez alors le volume :

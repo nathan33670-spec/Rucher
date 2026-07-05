@@ -83,6 +83,6 @@ echo "🚀 Déploiement sur Synology :"
 echo "   1. Transférez $OUT sur le NAS"
 echo "   2. Extrayez : tar xzf $(basename "$OUT")"
 echo "   3. Lancez :   ./deploy-synology.sh"
-echo "   Le script construit les images et démarre la stack sur le port HTTP local (8080)."
+echo "   Le script construit les images et démarre la stack sur le port HTTP local (7080)."
 echo "   Configurez ensuite le proxy inverse Synology (voir docs/DEPLOY-SYNOLOGY.md)."
 
