@@ -1,6 +1,17 @@
+# ═══════════════════════════════════════════════════════════════════════════
+# Rucher Manager — stack Docker pour Synology (x86_64)
+#
+# Le TLS et le domaine public (ruches.corsicajack.fr) sont gérés par le
+# PROXY INVERSE du Synology (Panneau de configuration › Portail de connexion ›
+# Avancé › Proxy inversé). Cette stack n'expose donc qu'UN SEUL port HTTP local
+# (WEB_PORT, 8080 par défaut) que le proxy inverse Synology cible en localhost.
+#
+# Démarrage :  ./deploy-synology.sh      (ou :  docker compose up -d --build)
+# ═══════════════════════════════════════════════════════════════════════════
+
 services:
   postgres:
-    image: arm64v8/postgres:16
+    image: postgres:16-alpine
     restart: unless-stopped
     environment:
       POSTGRES_DB: rucher
@@ -9,19 +20,19 @@ services:
     volumes:
       - pg_data:/var/lib/postgresql/data
     healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U rucher"]
+      test: ["CMD-SHELL", "pg_isready -U rucher -d rucher"]
       interval: 5s
       timeout: 3s
-      retries: 5
+      retries: 10
 
   redis:
-    image: arm64v8/redis:7
+    image: redis:7-alpine
     restart: unless-stopped
     healthcheck:
       test: ["CMD", "redis-cli", "ping"]
       interval: 5s
       timeout: 3s
-      retries: 5
+      retries: 10
 
   backend:
     build: ./backend
@@ -35,28 +46,30 @@ services:
       FIRST_ADMIN_PASSWORD: ${FIRST_ADMIN_PASSWORD:-admin1234}
     volumes:
       - upload_data:/app/uploads
+    healthcheck:
+      test: ["CMD", "python", "-c", "import urllib.request,sys; sys.exit(0) if urllib.request.urlopen('http://localhost:8000/api/health').status==200 else sys.exit(1)"]
+      interval: 10s
+      timeout: 5s
+      retries: 12
+      start_period: 20s
     depends_on:
       postgres:
         condition: service_healthy
       redis:
         condition: service_healthy
 
-  frontend:
+  web:
     build: ./frontend
     restart: unless-stopped
-    depends_on:
-      - backend
-
-  nginx:
-    image: arm64v8/nginx
-    restart: unless-stopped
     ports:
-      - "127.0.0.1:7080:80"
+      # host:container — cible du proxy inverse Synology + accès direct LAN
+      - "${WEB_PORT:-8080}:80"
     volumes:
-      - ./nginx/nginx.conf:/etc/nginx/nginx.conf:ro
+      # Uploads servis directement par nginx (lecture seule)
+      - upload_data:/app/uploads:ro
     depends_on:
-      - backend
-      - frontend
+      backend:
+        condition: service_healthy
 
 volumes:
   pg_data:

@@ -4,7 +4,7 @@
 #═══════════════════════════════════════════════════════════
 set -e
 INSTALL_DIR="/volume1/docker/rucher"
-COMPOSE_FILE="docker-compose.prod.yml"
+COMPOSE_FILE="docker-compose.yml"
 
 # Détection compose
 if docker compose version &>/dev/null; then
@@ -24,7 +24,7 @@ $DC version 2>/dev/null || echo "(version non dispo)"
 
 echo ""
 echo "═══ 2. Fichiers présents ═══"
-ls -la $COMPOSE_FILE .env backend/Dockerfile.standard backend/requirements.txt 2>&1
+ls -la $COMPOSE_FILE .env backend/Dockerfile backend/requirements.txt 2>&1
 
 echo ""
 echo "═══ 3. Contenu .env ═══"
@@ -43,12 +43,8 @@ echo "═══ 6. Logs postgres (20 dernières lignes) ═══"
 $DC -f $COMPOSE_FILE logs postgres --tail=20 2>&1
 
 echo ""
-echo "═══ 7. Logs frontend (20 dernières lignes) ═══"
-$DC -f $COMPOSE_FILE logs frontend --tail=20 2>&1
-
-echo ""
-echo "═══ 8. Logs nginx (10 dernières lignes) ═══"
-$DC -f $COMPOSE_FILE logs nginx --tail=10 2>&1
+echo "═══ 7. Logs web (nginx + frontend, 20 dernières lignes) ═══"
+$DC -f $COMPOSE_FILE logs web --tail=20 2>&1
 
 echo ""
 echo "═══ 9. Architecture CPU ═══"

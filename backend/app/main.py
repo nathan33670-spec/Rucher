@@ -49,10 +49,13 @@ app = FastAPI(
     lifespan=lifespan,
 )
 
+# L'app est servie derrière nginx en same-origin ; l'authentification passe par
+# un jeton Bearer (pas de cookie). On autorise donc toutes les origines SANS
+# credentials (wildcard + credentials est invalide et rejeté par les navigateurs).
 app.add_middleware(
     CORSMiddleware,
     allow_origins=["*"],
-    allow_credentials=True,
+    allow_credentials=False,
     allow_methods=["*"],
     allow_headers=["*"],
 )

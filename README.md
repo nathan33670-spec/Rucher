@@ -7,14 +7,25 @@ Application web complète (PWA) de gestion d'une association apicole — ruches,
 ### Prérequis
 - Docker & Docker Compose ([installer](https://docs.docker.com/get-docker/))
 
-### Lancement
+### Lancement (local ou serveur)
 
 ```bash
-cd /Users/U51YP03/Documents/rucher
+cp .env.example .env      # puis adaptez les secrets (ou laissez deploy-synology.sh les générer)
 docker compose up -d --build
 ```
 
 L'application est accessible sur **http://localhost:8080**
+
+### Déploiement sur Synology
+
+Guide complet (proxy inverse DSM, certificat Let's Encrypt, routage de l'URL
+`ruches.corsicajack.fr`) : **[docs/DEPLOY-SYNOLOGY.md](docs/DEPLOY-SYNOLOGY.md)**.
+
+```bash
+./deploy-synology.sh      # build + démarrage de la stack sur le port HTTP local 8080
+```
+
+Le Synology (proxy inverse) gère ensuite le HTTPS et le domaine public.
 
 ### Compte administrateur par défaut
 - **Email** : `admin@rucher.local`
@@ -67,9 +78,10 @@ L'application est accessible sur **http://localhost:8080**
 
 ```
 rucher/
-├── docker-compose.yml
-├── .env
-├── nginx/nginx.conf
+├── docker-compose.yml          # stack : postgres + redis + backend + web
+├── .env.example                # modèle de configuration (copier en .env)
+├── deploy-synology.sh          # déploiement Synology (build + up)
+├── docs/DEPLOY-SYNOLOGY.md     # guide déploiement + proxy inverse
 ├── backend/                    # FastAPI (Python 3.12)
 │   ├── Dockerfile
 │   ├── requirements.txt
@@ -83,7 +95,8 @@ rucher/
 │       ├── routers/            # Routes API REST
 │       └── utils/              # Auth JWT, audit
 └── frontend/                   # Vue.js 3 + Vuetify (PWA)
-    ├── Dockerfile
+    ├── Dockerfile              # build statique multi-étapes → nginx
+    ├── nginx.conf              # sert la SPA + proxy /api, /ws, /uploads
     ├── package.json
     ├── vite.config.js
     ├── public/                 # PWA manifest, service worker
@@ -95,16 +108,25 @@ rucher/
         └── plugins/            # Vuetify config
 ```
 
+> Le conteneur **web** contient le build statique du frontend servi par nginx,
+> qui fait aussi office de reverse-proxy interne vers le **backend** FastAPI.
+> En production Synology, le TLS et le domaine sont gérés par le proxy inverse DSM.
+
 ## 🔧 Administration
 
 ### Variables d'environnement (.env)
 
 | Variable | Défaut | Description |
 |----------|--------|-------------|
-| `POSTGRES_PASSWORD` | `rucher_secret_2026` | Mot de passe PostgreSQL |
-| `SECRET_KEY` | `change-me-in-production` | Clé secrète JWT |
+| `POSTGRES_PASSWORD` | `rucher_secret_2026` | Mot de passe PostgreSQL (⚠️ fixé à la 1ʳᵉ init du volume — voir dépannage) |
+| `SECRET_KEY` | `change-me-in-production` | Clé secrète JWT (`openssl rand -hex 32`) |
 | `FIRST_ADMIN_EMAIL` | `admin@rucher.local` | Email du premier admin |
 | `FIRST_ADMIN_PASSWORD` | `admin1234` | Mot de passe du premier admin |
+| `WEB_PORT` | `8080` | Port HTTP local exposé (cible du proxy inverse Synology + accès LAN) |
+
+> ⚠️ Si vous changez `POSTGRES_PASSWORD` après le premier démarrage, vous
+> obtiendrez `password authentication failed`. Réinitialisez alors le volume :
+> `./deploy-synology.sh --reset-db` (une sauvegarde est effectuée avant).
 
 ### Commandes utiles
 

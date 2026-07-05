@@ -1,9 +1,9 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-# Script helper to build and run the project locally with docker-compose (prod file)
+# Build et lancement local de la stack (identique à la prod Synology).
 # Usage: ./run-local.sh [-n]
-# -n : no-down (skip docker compose down)
+#   -n : ne pas arrêter la stack existante avant de relancer
 
 NO_DOWN=false
 while getopts "n" opt; do
@@ -14,67 +14,37 @@ while getopts "n" opt; do
 done
 
 ROOT_DIR="$(cd "$(dirname "$0")" && pwd)"
-COMPOSE_FILE="docker-compose.prod.yml"
-
-echo "Working dir: $ROOT_DIR"
+COMPOSE_FILE="docker-compose.yml"
 cd "$ROOT_DIR"
 
-if ! command -v docker &>/dev/null; then
-  echo "ERROR: docker not found. Install Docker Desktop and retry."
-  exit 1
-fi
+command -v docker >/dev/null 2>&1 || { echo "ERREUR : docker introuvable."; exit 1; }
+docker compose version >/dev/null 2>&1 || { echo "ERREUR : plugin 'docker compose' introuvable."; exit 1; }
 
-if ! docker compose version &>/dev/null; then
-  echo "ERROR: docker compose plugin not found. Ensure 'docker compose' works."
-  exit 1
-fi
+[ -f .env ] || { echo "ℹ️  .env absent — copie depuis .env.example"; cp .env.example .env; }
 
 if [ "$NO_DOWN" = false ]; then
-  echo "Stopping existing compose stack (non destructive)..."
+  echo "Arrêt de la stack existante (non destructif)..."
   docker compose -f "$COMPOSE_FILE" down || true
 fi
 
-echo "Building images (no-cache)..."
-docker compose -f "$COMPOSE_FILE" build --no-cache
+echo "Construction des images..."
+docker compose -f "$COMPOSE_FILE" build
 
-echo "Starting services..."
+echo "Démarrage des services..."
 docker compose -f "$COMPOSE_FILE" up -d
 
-echo "Waiting for services to become healthy (up to 60s)..."
-for i in $(seq 1 60); do
-  HEALTHY=$(docker compose -f "$COMPOSE_FILE" ps --quiet | xargs -r docker inspect --format '{{.State.Health.Status}}' 2>/dev/null | grep -c "healthy" || true)
-  TOTAL=$(docker compose -f "$COMPOSE_FILE" ps --quiet | wc -l | tr -d ' ')
-  if [ "$TOTAL" != "0" ] && [ "$HEALTHY" = "$TOTAL" ]; then
-    echo "All services healthy"
+echo "Attente du backend (60s max)..."
+for _ in $(seq 1 60); do
+  if docker compose -f "$COMPOSE_FILE" ps backend | grep -q "healthy"; then
+    echo "Backend opérationnel."
     break
   fi
   sleep 1
 done
 
-echo "Applying database migrations (alembic upgrade head) inside backend container..."
-if docker compose -f "$COMPOSE_FILE" ps -q backend >/dev/null; then
-  docker compose -f "$COMPOSE_FILE" exec -T backend alembic upgrade head || {
-    echo "Migration failed. Check backend logs:";
-    docker compose -f "$COMPOSE_FILE" logs backend --tail=100;
-    exit 1;
-  }
-else
-  echo "Backend container not found. Skipping migration."
-fi
-
-echo "Restarting nginx to pick config/mounts"
-docker compose -f "$COMPOSE_FILE" restart nginx || true
-
-echo "Done. Services status:"
+echo "État des services :"
 docker compose -f "$COMPOSE_FILE" ps
 
-echo "Helpful logs (tail): backend and nginx"
-docker compose -f "$COMPOSE_FILE" logs --tail=50 backend || true
-docker compose -f "$COMPOSE_FILE" logs --tail=50 nginx || true
-
-echo "If everything looks fine, open http://localhost:7080/ (or your Synology IP)"
-
-echo "If you need to run the migration manually later:"
-echo "  docker compose -f $COMPOSE_FILE exec backend alembic upgrade head"
-
-echo "End of script."
+WEB_PORT=$(grep -E '^WEB_PORT=' .env | cut -d= -f2 || true)
+echo ""
+echo "✅ Ouvrez http://localhost:${WEB_PORT:-8080}/"

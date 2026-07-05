@@ -1,9 +1,14 @@
-FROM arm64v8/node:20-alpine
+# ─── Étape 1 : build statique de la SPA Vue/Vuetify ──────────────
+FROM node:20-alpine AS build
 WORKDIR /app
-ENV NODE_TLS_REJECT_UNAUTHORIZED=0
-RUN npm config set strict-ssl false
-COPY package*.json ./
-RUN npm install
+COPY package.json package-lock.json ./
+RUN npm ci
 COPY . .
-EXPOSE 3000
-CMD ["npm", "run", "dev", "--", "--host", "0.0.0.0", "--port", "3000"]
+RUN npm run build
+
+# ─── Étape 2 : service des fichiers statiques via nginx ──────────
+FROM nginx:alpine
+RUN rm -f /etc/nginx/conf.d/default.conf
+COPY nginx.conf /etc/nginx/conf.d/default.conf
+COPY --from=build /app/dist /usr/share/nginx/html
+EXPOSE 80
