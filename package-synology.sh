@@ -15,10 +15,8 @@ echo "Création d'une copie propre du projet dans $TMPDIR ..."
 INCLUDES=(
   backend
   frontend
-  nginx
-  docker-compose.prod.yml
+  docker-compose.yml
   deploy-synology.sh
-  init-letsencrypt.sh
   diag-synology.sh
   package-synology.sh
   run-local.sh
@@ -85,6 +83,6 @@ echo "🚀 Déploiement sur Synology :"
 echo "   1. Transférez $OUT sur le NAS"
 echo "   2. Extrayez : tar xzf $(basename "$OUT")"
 echo "   3. Lancez :   ./deploy-synology.sh"
-echo "   Le script construit les images, prépare le certificat HTTPS,"
-echo "   applique les migrations et démarre la stack sur le port HTTPS 7080."
+echo "   Le script construit les images et démarre la stack sur le port HTTP local (8080)."
+echo "   Configurez ensuite le proxy inverse Synology (voir docs/DEPLOY-SYNOLOGY.md)."
 
