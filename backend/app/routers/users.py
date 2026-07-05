@@ -4,10 +4,12 @@ import csv
 import io
 from fastapi import APIRouter, Depends, HTTPException, UploadFile, File
 from sqlalchemy.ext.asyncio import AsyncSession
-from sqlalchemy import select
+from sqlalchemy import select, func, update
 
 from app.database import get_db
 from app.models.user import User, UserRole, RoleEnum
+from app.models.visit import Visit
+from app.models.audit import AuditLog
 from app.schemas.user import UserCreate, UserUpdate, UserOut, LoginRequest, Token, PasswordReset
 from app.utils.auth import (
     hash_password, verify_password, create_access_token,
@@ -119,6 +121,49 @@ async def reset_password(
     user.hashed_password = hash_password(body.new_password)
     await log_action(db, current.id, "password_reset", "user", user.id)
     return {"detail": "Mot de passe modifié"}
+
+
+@router.delete("/{user_id}")
+async def delete_user(
+    user_id: int,
+    db: AsyncSession = Depends(get_db),
+    current: User = Depends(require_roles(RoleEnum.ADMIN)),
+):
+    """Supprime définitivement un utilisateur (admin uniquement)."""
+    if user_id == current.id:
+        raise HTTPException(status_code=400, detail="Vous ne pouvez pas supprimer votre propre compte")
+
+    result = await db.execute(select(User).where(User.id == user_id))
+    user = result.scalar_one_or_none()
+    if not user:
+        raise HTTPException(status_code=404, detail="Utilisateur introuvable")
+
+    # Un utilisateur ayant saisi des visites ne peut pas être supprimé
+    # (author_id est NOT NULL, sans cascade) — on invite à le désactiver.
+    visit_count = await db.scalar(
+        select(func.count()).select_from(Visit).where(Visit.author_id == user_id)
+    )
+    if visit_count:
+        raise HTTPException(
+            status_code=400,
+            detail=f"Impossible de supprimer : {visit_count} visite(s) saisie(s) par cet utilisateur. Désactivez le compte à la place.",
+        )
+
+    # Ne jamais supprimer le dernier administrateur
+    if RoleEnum.ADMIN.value in get_user_roles(user):
+        admin_count = await db.scalar(
+            select(func.count(func.distinct(UserRole.user_id))).where(UserRole.role == RoleEnum.ADMIN)
+        )
+        if not admin_count or admin_count <= 1:
+            raise HTTPException(status_code=400, detail="Impossible de supprimer le dernier administrateur")
+
+    # Détacher les entrées du journal d'audit (user_id nullable), puis supprimer
+    # (rôles et liens gestionnaire-ruche supprimés en cascade).
+    await db.execute(update(AuditLog).where(AuditLog.user_id == user_id).values(user_id=None))
+    await db.delete(user)
+    await db.flush()
+    await log_action(db, current.id, "delete", "user", user_id)
+    return {"detail": "Utilisateur supprimé"}
 
 
 @router.post("/import-csv", status_code=201)

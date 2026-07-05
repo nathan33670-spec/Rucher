@@ -21,8 +21,9 @@
         <v-icon :color="item.is_active ? 'success' : 'error'">{{ item.is_active ? 'mdi-check' : 'mdi-close' }}</v-icon>
       </template>
       <template v-slot:item.actions="{ item }">
-        <v-btn icon size="small" @click="editUser(item)"><v-icon>mdi-pencil</v-icon></v-btn>
-        <v-btn icon size="small" @click="resetPw(item)"><v-icon>mdi-lock-reset</v-icon></v-btn>
+        <v-btn icon size="small" variant="text" @click="editUser(item)"><v-icon>mdi-pencil</v-icon></v-btn>
+        <v-btn icon size="small" variant="text" @click="resetPw(item)"><v-icon>mdi-lock-reset</v-icon></v-btn>
+        <v-btn v-if="item.id !== auth.user?.id" icon size="small" variant="text" color="error" @click="askDelete(item)"><v-icon>mdi-delete</v-icon></v-btn>
       </template>
     </v-data-table>
 
@@ -31,7 +32,7 @@
       <v-card>
         <v-card-title>{{ formEditId ? 'Modifier' : 'Nouvel' }} utilisateur</v-card-title>
         <v-card-text>
-          <v-text-field v-model="form.email" label="Email" :disabled="!!formEditId" />
+          <v-text-field v-model="form.email" label="Identifiant" :disabled="!!formEditId" hint="Email ou nom simple (ex. paulin)" persistent-hint />
           <v-text-field v-if="!formEditId" v-model="form.password" label="Mot de passe" type="password" />
           <v-row>
             <v-col><v-text-field v-model="form.first_name" label="Prénom" /></v-col>
@@ -45,6 +46,24 @@
           <v-spacer />
           <v-btn @click="showForm = false">Annuler</v-btn>
           <v-btn color="primary" @click="saveUser">Enregistrer</v-btn>
+        </v-card-actions>
+      </v-card>
+    </v-dialog>
+
+    <!-- Dialog suppression -->
+    <v-dialog v-model="showDelete" max-width="440">
+      <v-card>
+        <v-card-title>Supprimer l'utilisateur</v-card-title>
+        <v-card-text>
+          <p>Supprimer définitivement <b>{{ delUser?.first_name }} {{ delUser?.last_name }}</b>
+          (<code>{{ delUser?.email }}</code>) ?</p>
+          <p class="text-caption text-grey mt-1">Cette action est irréversible.</p>
+          <v-alert v-if="delError" type="error" density="compact" class="mt-3">{{ delError }}</v-alert>
+        </v-card-text>
+        <v-card-actions>
+          <v-spacer />
+          <v-btn @click="showDelete = false">Annuler</v-btn>
+          <v-btn color="error" :loading="deleting" @click="confirmDelete">Supprimer</v-btn>
         </v-card-actions>
       </v-card>
     </v-dialog>
@@ -70,7 +89,9 @@
 <script setup>
 import { ref, onMounted } from 'vue'
 import api from '../services/api'
+import { useAuthStore } from '../stores/auth'
 
+const auth = useAuthStore()
 const users = ref([])
 const showForm = ref(false)
 const formEditId = ref(null)
@@ -81,6 +102,11 @@ const csvResult = ref(null)
 const showPwDialog = ref(false)
 const pwUser = ref(null)
 const newPassword = ref('')
+
+const showDelete = ref(false)
+const delUser = ref(null)
+const delError = ref('')
+const deleting = ref(false)
 
 const roleOptions = [
   { title: 'Administrateur', value: 'admin' },
@@ -93,7 +119,7 @@ const roleOptions = [
 const headers = [
   { title: 'Nom', key: 'last_name' },
   { title: 'Prénom', key: 'first_name' },
-  { title: 'Email', key: 'email' },
+  { title: 'Identifiant', key: 'email' },
   { title: 'Rôles', key: 'roles', sortable: false },
   { title: 'Actif', key: 'is_active' },
   { title: 'Actions', key: 'actions', sortable: false },
@@ -142,6 +168,26 @@ function resetPw(u) {
 async function confirmResetPw() {
   await api.put(`/users/${pwUser.value.id}/password`, { new_password: newPassword.value })
   showPwDialog.value = false
+}
+
+function askDelete(u) {
+  delUser.value = u
+  delError.value = ''
+  showDelete.value = true
+}
+
+async function confirmDelete() {
+  deleting.value = true
+  delError.value = ''
+  try {
+    await api.delete(`/users/${delUser.value.id}`)
+    showDelete.value = false
+    await load()
+  } catch (e) {
+    delError.value = e.response?.data?.detail || 'Erreur lors de la suppression'
+  } finally {
+    deleting.value = false
+  }
 }
 
 async function importCSV(e) {

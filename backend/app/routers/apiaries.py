@@ -116,7 +116,9 @@ async def create_hive(
     db: AsyncSession = Depends(get_db),
     user: User = Depends(require_roles(RoleEnum.ADMIN, RoleEnum.YARD_MANAGER)),
 ):
-    data = body.model_dump(exclude={"manager_ids"})
+    # « manager_ids » (table de liaison) et « photo » (upload dédié via
+    # /hives/{id}/photo) ne sont pas des colonnes du modèle Hive.
+    data = body.model_dump(exclude={"manager_ids", "photo"})
     hive = Hive(**data)
     db.add(hive)
     await db.flush()
@@ -150,7 +152,7 @@ async def update_hive(
     if RoleEnum.ADMIN.value not in roles and RoleEnum.YARD_MANAGER.value not in roles and not is_manager:
         raise HTTPException(403, "Permissions insuffisantes")
 
-    data = body.model_dump(exclude_unset=True, exclude={"manager_ids"})
+    data = body.model_dump(exclude_unset=True, exclude={"manager_ids", "photo"})
     for k, v in data.items():
         setattr(hive, k, v)
 
