@@ -4,6 +4,10 @@ import App from './App.vue'
 import router from './router'
 import vuetify from './plugins/vuetify'
 import { attachRouter } from './services/api'
+import { setupPwa } from './services/pwa'
+
+// Capture l'événement d'installation PWA au plus tôt (avant le montage).
+setupPwa()
 
 const app = createApp(App)
 app.use(createPinia())

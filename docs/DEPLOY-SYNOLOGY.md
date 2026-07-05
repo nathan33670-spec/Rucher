@@ -8,7 +8,7 @@ L'architecture retenue est la plus simple et la plus robuste :
 
 ```
 Navigateur ──HTTPS──►  Proxy inverse Synology (ruches.corsicajack.fr, TLS)
-                              │  http://localhost:8080
+                              │  http://localhost:7080
                               ▼
                        Conteneur « web » (nginx)
                         ├── sert la SPA Vue/Vuetify (build statique)
@@ -19,7 +19,7 @@ Navigateur ──HTTPS──►  Proxy inverse Synology (ruches.corsicajack.fr, 
 
 > 👉 Le **TLS et le certificat Let's Encrypt sont gérés par le Synology**
 > (proxy inverse + gestionnaire de certificats DSM). La stack Docker n'expose
-> qu'**un seul port HTTP local** (`8080`). Aucun certbot dans Docker.
+> qu'**un seul port HTTP local** (`7080`). Aucun certbot dans Docker.
 
 ---
 
@@ -72,7 +72,7 @@ Le script :
 À la fin, l'application est accessible **en LAN** sur :
 
 ```
-http://IP_DU_NAS:8080
+http://IP_DU_NAS:7080
 ```
 
 Identifiants par défaut : **admin@rucher.local / admin1234**
@@ -103,7 +103,7 @@ C'est cette étape qui route `https://ruches.corsicajack.fr` vers le conteneur.
 |-------|-------------------|-----------------------|
 | Protocole | **HTTPS** | **HTTP** |
 | Nom d'hôte | `ruches.corsicajack.fr` | `localhost` |
-| Port | `443` | `8080` |
+| Port | `443` | `7080` |
 
 Onglet **En-têtes personnalisés** › cliquer sur « Créer › WebSocket » (ajoute
 automatiquement `Upgrade` et `Connection`) — nécessaire pour le temps réel `/ws`.
@@ -177,5 +177,5 @@ docker compose restart              # redémarrer
 
 - [ ] Changer le mot de passe de `admin@rucher.local`.
 - [ ] Vérifier que `.env` contient bien un `SECRET_KEY` et un `POSTGRES_PASSWORD` aléatoires (générés par le script).
-- [ ] Ne jamais exposer directement le port `8080` sur Internet — seul le proxy inverse Synology (443/TLS) doit être public.
+- [ ] Ne jamais exposer directement le port `7080` sur Internet — seul le proxy inverse Synology (443/TLS) doit être public.
 - [ ] Activer le pare-feu Synology et n'autoriser que les ports nécessaires.

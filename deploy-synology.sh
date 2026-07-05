@@ -57,7 +57,7 @@ POSTGRES_PASSWORD=$(gen 16)
 SECRET_KEY=$(gen 32)
 FIRST_ADMIN_EMAIL=admin@rucher.local
 FIRST_ADMIN_PASSWORD=admin1234
-WEB_PORT=8080
+WEB_PORT=7080
 EOF
     echo "   ✅ .env créé — identifiants admin : admin@rucher.local / admin1234"
     echo "   ⚠️  Changez le mot de passe admin après la 1ʳᵉ connexion."
@@ -132,7 +132,7 @@ echo "📊 État des services :"
 "${COMPOSE[@]}" ps
 
 WEB_PORT=$(grep -E '^WEB_PORT=' .env | cut -d= -f2)
-WEB_PORT=${WEB_PORT:-8080}
+WEB_PORT=${WEB_PORT:-7080}
 echo ""
 echo "═══════════════════════════════════════════════"
 echo "✅ Déploiement terminé !"

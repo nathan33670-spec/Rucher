@@ -47,4 +47,4 @@ docker compose -f "$COMPOSE_FILE" ps
 
 WEB_PORT=$(grep -E '^WEB_PORT=' .env | cut -d= -f2 || true)
 echo ""
-echo "✅ Ouvrez http://localhost:${WEB_PORT:-8080}/"
+echo "✅ Ouvrez http://localhost:${WEB_PORT:-7080}/"

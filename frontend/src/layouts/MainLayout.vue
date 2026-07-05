@@ -19,6 +19,9 @@
         />
       </v-list>
       <template v-slot:append>
+        <div v-if="canInstall && !rail" class="pa-2">
+          <InstallButton block label="Installer l'app" />
+        </div>
         <v-list-item
           prepend-icon="mdi-logout"
           title="Déconnexion"
@@ -32,6 +35,19 @@
       <v-app-bar-nav-icon @click="drawer = !drawer" class="d-md-none" />
       <v-toolbar-title>{{ pageTitle }}</v-toolbar-title>
       <v-spacer />
+
+      <!-- Visites hors-ligne en attente de synchronisation -->
+      <v-btn
+        v-if="pendingCount > 0"
+        icon
+        :loading="syncing"
+        title="Synchroniser les visites enregistrées hors-ligne"
+        @click="syncNow"
+      >
+        <v-badge :content="pendingCount" color="warning">
+          <v-icon>mdi-cloud-sync</v-icon>
+        </v-badge>
+      </v-btn>
 
       <!-- Alertes -->
       <v-badge :content="unreadAlerts" :model-value="unreadAlerts > 0" color="error" overlap>
@@ -60,6 +76,11 @@
       </v-btn>
     </v-bottom-navigation>
 
+    <!-- Notification de synchronisation hors-ligne -->
+    <v-snackbar v-model="showSyncMsg" color="success" timeout="2500" location="top">
+      {{ syncMsg }}
+    </v-snackbar>
+
     <!-- Panneau alertes -->
     <v-dialog v-model="showAlerts" max-width="500">
       <v-card>
@@ -79,11 +100,15 @@
 </template>
 
 <script setup>
-import { ref, computed } from 'vue'
+import { ref, computed, onMounted, onUnmounted } from 'vue'
 import { useDisplay } from 'vuetify'
 import { useRouter, useRoute } from 'vue-router'
 import { useAuthStore } from '../stores/auth'
 import { useNotifStore } from '../stores/notif'
+import api from '../services/api'
+import { pendingCount, refreshPendingCount, syncPendingVisits } from '../services/offline'
+import { canInstall } from '../services/pwa'
+import InstallButton from '../components/InstallButton.vue'
 
 const auth = useAuthStore()
 const notif = useNotifStore()
@@ -94,7 +119,32 @@ const { mobile } = useDisplay()
 const drawer = ref(true)
 const rail = ref(false)
 const showAlerts = ref(false)
+const syncing = ref(false)
 const isMobile = computed(() => mobile.value)
+
+// ─── Synchronisation globale des visites hors-ligne ───────────────
+const syncMsg = ref('')
+const showSyncMsg = computed({
+  get: () => !!syncMsg.value,
+  set: (v) => { if (!v) syncMsg.value = '' },
+})
+async function syncNow() {
+  syncing.value = true
+  try {
+    const n = await syncPendingVisits(api)
+    if (n > 0) syncMsg.value = `✅ ${n} visite(s) synchronisée(s)`
+  } finally {
+    syncing.value = false
+  }
+}
+function onOnline() { syncNow() }
+
+onMounted(async () => {
+  await refreshPendingCount()
+  if (navigator.onLine) syncNow()
+  window.addEventListener('online', onOnline)
+})
+onUnmounted(() => window.removeEventListener('online', onOnline))
 
 const unreadAlerts = computed(() => notif.alerts.filter((a) => !a.read).length)
 

@@ -1,14 +1,21 @@
-const CACHE_NAME = 'rucher-v2'
-const APP_SHELL = ['/']
+// Service worker — mode application installée + hors-ligne.
+// v3 : précache de l'app-shell, cache-first sur les assets hashés (immuables),
+// network-first sur la navigation avec repli hors-ligne sur l'app-shell.
+const CACHE = 'rucher-v3'
+const SHELL = ['/', '/manifest.json', '/favicon.png', '/icon-192.png', '/icon-512.png', '/apple-touch-icon.png']
 
 self.addEventListener('install', (event) => {
-  event.waitUntil(caches.open(CACHE_NAME).then((cache) => cache.addAll(APP_SHELL)))
+  event.waitUntil(
+    caches.open(CACHE).then((c) => c.addAll(SHELL)).catch(() => {})
+  )
   self.skipWaiting()
 })
 
 self.addEventListener('activate', (event) => {
   event.waitUntil(
-    caches.keys().then((keys) => Promise.all(keys.filter((k) => k !== CACHE_NAME).map((k) => caches.delete(k))))
+    caches.keys().then((keys) =>
+      Promise.all(keys.filter((k) => k !== CACHE).map((k) => caches.delete(k)))
+    )
   )
   self.clients.claim()
 })
@@ -18,35 +25,42 @@ self.addEventListener('fetch', (event) => {
   if (req.method !== 'GET') return
 
   const url = new URL(req.url)
+  if (url.origin !== self.location.origin) return
 
-  // Ne jamais intercepter : l'API, le hot-reload / modules Vite (/@…),
-  // ni les requêtes versionnées (?v=, ?t=) du serveur de dev.
-  if (
-    url.pathname.startsWith('/api') ||
-    url.pathname.startsWith('/@') ||
-    url.pathname.startsWith('/node_modules') ||
-    url.search
-  ) {
+  // Jamais de cache pour l'API, le temps réel et les fichiers uploadés.
+  if (url.pathname.startsWith('/api') || url.pathname.startsWith('/ws') || url.pathname.startsWith('/uploads')) {
     return
   }
 
-  // Navigations SPA : réseau d'abord (toujours le code le plus récent),
-  // repli sur l'app-shell en cache uniquement hors-ligne.
+  // Assets buildés (nom haché = immuable) → cache d'abord.
+  if (url.pathname.startsWith('/assets/')) {
+    event.respondWith(
+      caches.match(req).then((hit) =>
+        hit ||
+        fetch(req).then((res) => {
+          const clone = res.clone()
+          caches.open(CACHE).then((c) => c.put(req, clone))
+          return res
+        })
+      )
+    )
+    return
+  }
+
+  // Navigations SPA → réseau d'abord, repli sur l'app-shell hors-ligne.
   if (req.mode === 'navigate') {
     event.respondWith(fetch(req).catch(() => caches.match('/')))
     return
   }
 
-  // Autres GET same-origin : réseau d'abord, mise en cache best-effort.
-  if (url.origin === self.location.origin) {
-    event.respondWith(
-      fetch(req)
-        .then((response) => {
-          const clone = response.clone()
-          caches.open(CACHE_NAME).then((cache) => cache.put(req, clone))
-          return response
-        })
-        .catch(() => caches.match(req))
-    )
-  }
+  // Autres GET same-origin → réseau d'abord, repli cache.
+  event.respondWith(
+    fetch(req)
+      .then((res) => {
+        const clone = res.clone()
+        caches.open(CACHE).then((c) => c.put(req, clone))
+        return res
+      })
+      .catch(() => caches.match(req))
+  )
 })
