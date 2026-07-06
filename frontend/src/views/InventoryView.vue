@@ -110,7 +110,21 @@
             label="Nouvelle catégorie"
             placeholder="Saisir la nouvelle catégorie"
           />
-          <v-combobox v-model="itemForm.location" :items="locations" label="Emplacement" placeholder="ex: Local rucher, Atelier, Hangar..." />
+          <v-select
+            v-model="locationSelect"
+            :items="locationFormOptions"
+            label="Emplacement"
+            placeholder="Choisir ou créer un lieu"
+            clearable
+            @update:model-value="onLocationSelect"
+          />
+          <v-text-field
+            v-if="locationSelect === NEW_OPTION"
+            v-model="itemForm.location"
+            label="Nouveau lieu"
+            placeholder="ex: Local rucher, Atelier, Hangar..."
+            autofocus
+          />
           <v-row>
             <v-col><v-text-field v-model.number="itemForm.quantity" label="Quantité" type="number" /></v-col>
             <v-col><v-text-field v-model="itemForm.unit" label="Unité" /></v-col>
@@ -233,6 +247,7 @@ const itemForm = ref({ ...defaultItemForm })
 const NEW_OPTION = '__new__'
 const nameSelect = ref(null)
 const categorySelect = ref(null)
+const locationSelect = ref(null)
 
 const showMvt = ref(false)
 const mvtItem = ref(null)
@@ -273,6 +288,15 @@ const categoryOptions = computed(() => [
   ...categories.value.map(c => ({ title: c, value: c })),
   { title: '➕ Nouvelle catégorie…', value: NEW_OPTION },
 ])
+
+// Options d'emplacement pour le formulaire article (avec création d'un lieu)
+const locationFormOptions = computed(() => [
+  ...locations.value.map(l => ({ title: l, value: l })),
+  { title: '➕ Nouveau lieu…', value: NEW_OPTION },
+])
+function onLocationSelect(val) {
+  itemForm.value.location = (val === NEW_OPTION || val == null) ? '' : val
+}
 
 // Options d'emplacement pour le déplacement (avec création d'un nouveau lieu)
 const moveLocationOptions = computed(() => [
@@ -331,6 +355,7 @@ function openNewItem() {
   itemForm.value = { ...defaultItemForm }
   nameSelect.value = null
   categorySelect.value = null
+  locationSelect.value = null
   showItemForm.value = true
 }
 
@@ -343,6 +368,9 @@ function editItem(item) {
     : null
   categorySelect.value = item.category
     ? (categories.value.includes(item.category) ? item.category : NEW_OPTION)
+    : null
+  locationSelect.value = item.location
+    ? (locations.value.includes(item.location) ? item.location : NEW_OPTION)
     : null
   showItemForm.value = true
 }
