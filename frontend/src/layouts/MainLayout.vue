@@ -58,9 +58,29 @@
         </v-btn>
       </v-badge>
 
-      <v-chip class="ml-2" size="small" variant="tonal">
-        {{ auth.user?.first_name }}
-      </v-chip>
+      <!-- Nom cliquable → menu profil / déconnexion -->
+      <v-menu location="bottom end">
+        <template v-slot:activator="{ props }">
+          <v-chip v-bind="props" class="ml-2" size="small" variant="tonal" link>
+            <v-icon start size="16">mdi-account-circle</v-icon>
+            {{ auth.user?.first_name }}
+          </v-chip>
+        </template>
+        <v-list density="compact" min-width="220">
+          <v-list-item
+            :title="`${auth.user?.first_name || ''} ${auth.user?.last_name || ''}`.trim()"
+            :subtitle="auth.user?.email"
+            prepend-icon="mdi-account-circle"
+          />
+          <v-divider />
+          <v-list-item
+            prepend-icon="mdi-logout"
+            title="Se déconnecter"
+            base-color="error"
+            @click="logout"
+          />
+        </v-list>
+      </v-menu>
     </v-app-bar>
 
     <!-- Contenu principal -->
