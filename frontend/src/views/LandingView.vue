@@ -30,6 +30,19 @@
         </div>
       </section>
 
+      <!-- Rappel installation mobile (visible si installable) -->
+      <v-container v-if="canInstall" class="pt-4 pb-0" style="max-width: 960px;">
+        <v-alert type="info" variant="tonal" density="comfortable" border="start">
+          <div class="d-flex flex-wrap align-center ga-3">
+            <div class="flex-grow-1">
+              <b>📲 Installez l'application sur votre téléphone</b> pour l'utiliser
+              comme une app classique et saisir vos visites même sans réseau.
+            </div>
+            <InstallButton label="Installer maintenant" />
+          </div>
+        </v-alert>
+      </v-container>
+
       <!-- Contenu générique -->
       <v-container class="py-10" style="max-width: 960px;">
         <v-row>
@@ -78,6 +91,9 @@
 </template>
 
 <script setup>
+import { canInstall } from '../services/pwa'
+import InstallButton from '../components/InstallButton.vue'
+
 const cards = [
   { icon: 'mdi-flower', title: 'Pollinisation', text: "Près d'une culture sur trois dépend des pollinisateurs." },
   { icon: 'mdi-sprout', title: 'Biodiversité', text: 'Les abeilles maintiennent l\'équilibre de nombreux écosystèmes.' },
