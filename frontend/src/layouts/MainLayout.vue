@@ -1,11 +1,12 @@
 <template>
   <v-layout>
-    <!-- Navigation latérale -->
-    <v-navigation-drawer v-model="drawer" :rail="rail" permanent app>
+    <!-- Navigation latérale : tiroir temporaire (masqué par défaut) -->
+    <v-navigation-drawer v-model="drawer" temporary>
       <v-list-item
         prepend-icon="mdi-bee"
         title="Rucher Manager"
-        @click="rail = !rail"
+        :to="{ name: 'dashboard' }"
+        @click="drawer = false"
       />
       <v-divider />
       <v-list density="compact" nav>
@@ -16,10 +17,11 @@
           :prepend-icon="item.icon"
           :title="item.title"
           exact
+          @click="drawer = false"
         />
       </v-list>
       <template v-slot:append>
-        <div v-if="canInstall && !rail" class="pa-2">
+        <div v-if="canInstall" class="pa-2">
           <InstallButton block label="Installer l'app" />
         </div>
         <v-list-item
@@ -32,7 +34,7 @@
 
     <!-- Barre supérieure -->
     <v-app-bar color="primary" density="compact" app>
-      <v-app-bar-nav-icon @click="drawer = !drawer" class="d-md-none" />
+      <v-app-bar-nav-icon @click="drawer = !drawer" />
       <v-toolbar-title>{{ pageTitle }}</v-toolbar-title>
       <v-spacer />
 
@@ -116,8 +118,7 @@ const router = useRouter()
 const route = useRoute()
 const { mobile } = useDisplay()
 
-const drawer = ref(true)
-const rail = ref(false)
+const drawer = ref(false)
 const showAlerts = ref(false)
 const syncing = ref(false)
 const isMobile = computed(() => mobile.value)
