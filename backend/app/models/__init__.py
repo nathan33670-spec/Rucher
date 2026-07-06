@@ -7,9 +7,11 @@ from app.models.sanitary import SanitaryRecord
 from app.models.audit import AuditLog
 from app.models.honey import HoneyCategory, HoneyHarvest, HoneyJar, HoneySale, OwnershipFilter
 from app.models.doc import DocPage
+from app.models.visit_plan import VisitPlan
 
 __all__ = [
     "DocPage",
+    "VisitPlan",
     "User", "UserRole", "RoleEnum",
     "Apiary", "Hive", "hive_managers", "OwnershipType",
     "Visit",

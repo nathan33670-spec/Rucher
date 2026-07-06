@@ -65,13 +65,13 @@
 
     <!-- Contenu principal -->
     <v-main>
-      <v-container fluid class="pa-4">
+      <v-container fluid class="pa-4" :style="isMobile ? 'padding-bottom: 88px' : ''">
         <router-view />
       </v-container>
     </v-main>
 
-    <!-- Bottom nav mobile -->
-    <v-bottom-navigation v-if="isMobile" grow app color="primary">
+    <!-- Bottom nav mobile — toujours visible (fixée en bas) -->
+    <v-bottom-navigation v-if="isMobile" grow color="primary" class="rucher-bottom-nav" :elevation="8">
       <v-btn v-for="item in mobileNav" :key="item.title" :to="item.to">
         <v-icon>{{ item.icon }}</v-icon>
         <span class="text-caption">{{ item.title }}</span>
@@ -195,3 +195,16 @@ function logout() {
   router.push('/login')
 }
 </script>
+
+<style scoped>
+/* Barre de navigation mobile : toujours visible, fixée en bas de l'écran */
+.rucher-bottom-nav {
+  position: fixed !important;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  z-index: 1006;
+  padding-bottom: env(safe-area-inset-bottom, 0px);
+  height: calc(56px + env(safe-area-inset-bottom, 0px)) !important;
+}
+</style>

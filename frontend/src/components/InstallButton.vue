@@ -1,6 +1,5 @@
 <template>
   <template v-if="canInstall">
-    <!-- Bouton compact (barre d'app) ou bloc (page de connexion) -->
     <v-btn
       :block="block"
       :size="block ? 'large' : 'small'"
@@ -12,27 +11,35 @@
       {{ label }}
     </v-btn>
 
-    <!-- Instructions iOS (pas d'invite native possible) -->
-    <v-dialog v-model="showIos" max-width="420">
+    <!-- Instructions d'installation (si l'invite native n'est pas disponible) -->
+    <v-dialog v-model="showHelp" max-width="460">
       <v-card>
-        <v-card-title class="text-wrap">📲 Installer sur votre iPhone</v-card-title>
+        <v-card-title class="text-wrap">📲 Installer l'application</v-card-title>
         <v-card-text>
-          <p class="mb-3">Pour utiliser Rucher comme une application :</p>
-          <v-list density="compact">
-            <v-list-item prepend-icon="mdi-export-variant">
-              1. Touchez le bouton <b>Partager</b> en bas de Safari.
-            </v-list-item>
-            <v-list-item prepend-icon="mdi-plus-box-outline">
-              2. Choisissez <b>« Sur l'écran d'accueil »</b>.
-            </v-list-item>
-            <v-list-item prepend-icon="mdi-check">
-              3. Validez : l'icône 🐝 apparaît sur votre écran.
-            </v-list-item>
-          </v-list>
+          <template v-if="isIOS">
+            <p class="mb-3">Sur iPhone / iPad, avec <b>Safari</b> :</p>
+            <v-list density="compact">
+              <v-list-item prepend-icon="mdi-export-variant">1. Touchez le bouton <b>Partager</b> (en bas).</v-list-item>
+              <v-list-item prepend-icon="mdi-plus-box-outline">2. Choisissez <b>« Sur l'écran d'accueil »</b>.</v-list-item>
+              <v-list-item prepend-icon="mdi-check">3. Validez : l'icône 🐝 apparaît.</v-list-item>
+            </v-list>
+          </template>
+          <template v-else>
+            <p class="mb-3">Sur Android (<b>Chrome</b>) ou ordinateur :</p>
+            <v-list density="compact">
+              <v-list-item prepend-icon="mdi-dots-vertical">1. Ouvrez le menu <b>⋮</b> du navigateur (en haut à droite).</v-list-item>
+              <v-list-item prepend-icon="mdi-cellphone-arrow-down">2. Touchez <b>« Installer l'application »</b> ou <b>« Ajouter à l'écran d'accueil »</b>.</v-list-item>
+              <v-list-item prepend-icon="mdi-check">3. Confirmez.</v-list-item>
+            </v-list>
+            <v-alert type="info" variant="tonal" density="compact" class="mt-2">
+              L'option apparaît après quelques secondes de navigation. Si vous ne
+              la voyez pas, rechargez la page et réessayez.
+            </v-alert>
+          </template>
         </v-card-text>
         <v-card-actions>
           <v-spacer />
-          <v-btn color="primary" @click="showIos = false">Compris</v-btn>
+          <v-btn color="primary" @click="showHelp = false">Compris</v-btn>
         </v-card-actions>
       </v-card>
     </v-dialog>
@@ -41,20 +48,24 @@
 
 <script setup>
 import { ref } from 'vue'
-import { canInstall, isIOS, promptInstall } from '../services/pwa'
+import { canInstall, isIOS, promptInstall, deferredPrompt } from '../services/pwa'
 
 defineProps({
   block: { type: Boolean, default: false },
   label: { type: String, default: 'Installer l\'app' },
 })
 
-const showIos = ref(false)
+const showHelp = ref(false)
 
 async function onClick() {
-  if (isIOS) {
-    showIos.value = true
+  // Invite native si disponible, sinon instructions manuelles.
+  if (deferredPrompt.value) {
+    const ok = await promptInstall()
+    if (ok) return
+    // refus ou indisponible → on montre quand même l'aide
+    showHelp.value = true
   } else {
-    await promptInstall()
+    showHelp.value = true
   }
 }
 </script>

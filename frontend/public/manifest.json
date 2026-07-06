@@ -17,6 +17,10 @@
     { "src": "/icon-512.png", "sizes": "512x512", "type": "image/png", "purpose": "any" },
     { "src": "/icon-maskable-512.png", "sizes": "512x512", "type": "image/png", "purpose": "maskable" }
   ],
+  "screenshots": [
+    { "src": "/screenshot-mobile.png", "sizes": "390x844", "type": "image/png", "form_factor": "narrow", "label": "Tableau de bord" },
+    { "src": "/screenshot-wide.png", "sizes": "1280x720", "type": "image/png", "form_factor": "wide", "label": "Tableau de bord" }
+  ],
   "shortcuts": [
     { "name": "Tableau de bord", "short_name": "Accueil", "url": "/app", "icons": [{ "src": "/icon-192.png", "sizes": "192x192" }] },
     { "name": "Ruchers", "short_name": "Ruchers", "url": "/app/apiaries", "icons": [{ "src": "/icon-192.png", "sizes": "192x192" }] }
