@@ -1,11 +1,17 @@
 import 'vuetify/styles'
 import '@mdi/font/css/materialdesignicons.css'
 import { createVuetify } from 'vuetify'
+import { fr } from 'vuetify/locale'
 
 // Les composants et directives sont auto-importés par vite-plugin-vuetify
 // NE PAS les importer manuellement ici (cause des double-clics)
 
 export default createVuetify({
+  locale: {
+    locale: 'fr',
+    fallback: 'en',
+    messages: { fr },
+  },
   theme: {
     defaultTheme: 'honey',
     themes: {
@@ -30,5 +36,8 @@ export default createVuetify({
     VCard: { rounded: 'lg', elevation: 2 },
     VTextField: { variant: 'outlined', density: 'comfortable' },
     VSelect: { variant: 'outlined', density: 'comfortable' },
+    // Sous 960px (téléphones/tablettes portrait), les tableaux s'empilent
+    // automatiquement en cartes lisibles au lieu de déborder horizontalement.
+    VDataTable: { mobileBreakpoint: 'md', hover: true },
   },
 })

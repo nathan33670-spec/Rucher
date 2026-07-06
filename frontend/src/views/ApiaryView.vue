@@ -1,8 +1,7 @@
 <template>
   <div>
-    <div class="d-flex align-center mb-4">
+    <div class="d-flex flex-wrap align-center justify-space-between ga-2 mb-4">
       <h2>Ruchers</h2>
-      <v-spacer />
       <v-btn v-if="auth.hasRole('yard_manager')" color="primary" prepend-icon="mdi-plus" @click="showForm = true">
         Nouveau rucher
       </v-btn>
@@ -10,17 +9,23 @@
 
     <v-row>
       <v-col v-for="apiary in apiaries" :key="apiary.id" cols="12" sm="6" md="4">
-        <v-card @click="$router.push({ name: 'apiary-detail', params: { id: apiary.id } })" class="cursor-pointer">
-          <v-card-title>
+        <v-card @click="$router.push({ name: 'apiary-detail', params: { id: apiary.id } })" class="cursor-pointer h-100 d-flex flex-column">
+          <v-card-title class="d-flex align-center">
             <v-icon color="primary" class="mr-2">mdi-hexagon-multiple</v-icon>
-            {{ apiary.name }}
+            <span class="text-truncate">{{ apiary.name }}</span>
+            <v-spacer />
+            <v-icon size="20" color="grey-lighten-1">mdi-chevron-right</v-icon>
           </v-card-title>
-          <v-card-subtitle>{{ apiary.address || 'Pas d\'adresse' }}</v-card-subtitle>
-          <v-card-text>
-            <v-chip size="small" color="secondary" class="mr-1">
-              {{ apiary.description || '—' }}
+          <v-card-subtitle>
+            <v-icon size="14" class="mr-1">mdi-map-marker</v-icon>{{ apiary.address || 'Adresse non renseignée' }}
+          </v-card-subtitle>
+          <v-card-text class="pb-1">
+            <v-chip size="small" color="primary" variant="tonal" class="mr-1 mb-1">
+              <v-icon start size="16">mdi-beehive-outline</v-icon>{{ apiary.hives_count || 0 }} ruche{{ (apiary.hives_count || 0) > 1 ? 's' : '' }}
             </v-chip>
+            <v-chip v-if="apiary.description" size="small" color="secondary" variant="tonal" class="mb-1">{{ apiary.description }}</v-chip>
           </v-card-text>
+          <v-spacer />
           <v-card-actions>
             <v-btn size="small" color="accent" variant="text" @click.stop="$router.push({ name: 'visit-live', params: { apiaryId: apiary.id } })">
               <v-icon class="mr-1">mdi-bee</v-icon> Mode Live

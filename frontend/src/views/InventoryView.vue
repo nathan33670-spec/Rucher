@@ -1,8 +1,7 @@
 <template>
   <div>
-    <div class="d-flex align-center mb-4">
+    <div class="d-flex flex-wrap align-center justify-space-between ga-2 mb-4">
       <h2>Inventaire</h2>
-      <v-spacer />
       <v-btn color="primary" prepend-icon="mdi-plus" @click="openNewItem" v-if="auth.isAdmin || auth.hasRole('yard_manager') || auth.hasRole('treasurer')">
         Nouvel article
       </v-btn>

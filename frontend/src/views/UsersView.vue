@@ -1,10 +1,11 @@
 <template>
   <div>
-    <div class="d-flex align-center mb-4">
-      <h2>Gestion des utilisateurs</h2>
-      <v-spacer />
-      <v-btn color="secondary" prepend-icon="mdi-upload" class="mr-2" @click="csvInput.click()">Import CSV</v-btn>
-      <v-btn color="primary" prepend-icon="mdi-plus" @click="showForm = true">Nouvel utilisateur</v-btn>
+    <div class="d-flex flex-wrap align-center justify-space-between ga-2 mb-4">
+      <h2>Utilisateurs</h2>
+      <div class="d-flex flex-wrap ga-2">
+        <v-btn color="secondary" prepend-icon="mdi-upload" @click="csvInput.click()">Import CSV</v-btn>
+        <v-btn color="primary" prepend-icon="mdi-plus" @click="showForm = true">Nouvel utilisateur</v-btn>
+      </div>
     </div>
     <input ref="csvInput" type="file" accept=".csv" style="display:none" @change="importCSV" />
 

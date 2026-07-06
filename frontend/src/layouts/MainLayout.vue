@@ -61,9 +61,9 @@
       <!-- Nom cliquable → menu profil / déconnexion -->
       <v-menu location="bottom end">
         <template v-slot:activator="{ props }">
-          <v-chip v-bind="props" class="ml-2" size="small" variant="tonal" link>
-            <v-icon start size="16">mdi-account-circle</v-icon>
-            {{ auth.user?.first_name }}
+          <v-chip v-bind="props" class="ml-1" size="small" variant="tonal" link>
+            <v-icon size="18">mdi-account-circle</v-icon>
+            <span class="d-none d-sm-inline ml-1">{{ auth.user?.first_name }}</span>
           </v-chip>
         </template>
         <v-list density="compact" min-width="220">

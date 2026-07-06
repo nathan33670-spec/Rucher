@@ -1,16 +1,15 @@
 <template>
   <div>
-    <div class="d-flex align-center mb-4">
-      <h2>Suivi Sanitaire</h2>
-      <v-spacer />
-      <template v-if="canEdit">
-        <v-btn color="green-darken-2" prepend-icon="mdi-needle" class="mr-2" @click="openTreatment">
+    <div class="d-flex flex-wrap align-center justify-space-between ga-2 mb-4">
+      <h2>Suivi sanitaire</h2>
+      <div class="d-flex flex-wrap ga-2">
+        <v-btn v-if="canEdit" color="green-darken-2" prepend-icon="mdi-needle" @click="openTreatment">
           Traitement
         </v-btn>
-      </template>
-      <v-btn color="red-darken-2" prepend-icon="mdi-bug" @click="openVarroa">
-        Comptage Varroa
-      </v-btn>
+        <v-btn color="red-darken-2" prepend-icon="mdi-bug" @click="openVarroa">
+          Comptage Varroa
+        </v-btn>
+      </div>
     </div>
 
     <!-- Onglets -->

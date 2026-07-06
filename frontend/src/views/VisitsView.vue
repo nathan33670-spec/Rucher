@@ -1,8 +1,7 @@
 <template>
   <div>
-    <div class="d-flex align-center mb-4">
+    <div class="d-flex flex-wrap align-center justify-space-between ga-2 mb-4">
       <h2>Visites</h2>
-      <v-spacer />
       <v-chip color="info" variant="tonal" size="small">
         <v-icon start>mdi-information</v-icon>
         Saisie depuis le tableau de bord

@@ -2,9 +2,8 @@
   <div>
     <v-btn icon class="mb-2" @click="$router.back()"><v-icon>mdi-arrow-left</v-icon></v-btn>
 
-    <div class="d-flex align-center mb-4">
-      <h2>{{ apiary?.name }}</h2>
-      <v-spacer />
+    <div class="d-flex flex-wrap align-center justify-space-between ga-2 mb-4">
+      <h2 class="text-truncate">{{ apiary?.name }}</h2>
       <v-btn color="primary" prepend-icon="mdi-plus" @click="openNewHive" v-if="auth.hasRole('yard_manager')">
         Ajouter une ruche
       </v-btn>

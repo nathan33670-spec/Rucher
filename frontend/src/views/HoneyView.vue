@@ -1,8 +1,7 @@
 <template>
   <div>
-    <div class="d-flex align-center mb-4">
-      <h2>Miellée — Suivi de production</h2>
-      <v-spacer />
+    <div class="d-flex flex-wrap align-center justify-space-between ga-2 mb-4">
+      <h2>Miellée</h2>
       <v-btn color="primary" prepend-icon="mdi-plus" @click="openNew">
         Nouvelle récolte
       </v-btn>
