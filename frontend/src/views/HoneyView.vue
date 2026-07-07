@@ -197,6 +197,7 @@
 <script setup>
 import { ref, computed, watch, onMounted } from 'vue'
 import api from '../services/api'
+import { confirmAction } from '../services/confirm'
 import { useAuthStore } from '../stores/auth'
 
 const auth = useAuthStore()
@@ -359,7 +360,7 @@ async function save() {
 }
 
 async function deleteHarvest(id) {
-  if (!confirm('Supprimer cette récolte ?')) return
+  if (!(await confirmAction('Supprimer cette récolte ?'))) return
   try { await api.delete('/honey/' + id); showSuccess('Supprimée'); await load() }
   catch (e) { showError(e.response?.data?.detail || 'Erreur') }
 }
@@ -402,7 +403,7 @@ async function addCategory() {
 }
 
 async function deleteCategory(id) {
-  if (!confirm('Supprimer ?')) return
+  if (!(await confirmAction('Supprimer ?'))) return
   try { await api.delete('/honey/categories/' + id); await load() }
   catch (e) { showError(e.response?.data?.detail || 'Erreur') }
 }

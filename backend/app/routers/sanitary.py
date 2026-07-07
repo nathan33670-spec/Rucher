@@ -12,6 +12,7 @@ from app.models.user import User, RoleEnum
 from app.schemas.sanitary import SanitaryCreate, SanitaryUpdate, SanitaryOut
 from app.utils.auth import get_current_user, require_roles, get_user_roles
 from app.utils.audit import log_action
+from app.utils.push import notify
 
 router = APIRouter(prefix="/api/sanitary", tags=["sanitary"])
 
@@ -143,6 +144,10 @@ async def create_record(
         )
         record = result.scalar_one()
         created.append(_record_out(record))
+    if created:
+        kind = "Comptage varroa" if body.record_type == "varroa_count" else "Traitement"
+        notify("sanitary", "🩺 Sanitaire",
+               f"{kind} enregistré sur {len(hive_ids)} ruche(s).", "/app/sanitary")
     return created
 
 

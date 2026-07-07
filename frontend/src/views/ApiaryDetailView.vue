@@ -297,6 +297,7 @@
 import { ref, computed, watch, onMounted } from 'vue'
 import { useRoute } from 'vue-router'
 import api from '../services/api'
+import { confirmAction } from '../services/confirm'
 import { useAuthStore } from '../stores/auth'
 
 const props = defineProps({ id: [String, Number] })
@@ -481,7 +482,7 @@ async function uploadHivePhoto() {
 }
 
 async function deleteHivePhoto(hiveId) {
-  if (!confirm('Supprimer la photo de cette ruche ?')) return
+  if (!(await confirmAction('Supprimer la photo de cette ruche ?'))) return
   try {
     await api.delete(`/apiaries/hives/${hiveId}/photo`)
     selectedHive.value.photo_url = null
@@ -494,7 +495,7 @@ async function deleteHivePhoto(hiveId) {
 }
 
 async function deleteHive(id) {
-  if (!confirm('Supprimer cette ruche ?')) return
+  if (!(await confirmAction('Supprimer cette ruche ?'))) return
   try {
     await api.delete(`/apiaries/hives/${id}`)
     if (selectedHive.value?.id === id) selectedHive.value = null

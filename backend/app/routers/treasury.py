@@ -13,6 +13,7 @@ from app.models.user import User, RoleEnum
 from app.schemas.treasury import TransactionCreate, TransactionUpdate, TransactionOut
 from app.utils.auth import get_current_user, require_roles
 from app.utils.audit import log_action
+from app.utils.push import notify
 from app.config import get_settings
 
 router = APIRouter(prefix="/api/treasury", tags=["treasury"])
@@ -39,6 +40,9 @@ async def create_transaction(
     await db.flush()
     await log_action(db, user.id, "create", "transaction", tx.id)
     await db.refresh(tx)
+    sens = "Recette" if tx.transaction_type == TransactionType.INCOME else "Dépense"
+    notify("treasury", "💶 Trésorerie",
+           f"{sens} : {tx.amount:.2f} € — {tx.description or tx.category.value}", "/app/treasury")
     return _tx_out(tx)
 
 

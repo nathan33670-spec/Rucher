@@ -103,6 +103,7 @@
 <script setup>
 import { ref, onMounted } from 'vue'
 import api from '../services/api'
+import { confirmAction } from '../services/confirm'
 
 const transactions = ref([])
 const summary = ref({ income: 0, expense: 0, balance: 0 })
@@ -222,7 +223,7 @@ async function saveTx() {
 }
 
 async function deleteTx(id) {
-  if (!confirm('Supprimer cette écriture ?')) return
+  if (!(await confirmAction('Supprimer cette écriture ?'))) return
   try {
     await api.delete('/treasury/' + id)
     showSuccess('Écriture supprimée')

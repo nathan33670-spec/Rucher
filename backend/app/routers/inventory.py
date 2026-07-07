@@ -10,6 +10,7 @@ from app.models.user import User, RoleEnum
 from app.schemas.inventory import ItemCreate, ItemUpdate, ItemOut, ItemMove, MovementCreate, MovementOut
 from app.utils.auth import get_current_user, require_roles
 from app.utils.audit import log_action
+from app.utils.push import notify
 
 router = APIRouter(prefix="/api/inventory", tags=["inventory"])
 
@@ -90,6 +91,10 @@ async def create_movement(
     db.add(mvt)
     await db.flush()
     await log_action(db, user.id, "create", "inventory_movement", mvt.id)
+
+    verb = "Entrée" if body.movement_type == MovementType.IN else "Sortie"
+    notify("inventory", "📦 Mouvement de matériel",
+           f"{verb} : {body.quantity} {item.unit} — {item.name}", "/app/inventory")
     return mvt
 
 
@@ -176,6 +181,8 @@ async def move_item(
             target = item
         await log_action(db, user.id, "move", "inventory_item", source_id,
                          details=f"{old_location} → {new_location} (tout : {move_qty} {src_unit})")
+        notify("inventory", "📦 Déplacement de matériel",
+               f"{target.name} → {new_location or 'Non assigné'}", "/app/inventory")
         return {"id": target.id, "name": target.name, "location": target.location,
                 "quantity": target.quantity, "split": False}
 
@@ -200,6 +207,8 @@ async def move_item(
 
     await log_action(db, user.id, "move", "inventory_item", item.id,
                      details=f"{old_location} → {new_location} (partiel : {move_qty} {item.unit})")
+    notify("inventory", "📦 Déplacement de matériel",
+           f"{move_qty} {item.unit} de {item.name} → {new_location or 'Non assigné'}", "/app/inventory")
     return {"id": target.id, "name": target.name, "location": target.location,
             "quantity": target.quantity, "source_remaining": item.quantity, "split": True}
 

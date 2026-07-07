@@ -51,5 +51,6 @@ class VisitOut(BaseModel):
     synced: bool
     created_at: datetime
     author_name: Optional[str] = None
+    hive_name: Optional[str] = None
     class Config:
         from_attributes = True

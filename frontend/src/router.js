@@ -35,6 +35,7 @@ const routes = [
       { path: 'honey', name: 'honey', component: () => import('./views/HoneyView.vue') },
       { path: 'sanitary', name: 'sanitary', component: () => import('./views/SanitaryView.vue') },
       { path: 'weather', name: 'weather', component: () => import('./views/WeatherView.vue') },
+      { path: 'notifications', name: 'notifications', component: () => import('./views/NotificationsView.vue') },
       { path: 'users', name: 'users', component: () => import('./views/UsersView.vue') },
       { path: 'logs', name: 'logs', component: () => import('./views/LogsView.vue') },
     ],

@@ -15,7 +15,7 @@
     <!-- Onglets -->
     <v-tabs v-model="activeTab" class="mb-4" color="primary">
       <v-tab value="treatments">🩺 Traitements</v-tab>
-      <v-tab value="varroa">🐛 Comptages Varroa</v-tab>
+      <v-tab value="varroa">🐛 Comptages</v-tab>
     </v-tabs>
 
     <!-- Tableau traitements -->
@@ -132,6 +132,7 @@
 <script setup>
 import { ref, computed, onMounted } from 'vue'
 import api from '../services/api'
+import { confirmAction } from '../services/confirm'
 import { useAuthStore } from '../stores/auth'
 
 const auth = useAuthStore()
@@ -270,7 +271,7 @@ async function saveVarroa() {
 }
 
 async function deleteRecord(id) {
-  if (!confirm('Supprimer cet enregistrement ?')) return
+  if (!(await confirmAction('Supprimer cet enregistrement ?'))) return
   try {
     await api.delete('/sanitary/' + id)
     showSuccess('Supprimé')

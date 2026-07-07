@@ -1,7 +1,7 @@
-// Service worker — mode application installée + hors-ligne.
-// v3 : précache de l'app-shell, cache-first sur les assets hashés (immuables),
-// network-first sur la navigation avec repli hors-ligne sur l'app-shell.
-const CACHE = 'rucher-v3'
+// Service worker — mode application installée + hors-ligne + notifications push.
+// v4 : précache de l'app-shell, cache-first sur les assets hashés (immuables),
+// network-first sur la navigation, + gestion des notifications push.
+const CACHE = 'rucher-v4'
 const SHELL = ['/', '/manifest.json', '/favicon.png', '/icon-192.png', '/icon-512.png', '/apple-touch-icon.png']
 
 self.addEventListener('install', (event) => {
@@ -18,6 +18,34 @@ self.addEventListener('activate', (event) => {
     )
   )
   self.clients.claim()
+})
+
+// ─── Notifications push ─────────────────────────────────────────
+self.addEventListener('push', (event) => {
+  let data = {}
+  try { data = event.data ? event.data.json() : {} } catch (e) { data = { body: event.data && event.data.text() } }
+  const title = data.title || 'Rucher'
+  const options = {
+    body: data.body || '',
+    icon: '/icon-192.png',
+    badge: '/icon-192.png',
+    vibrate: [80, 40, 80],
+    data: { url: data.url || '/app' },
+  }
+  event.waitUntil(self.registration.showNotification(title, options))
+})
+
+self.addEventListener('notificationclick', (event) => {
+  event.notification.close()
+  const url = (event.notification.data && event.notification.data.url) || '/app'
+  event.waitUntil(
+    self.clients.matchAll({ type: 'window', includeUncontrolled: true }).then((list) => {
+      for (const c of list) {
+        if ('focus' in c) { c.navigate && c.navigate(url); return c.focus() }
+      }
+      if (self.clients.openWindow) return self.clients.openWindow(url)
+    })
+  )
 })
 
 self.addEventListener('fetch', (event) => {

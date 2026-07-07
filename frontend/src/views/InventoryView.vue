@@ -215,6 +215,7 @@
 <script setup>
 import { ref, computed, onMounted } from 'vue'
 import api from '../services/api'
+import { confirmAction } from '../services/confirm'
 import { useAuthStore } from '../stores/auth'
 
 const auth = useAuthStore()
@@ -395,7 +396,7 @@ async function saveItem() {
 }
 
 async function deleteItem(id) {
-  if (!confirm('Supprimer cet article ?')) return
+  if (!(await confirmAction('Supprimer cet article ?'))) return
   try {
     await api.delete(`/inventory/${id}`)
     showSuccess('Article supprimé')

@@ -12,6 +12,13 @@ from app.models.user import User, RoleEnum
 from app.schemas.visit import VisitCreate, VisitUpdate, VisitOut
 from app.utils.auth import get_current_user, get_user_roles
 from app.utils.audit import log_action
+from app.utils.push import notify
+
+
+def _hive_label(hive: Hive) -> str:
+    if not hive:
+        return "Ruche"
+    return hive.name or hive.napi_number or f"Ruche #{hive.id}"
 
 router = APIRouter(prefix="/api/visits", tags=["visits"])
 
@@ -31,7 +38,8 @@ async def list_visits(
     out = []
     for v in visits:
         author = await db.get(User, v.author_id)
-        out.append(_visit_out(v, author))
+        hive = await db.get(Hive, v.hive_id)
+        out.append(_visit_out(v, author, hive))
     return out
 
 
@@ -59,7 +67,16 @@ async def create_visit(
     db.add(visit)
     await db.flush()
     await log_action(db, user.id, "create", "visit", visit.id)
-    return _visit_out(visit, user)
+
+    # Notifications push (aux abonnés ayant activé la catégorie)
+    label = _hive_label(hive)
+    notify("visits", "🐝 Nouvelle visite",
+           f"{user.first_name} a saisi une visite — {label}", "/app/visits")
+    if visit.is_alert:
+        notify("alerts", "⚠️ Alerte rucher",
+               f"{label} : {visit.alert_message or 'à vérifier'}", "/app")
+
+    return _visit_out(visit, user, hive)
 
 
 @router.post("/batch", response_model=list[VisitOut], status_code=201)
@@ -85,7 +102,10 @@ async def sync_visits(
         )
         db.add(visit)
         await db.flush()
-        out.append(_visit_out(visit, user))
+        out.append(_visit_out(visit, user, hive))
+    if out:
+        notify("visits", "🐝 Visites synchronisées",
+               f"{user.first_name} a synchronisé {len(out)} visite(s).", "/app/visits")
     return out
 
 
@@ -107,7 +127,7 @@ async def update_visit(
         setattr(visit, k, v)
     await log_action(db, user.id, "update", "visit", visit.id)
     author = await db.get(User, visit.author_id)
-    return _visit_out(visit, author)
+    return _visit_out(visit, author, hive)
 
 
 @router.delete("/{visit_id}", status_code=204)
@@ -137,7 +157,7 @@ def _check_hive_access(user: User, hive: Hive):
     raise HTTPException(403, "Vous n'avez pas accès à cette ruche")
 
 
-def _visit_out(v: Visit, author: User = None) -> VisitOut:
+def _visit_out(v: Visit, author: User = None, hive: Hive = None) -> VisitOut:
     return VisitOut(
         id=v.id, hive_id=v.hive_id, author_id=v.author_id,
         visited_at=v.visited_at, queen_seen=v.queen_seen,
@@ -149,4 +169,5 @@ def _visit_out(v: Visit, author: User = None) -> VisitOut:
         is_live_mode=v.is_live_mode, synced=v.synced,
         created_at=v.created_at,
         author_name=f"{author.first_name} {author.last_name}" if author else None,
+        hive_name=_hive_label(hive) if hive else None,
     )

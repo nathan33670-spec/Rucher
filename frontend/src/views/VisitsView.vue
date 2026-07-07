@@ -12,6 +12,9 @@
       <template v-slot:item.visited_at="{ item }">
         {{ new Date(item.visited_at).toLocaleString('fr-FR') }}
       </template>
+      <template v-slot:item.hive_name="{ item }">
+        {{ item.hive_name || ('Ruche #' + item.hive_id) }}
+      </template>
       <template v-slot:item.queen_seen="{ item }">
         {{ item.queen_seen === true ? '✅' : item.queen_seen === false ? '❌' : '—' }}
       </template>
@@ -70,6 +73,7 @@
 <script setup>
 import { ref, computed, onMounted } from 'vue'
 import api from '../services/api'
+import { confirmAction } from '../services/confirm'
 import { useAuthStore } from '../stores/auth'
 
 const auth = useAuthStore()
@@ -85,7 +89,7 @@ const form = ref({
 const headers = computed(() => {
   const h = [
     { title: 'Date', key: 'visited_at' },
-    { title: 'Ruche', key: 'hive_id' },
+    { title: 'Ruche', key: 'hive_name' },
     { title: 'Auteur', key: 'author_name' },
     { title: 'Reine', key: 'queen_seen' },
     { title: 'Couvain', key: 'brood_score' },
@@ -135,7 +139,7 @@ async function saveVisit() {
 }
 
 async function deleteVisit(id) {
-  if (!confirm('Supprimer cette visite ?')) return
+  if (!(await confirmAction('Supprimer cette visite ?'))) return
   try {
     await api.delete(`/visits/${id}`)
     await load()

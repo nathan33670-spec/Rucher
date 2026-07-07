@@ -8,10 +8,12 @@ from app.models.audit import AuditLog
 from app.models.honey import HoneyCategory, HoneyHarvest, HoneyJar, HoneySale, OwnershipFilter
 from app.models.doc import DocPage
 from app.models.visit_plan import VisitPlan
+from app.models.notification import AppSetting, PushSubscription, NotificationPref
 
 __all__ = [
     "DocPage",
     "VisitPlan",
+    "AppSetting", "PushSubscription", "NotificationPref",
     "User", "UserRole", "RoleEnum",
     "Apiary", "Hive", "hive_managers", "OwnershipType",
     "Visit",

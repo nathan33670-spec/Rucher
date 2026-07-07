@@ -179,6 +179,7 @@ const navItems = computed(() => {
     { to: { name: 'honey' }, icon: 'mdi-bee-flower', title: 'Miellée' },
     { to: { name: 'sanitary' }, icon: 'mdi-medical-bag', title: 'Sanitaire' },
     { to: { name: 'docs-home' }, icon: 'mdi-book-open-variant', title: 'Documentation' },
+    { to: { name: 'notifications' }, icon: 'mdi-bell-cog', title: 'Notifications' },
     { to: { name: 'logs' }, icon: 'mdi-history', title: 'Journal' },
   ]
   if (auth.hasRole('treasurer') || auth.isAdmin) items.push({ to: { name: 'treasury' }, icon: 'mdi-cash-register', title: 'Trésorerie' })
@@ -200,6 +201,7 @@ const pageTitle = computed(() => {
     apiaries: 'Ruchers',
     visits: 'Visites',
     weather: 'Météo',
+    notifications: 'Notifications',
     inventory: 'Inventaire',
     treasury: 'Trésorerie',
     honey: 'Miellée',

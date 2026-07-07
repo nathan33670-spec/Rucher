@@ -7,7 +7,17 @@
       </v-btn>
     </div>
 
-    <v-row>
+    <!-- État vide -->
+    <v-card v-if="loaded && !apiaries.length" variant="tonal" class="text-center pa-8 mt-4">
+      <v-icon size="64" color="primary" class="mb-3">mdi-hexagon-multiple</v-icon>
+      <h3 class="text-h6 mb-1">Aucun rucher pour le moment</h3>
+      <p class="text-medium-emphasis mb-4">Créez votre premier rucher pour commencer à suivre vos ruches.</p>
+      <v-btn v-if="auth.hasRole('yard_manager')" color="primary" prepend-icon="mdi-plus" @click="showForm = true">
+        Créer un rucher
+      </v-btn>
+    </v-card>
+
+    <v-row v-else>
       <v-col v-for="apiary in apiaries" :key="apiary.id" cols="12" sm="6" md="4">
         <v-card @click="$router.push({ name: 'apiary-detail', params: { id: apiary.id } })" class="cursor-pointer h-100 d-flex flex-column">
           <v-card-title class="d-flex align-center">
@@ -65,10 +75,12 @@
 <script setup>
 import { ref, onMounted } from 'vue'
 import api from '../services/api'
+import { confirmAction } from '../services/confirm'
 import { useAuthStore } from '../stores/auth'
 
 const auth = useAuthStore()
 const apiaries = ref([])
+const loaded = ref(false)
 const showForm = ref(false)
 const editId = ref(null)
 const form = ref({ name: '', address: '', latitude: null, longitude: null, description: '' })
@@ -79,6 +91,8 @@ async function load() {
     apiaries.value = data
   } catch (e) {
     console.error('Apiaries load error:', e)
+  } finally {
+    loaded.value = true
   }
 }
 
@@ -99,7 +113,7 @@ async function saveApiary() {
 }
 
 async function deleteApiary(id) {
-  if (!confirm('Supprimer ce rucher et toutes ses ruches ?')) return
+  if (!(await confirmAction('Supprimer ce rucher et toutes ses ruches ?'))) return
   try {
     await api.delete(`/apiaries/${id}`)
     await load()

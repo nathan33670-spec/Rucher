@@ -27,6 +27,7 @@ import { ref, computed, watch, onMounted } from 'vue'
 import { useRouter } from 'vue-router'
 import { marked } from 'marked'
 import api from '../../services/api'
+import { confirmAction } from '../../services/confirm'
 import { useAuthStore } from '../../stores/auth'
 
 const props = defineProps({ slug: String })
@@ -50,7 +51,7 @@ async function load() {
 }
 
 async function remove() {
-  if (!confirm('Supprimer cette page ?')) return
+  if (!(await confirmAction('Supprimer cette page ?'))) return
   await api.delete('/docs/' + page.value.id)
   emit('docs-changed')
   router.push({ name: 'docs-home' })
