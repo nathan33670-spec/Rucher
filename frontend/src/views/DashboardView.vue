@@ -213,11 +213,12 @@ const visitHeaders = [
 
 onMounted(async () => {
   try {
-    const [apiariesRes, visitsRes, alertsRes, honeyRes] = await Promise.all([
+    const [apiariesRes, visitsRes, alertsRes, honeyRes, visitStatsRes] = await Promise.all([
       api.get('/apiaries/'),
       api.get('/visits/?limit=20'),
       api.get('/inventory/alerts'),
       api.get('/honey/stats'),
+      api.get('/visits/stats'),
     ])
 
     const apiariesData = apiariesRes.data
@@ -238,7 +239,7 @@ onMounted(async () => {
     stats.value = [
       { title: 'Ruchers', value: apiariesData.length, icon: 'mdi-hexagon-multiple', color: 'primary' },
       { title: 'Ruches', value: totalHives, icon: 'mdi-bee', color: 'secondary' },
-      { title: 'Visites (mois)', value: visits.length, icon: 'mdi-clipboard-check', color: 'success' },
+      { title: 'Visites ce mois', value: visitStatsRes.data.month, icon: 'mdi-clipboard-check', color: 'success' },
       { title: 'Alertes', value: activeAlerts.value.length, icon: 'mdi-alert', color: 'error' },
     ]
   } catch (e) {
