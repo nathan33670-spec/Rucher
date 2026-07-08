@@ -3,7 +3,7 @@
 from datetime import datetime
 from fastapi import APIRouter, Depends, HTTPException, Query
 from sqlalchemy.ext.asyncio import AsyncSession
-from sqlalchemy import select, desc
+from sqlalchemy import select, desc, func
 
 from app.database import get_db
 from app.models.visit import Visit
@@ -41,6 +41,21 @@ async def list_visits(
         hive = await db.get(Hive, v.hive_id)
         out.append(_visit_out(v, author, hive))
     return out
+
+
+@router.get("/stats")
+async def visit_stats(
+    db: AsyncSession = Depends(get_db),
+    user: User = Depends(get_current_user),
+):
+    """Comptages pour le tableau de bord : visites du mois en cours et total."""
+    now = datetime.utcnow()
+    month_start = datetime(now.year, now.month, 1)
+    month = await db.scalar(
+        select(func.count()).select_from(Visit).where(Visit.visited_at >= month_start)
+    )
+    total = await db.scalar(select(func.count()).select_from(Visit))
+    return {"month": month or 0, "total": total or 0}
 
 
 @router.post("/", response_model=VisitOut, status_code=201)

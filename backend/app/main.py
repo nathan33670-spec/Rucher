@@ -13,6 +13,7 @@ from app.models.user import User, UserRole, RoleEnum
 from app.utils.auth import hash_password
 from app.config import get_settings
 from app.seed import seed_initial_accounts
+from app.ensure_schema import ensure_schema
 
 from app.routers import users, apiaries, visits, inventory, treasury, sanitary, audit, honey, docs, visit_plans, notifications, events
 
@@ -22,6 +23,8 @@ async def lifespan(app: FastAPI):
     """Crée les tables et le premier admin au démarrage."""
     async with engine.begin() as conn:
         await conn.run_sync(Base.metadata.create_all)
+        # Réconcilie les bases déjà initialisées avec les modèles (colonnes ajoutées)
+        await ensure_schema(conn)
 
     # Créer le premier admin si la table est vide
     settings = get_settings()
