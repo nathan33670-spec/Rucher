@@ -9,8 +9,8 @@
             <p class="text-body-2 text-grey">Connexion à votre espace</p>
           </div>
           <v-form @submit.prevent="doLogin">
-            <v-text-field v-model="email" label="Identifiant" type="text" autocapitalize="none" autocomplete="username" prepend-inner-icon="mdi-account" required />
-            <v-text-field v-model="password" label="Mot de passe" type="password" prepend-inner-icon="mdi-lock" required />
+            <v-text-field v-model="username" label="Nom d'utilisateur" type="text" autocapitalize="none" autocomplete="username" prepend-inner-icon="mdi-account" hint="Votre identifiant (ex. paulin)" required />
+            <v-text-field v-model="password" label="Mot de passe" type="password" prepend-inner-icon="mdi-lock" autocomplete="current-password" required />
             <v-alert v-if="error" type="error" density="compact" class="mb-3">{{ error }}</v-alert>
             <v-btn type="submit" color="primary" block size="large" :loading="loading">Se connecter</v-btn>
           </v-form>
@@ -45,7 +45,7 @@ import InstallButton from '../components/InstallButton.vue'
 
 const auth = useAuthStore()
 const router = useRouter()
-const email = ref('')
+const username = ref('')
 const password = ref('')
 const error = ref('')
 const loading = ref(false)
@@ -54,7 +54,7 @@ async function doLogin() {
   error.value = ''
   loading.value = true
   try {
-    await auth.login(email.value, password.value)
+    await auth.login(username.value.trim(), password.value)
     // Attendre la fin de la navigation pour éviter toute redirection « redondante »
     const redirect = router.currentRoute.value.query.redirect
     await router.replace(typeof redirect === 'string' ? redirect : { name: 'dashboard' })

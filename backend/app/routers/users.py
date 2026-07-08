@@ -10,7 +10,9 @@ from app.database import get_db
 from app.models.user import User, UserRole, RoleEnum
 from app.models.visit import Visit
 from app.models.audit import AuditLog
-from app.schemas.user import UserCreate, UserUpdate, UserOut, LoginRequest, Token, PasswordReset
+from app.schemas.user import (
+    UserCreate, UserUpdate, UserOut, LoginRequest, Token, PasswordReset, SelfPasswordChange,
+)
 from app.utils.auth import (
     hash_password, verify_password, create_access_token,
     get_current_user, require_roles, get_user_roles,
@@ -22,19 +24,38 @@ router = APIRouter(prefix="/api/users", tags=["users"])
 
 @router.post("/login", response_model=Token)
 async def login(body: LoginRequest, db: AsyncSession = Depends(get_db)):
-    result = await db.execute(select(User).where(User.email == body.email))
+    # Connexion par nom d'utilisateur (identifiant). L'identifiant est stocké
+    # dans la colonne « email » ; la comparaison est insensible à la casse.
+    ident = body.username.strip()
+    result = await db.execute(select(User).where(func.lower(User.email) == ident.lower()))
     user = result.scalar_one_or_none()
     if not user or not verify_password(body.password, user.hashed_password):
-        raise HTTPException(status_code=401, detail="Email ou mot de passe incorrect")
+        raise HTTPException(status_code=401, detail="Identifiant ou mot de passe incorrect")
     if not user.is_active:
         raise HTTPException(status_code=403, detail="Compte désactivé")
-    token = create_access_token({"sub": user.id, "email": user.email, "roles": get_user_roles(user)})
+    token = create_access_token({"sub": user.id, "username": user.email, "roles": get_user_roles(user)})
     return {"access_token": token, "token_type": "bearer"}
 
 
 @router.get("/me", response_model=UserOut)
 async def me(user: User = Depends(get_current_user)):
     return _user_to_out(user)
+
+
+@router.put("/me/password")
+async def change_my_password(
+    body: SelfPasswordChange,
+    db: AsyncSession = Depends(get_db),
+    user: User = Depends(get_current_user),
+):
+    """Permet à l'utilisateur courant de changer son propre mot de passe."""
+    if not verify_password(body.current_password, user.hashed_password):
+        raise HTTPException(status_code=400, detail="Mot de passe actuel incorrect")
+    if len(body.new_password or "") < 6:
+        raise HTTPException(status_code=400, detail="Le nouveau mot de passe doit faire au moins 6 caractères")
+    user.hashed_password = hash_password(body.new_password)
+    await log_action(db, user.id, "password_change", "user", user.id)
+    return {"detail": "Mot de passe modifié"}
 
 
 @router.get("/", response_model=list[UserOut])
@@ -52,13 +73,14 @@ async def create_user(
     db: AsyncSession = Depends(get_db),
     current: User = Depends(require_roles(RoleEnum.ADMIN)),
 ):
-    # Vérifier unicité email
-    existing = await db.execute(select(User).where(User.email == body.email))
+    # Vérifier unicité de l'identifiant (insensible à la casse)
+    ident = body.email.strip()
+    existing = await db.execute(select(User).where(func.lower(User.email) == ident.lower()))
     if existing.scalar_one_or_none():
-        raise HTTPException(status_code=400, detail="Email déjà utilisé")
+        raise HTTPException(status_code=400, detail="Identifiant déjà utilisé")
 
     user = User(
-        email=body.email,
+        email=ident,
         hashed_password=hash_password(body.password),
         first_name=body.first_name,
         last_name=body.last_name,

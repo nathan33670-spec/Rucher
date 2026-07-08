@@ -27,11 +27,27 @@ Guide complet (proxy inverse DSM, certificat Let's Encrypt, routage de l'URL
 
 Le Synology (proxy inverse) gère ensuite le HTTPS et le domaine public.
 
-### Compte administrateur par défaut
-- **Email** : `admin@rucher.local`
-- **Mot de passe** : `admin1234`
+### Connexion
 
-> ⚠️ Changez le mot de passe admin immédiatement en production.
+La connexion se fait par **nom d'utilisateur** (identifiant simple, sans e-mail).
+Chacun peut **changer son mot de passe** en cliquant sur son nom (en haut à
+droite) → « Changer mon mot de passe ». Un administrateur peut réinitialiser le
+mot de passe de n'importe quel utilisateur depuis l'onglet **Utilisateurs**.
+
+**Compte administrateur initial**
+- **Identifiant** : `admin@rucher.local` · **Mot de passe** : `admin1234`
+
+**Comptes de l'association créés automatiquement** (au premier démarrage, une
+seule fois — mot de passe initial commun `rucher2026`, à changer) :
+
+| Identifiant | Rôle |
+|-------------|------|
+| `paulin`, `luc`, `marion`, `isabelle`, `thomas-admin` | Administrateur |
+| `thomas` | Usager (propriétaire d'une ruche de démonstration) |
+
+> ⚠️ Changez les mots de passe par défaut immédiatement en production.
+> Les comptes ne sont amorcés qu'**une seule fois** par base : si vous en
+> supprimez un, il ne réapparaîtra pas au redémarrage.
 
 ---
 

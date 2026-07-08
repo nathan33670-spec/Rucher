@@ -15,11 +15,17 @@ export const useAuthStore = defineStore('auth', {
     hasRole: (s) => (role) => s.user?.roles?.includes(role) || s.user?.roles?.includes('admin'),
   },
   actions: {
-    async login(email, password) {
-      const { data } = await api.post('/users/login', { email, password })
+    async login(username, password) {
+      const { data } = await api.post('/users/login', { username, password })
       this.token = data.access_token
       localStorage.setItem('token', data.access_token)
       await this.fetchUser()
+    },
+    async changeMyPassword(currentPassword, newPassword) {
+      await api.put('/users/me/password', {
+        current_password: currentPassword,
+        new_password: newPassword,
+      })
     },
     async fetchUser() {
       const { data } = await api.get('/users/me')

@@ -1,6 +1,6 @@
 """Schémas Pydantic — Utilisateurs."""
 
-from pydantic import BaseModel
+from pydantic import BaseModel, Field, AliasChoices
 from datetime import datetime
 from typing import Optional
 from app.models.user import RoleEnum
@@ -40,11 +40,19 @@ class PasswordReset(BaseModel):
     new_password: str
 
 
+class SelfPasswordChange(BaseModel):
+    """Changement de mot de passe par l'utilisateur lui-même."""
+    current_password: str
+    new_password: str
+
+
 class Token(BaseModel):
     access_token: str
     token_type: str = "bearer"
 
 
 class LoginRequest(BaseModel):
-    email: str
+    # Connexion par nom d'utilisateur (identifiant), plus par e-mail.
+    # Le champ JSON « email » reste accepté (compatibilité ascendante).
+    username: str = Field(validation_alias=AliasChoices("username", "email"))
     password: str
