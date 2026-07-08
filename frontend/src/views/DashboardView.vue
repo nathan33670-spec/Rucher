@@ -1,5 +1,17 @@
 <template>
   <div>
+    <!-- Visite rapide : ne fait défiler que mes ruches -->
+    <v-btn
+      block
+      color="accent"
+      size="x-large"
+      class="text-none mb-4"
+      prepend-icon="mdi-bee"
+      :to="{ name: 'visit-live-mine' }"
+    >
+      Visite rapide de mes ruches
+    </v-btn>
+
     <!-- Stats rapides -->
     <v-row>
       <v-col cols="6" md="3" v-for="stat in stats" :key="stat.title">

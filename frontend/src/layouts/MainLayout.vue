@@ -189,10 +189,10 @@ const navItems = computed(() => {
 
 const mobileNav = [
   { to: { name: 'dashboard' }, icon: 'mdi-home', title: 'Accueil' },
+  { to: { name: 'visit-live-mine' }, icon: 'mdi-bee', title: 'Visite' },
   { to: { name: 'apiaries' }, icon: 'mdi-hexagon-multiple', title: 'Ruchers' },
-  { to: { name: 'visits' }, icon: 'mdi-clipboard-text', title: 'Visites' },
+  { to: { name: 'visits' }, icon: 'mdi-clipboard-text', title: 'Historique' },
   { to: { name: 'weather' }, icon: 'mdi-weather-partly-cloudy', title: 'Météo' },
-  { to: { name: 'logs' }, icon: 'mdi-history', title: 'Logs' },
 ]
 
 const pageTitle = computed(() => {
@@ -200,6 +200,7 @@ const pageTitle = computed(() => {
     dashboard: 'Tableau de bord',
     apiaries: 'Ruchers',
     visits: 'Visites',
+    'visit-live-mine': 'Visite rapide',
     weather: 'Météo',
     notifications: 'Notifications',
     inventory: 'Inventaire',

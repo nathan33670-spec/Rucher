@@ -30,6 +30,7 @@ const routes = [
       { path: 'apiaries/:id', name: 'apiary-detail', component: () => import('./views/ApiaryDetailView.vue'), props: true },
       { path: 'visits', name: 'visits', component: () => import('./views/VisitsView.vue') },
       { path: 'visits/live/:apiaryId', name: 'visit-live', component: () => import('./views/VisitLiveView.vue'), props: true },
+      { path: 'visite-rapide', name: 'visit-live-mine', component: () => import('./views/VisitLiveView.vue'), props: { mine: true } },
       { path: 'inventory', name: 'inventory', component: () => import('./views/InventoryView.vue') },
       { path: 'treasury', name: 'treasury', component: () => import('./views/TreasuryView.vue') },
       { path: 'honey', name: 'honey', component: () => import('./views/HoneyView.vue') },

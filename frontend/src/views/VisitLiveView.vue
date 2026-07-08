@@ -181,11 +181,23 @@
 
     <div v-else class="text-center pa-8">
       <v-progress-circular indeterminate color="primary" v-if="loading" />
+      <div v-else-if="savedCount === 0">
+        <v-icon size="64" color="grey">mdi-beehive-outline</v-icon>
+        <h3 class="mt-4">Aucune ruche à visiter</h3>
+        <p class="text-grey">
+          {{ mine ? "Vous n'êtes propriétaire d'aucune ruche active pour le moment." : 'Aucune ruche active dans ce rucher.' }}
+        </p>
+        <v-btn color="primary" class="mt-4" @click="$router.push({ name: mine ? 'dashboard' : 'apiaries' })">
+          {{ mine ? "Retour à l'accueil" : 'Retour aux ruchers' }}
+        </v-btn>
+      </div>
       <div v-else>
         <v-icon size="64" color="success">mdi-check-circle</v-icon>
         <h3 class="mt-4">Visite terminée !</h3>
         <p class="text-grey">{{ savedCount }} ruches visitées</p>
-        <v-btn color="primary" class="mt-4" @click="$router.push({ name: 'apiaries' })">Retour aux ruchers</v-btn>
+        <v-btn color="primary" class="mt-4" @click="$router.push({ name: mine ? 'dashboard' : 'apiaries' })">
+          {{ mine ? "Retour à l'accueil" : 'Retour aux ruchers' }}
+        </v-btn>
       </div>
     </div>
   </div>
@@ -198,7 +210,12 @@ import api from '../services/api'
 import { savePendingVisit, syncPendingVisits } from '../services/offline'
 import { useNotifStore } from '../stores/notif'
 
-const props = defineProps({ apiaryId: [String, Number] })
+const props = defineProps({
+  apiaryId: [String, Number],
+  // « Visite rapide » : ne fait défiler que les ruches dont l'utilisateur
+  // courant est propriétaire (gestionnaire), tous ruchers confondus.
+  mine: { type: Boolean, default: false },
+})
 const route = useRoute()
 const router = useRouter()
 const notif = useNotifStore()
@@ -361,7 +378,10 @@ onMounted(async () => {
   window.addEventListener('online', onOnline)
   window.addEventListener('offline', onOffline)
   try {
-    const { data } = await api.get('/apiaries/' + (props.apiaryId || route.params.apiaryId) + '/hives/editable')
+    const url = props.mine
+      ? '/apiaries/hives/mine'
+      : '/apiaries/' + (props.apiaryId || route.params.apiaryId) + '/hives/editable'
+    const { data } = await api.get(url)
     hives.value = data
   } catch {}
   loading.value = false
