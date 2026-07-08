@@ -36,4 +36,5 @@ class NotificationPref(Base):
     alerts = Column(Boolean, default=True)           # alerte terrain
     sanitary = Column(Boolean, default=True)         # traitement / comptage
     treasury = Column(Boolean, default=False)        # écriture de trésorerie
+    events = Column(Boolean, default=True)           # événement de l'association
     updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)

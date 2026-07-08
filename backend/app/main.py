@@ -13,7 +13,7 @@ from app.models.user import User, UserRole, RoleEnum
 from app.utils.auth import hash_password
 from app.config import get_settings
 
-from app.routers import users, apiaries, visits, inventory, treasury, sanitary, audit, honey, docs, visit_plans, notifications
+from app.routers import users, apiaries, visits, inventory, treasury, sanitary, audit, honey, docs, visit_plans, notifications, events
 
 
 @asynccontextmanager
@@ -71,6 +71,7 @@ app.include_router(honey.router)
 app.include_router(docs.router)
 app.include_router(visit_plans.router)
 app.include_router(notifications.router)
+app.include_router(events.router)
 
 
 @app.get("/api/health")

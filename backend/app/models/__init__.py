@@ -9,11 +9,13 @@ from app.models.honey import HoneyCategory, HoneyHarvest, HoneyJar, HoneySale, O
 from app.models.doc import DocPage
 from app.models.visit_plan import VisitPlan
 from app.models.notification import AppSetting, PushSubscription, NotificationPref
+from app.models.event import Event, EventRSVP
 
 __all__ = [
     "DocPage",
     "VisitPlan",
     "AppSetting", "PushSubscription", "NotificationPref",
+    "Event", "EventRSVP",
     "User", "UserRole", "RoleEnum",
     "Apiary", "Hive", "hive_managers", "OwnershipType",
     "Visit",

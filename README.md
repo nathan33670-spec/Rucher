@@ -46,7 +46,8 @@ Le Synology (proxy inverse) gère ensuite le HTTPS et le domaine public.
 | **Trésorerie** | Recettes/dépenses catégorisées, upload factures, bilan annuel |
 | **Sanitaire** | Suivi traitements (varroa…), comptages, calendrier |
 | **Météo** | Météo de Bois-d'Arcy (température, hygrométrie, pluie, vent) + **créneau optimal de visite** sur 7 jours + planification |
-| **Notifications** | Notifications push web (opt-in) : chacun choisit ses catégories (nouvelle visite, mouvement de matériel, alerte, sanitaire, trésorerie). Envoyées aux abonnés ayant installé l'app. |
+| **Événements** | Les admins créent des événements (sortie, réunion, récolte), publics ou privés, avec notification optionnelle de tous les adhérents. Chaque adhérent indique s'il vient (oui / peut-être / absent), peut changer sa réponse et **ajouter l'événement à son calendrier** (Apple/Android `.ics` ou Google Agenda). Les admins voient la liste des participants. |
+| **Notifications** | Notifications push web (opt-in) : chacun choisit ses catégories (événement de l'association, nouvelle visite, mouvement de matériel, alerte, sanitaire, trésorerie). Envoyées aux abonnés ayant installé l'app. |
 | **Utilisateurs** | 5 rôles, import CSV, création/suppression, reset mot de passe |
 | **Journal** | Historique complet des actions (audit) |
 | **Documentation** | Centre d'aide **public** : mémo rapide, guide illustré, formation (cycle de l'abeille, varroa, réglementation & registres). Les admins créent leurs propres pages (Markdown). |
