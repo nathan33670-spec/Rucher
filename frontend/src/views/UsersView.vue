@@ -33,7 +33,7 @@
       <v-card>
         <v-card-title>{{ formEditId ? 'Modifier' : 'Nouvel' }} utilisateur</v-card-title>
         <v-card-text>
-          <v-text-field v-model="form.email" label="Identifiant" :disabled="!!formEditId" hint="Email ou nom simple (ex. paulin)" persistent-hint />
+          <v-text-field v-model="form.email" label="Nom d'utilisateur" :disabled="!!formEditId" hint="Identifiant de connexion, sans e-mail (ex. paulin)" persistent-hint />
           <v-text-field v-if="!formEditId" v-model="form.password" label="Mot de passe" type="password" />
           <v-row>
             <v-col><v-text-field v-model="form.first_name" label="Prénom" /></v-col>
@@ -72,10 +72,10 @@
     <!-- Dialog reset password -->
     <v-dialog v-model="showPwDialog" max-width="400">
       <v-card>
-        <v-card-title>Réinitialiser le mot de passe</v-card-title>
+        <v-card-title>Modifier le mot de passe</v-card-title>
         <v-card-text>
-          <p class="mb-2">Utilisateur : {{ pwUser?.email }}</p>
-          <v-text-field v-model="newPassword" label="Nouveau mot de passe" type="password" />
+          <p class="mb-2">Utilisateur : <b>{{ pwUser?.first_name }} {{ pwUser?.last_name }}</b> (<code>{{ pwUser?.email }}</code>)</p>
+          <v-text-field v-model="newPassword" label="Nouveau mot de passe" type="password" autocomplete="new-password" />
         </v-card-text>
         <v-card-actions>
           <v-spacer />
@@ -167,8 +167,16 @@ function resetPw(u) {
 }
 
 async function confirmResetPw() {
-  await api.put(`/users/${pwUser.value.id}/password`, { new_password: newPassword.value })
-  showPwDialog.value = false
+  if (!newPassword.value || newPassword.value.length < 6) {
+    alert('Le mot de passe doit faire au moins 6 caractères')
+    return
+  }
+  try {
+    await api.put(`/users/${pwUser.value.id}/password`, { new_password: newPassword.value })
+    showPwDialog.value = false
+  } catch (e) {
+    alert(e.response?.data?.detail || 'Erreur lors du changement de mot de passe')
+  }
 }
 
 function askDelete(u) {

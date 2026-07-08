@@ -42,8 +42,8 @@ const sections = [
   },
   {
     id: 'connexion', t: 'Connexion',
-    p: ['Saisissez votre <b>identifiant</b> (un nom simple ou un email, fourni par un administrateur) et votre <b>mot de passe</b>, puis <b>Se connecter</b>.'],
-    li: ['Depuis un téléphone, un bouton <b>« Ajouter à l\'écran d\'accueil »</b> permet d\'installer l\'app.', 'Mot de passe oublié ? Un administrateur peut le réinitialiser.'],
+    p: ['Saisissez votre <b>nom d\'utilisateur</b> (un identifiant simple, ex. <code>paulin</code>, fourni par un administrateur) et votre <b>mot de passe</b>, puis <b>Se connecter</b>.'],
+    li: ['Depuis un téléphone, un bouton <b>« Ajouter à l\'écran d\'accueil »</b> permet d\'installer l\'app.', 'Vous pouvez changer votre mot de passe à tout moment en cliquant sur votre nom (en haut à droite).', 'Mot de passe oublié ? Un administrateur peut le réinitialiser.'],
     img: 'login.jpg',
   },
   {

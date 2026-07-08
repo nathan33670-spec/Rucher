@@ -68,11 +68,16 @@
         </template>
         <v-list density="compact" min-width="220">
           <v-list-item
-            :title="`${auth.user?.first_name || ''} ${auth.user?.last_name || ''}`.trim()"
+            :title="`${auth.user?.first_name || ''} ${auth.user?.last_name || ''}`.trim() || auth.user?.email"
             :subtitle="auth.user?.email"
             prepend-icon="mdi-account-circle"
           />
           <v-divider />
+          <v-list-item
+            prepend-icon="mdi-lock-reset"
+            title="Changer mon mot de passe"
+            @click="showChangePw = true"
+          />
           <v-list-item
             prepend-icon="mdi-logout"
             title="Se déconnecter"
@@ -103,6 +108,9 @@
       {{ syncMsg }}
     </v-snackbar>
 
+    <!-- Changer son propre mot de passe -->
+    <ChangePasswordDialog v-model="showChangePw" @done="syncMsg = 'Mot de passe modifié'" />
+
     <!-- Panneau alertes -->
     <v-dialog v-model="showAlerts" max-width="500">
       <v-card>
@@ -131,6 +139,7 @@ import api from '../services/api'
 import { pendingCount, refreshPendingCount, syncPendingVisits } from '../services/offline'
 import { canInstall } from '../services/pwa'
 import InstallButton from '../components/InstallButton.vue'
+import ChangePasswordDialog from '../components/ChangePasswordDialog.vue'
 
 const auth = useAuthStore()
 const notif = useNotifStore()
@@ -140,6 +149,7 @@ const { mobile } = useDisplay()
 
 const drawer = ref(false)
 const showAlerts = ref(false)
+const showChangePw = ref(false)
 const syncing = ref(false)
 const isMobile = computed(() => mobile.value)
 

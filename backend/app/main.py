@@ -12,6 +12,7 @@ from app.models import *  # noqa — charge tous les modèles
 from app.models.user import User, UserRole, RoleEnum
 from app.utils.auth import hash_password
 from app.config import get_settings
+from app.seed import seed_initial_accounts
 
 from app.routers import users, apiaries, visits, inventory, treasury, sanitary, audit, honey, docs, visit_plans, notifications, events
 
@@ -38,6 +39,13 @@ async def lifespan(app: FastAPI):
             session.add(UserRole(user_id=admin.id, role=RoleEnum.ADMIN))
             await session.commit()
             print(f"✅ Premier admin créé : {settings.first_admin_email}")
+
+    # Amorçage idempotent des comptes de l'association (une seule fois par base)
+    async with async_session() as session:
+        try:
+            await seed_initial_accounts(session)
+        except Exception as e:  # ne jamais empêcher le démarrage à cause du seed
+            print(f"⚠️  Seed des comptes ignoré : {e}")
 
     yield
 
