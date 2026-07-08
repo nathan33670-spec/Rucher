@@ -1,5 +1,17 @@
 <template>
   <div>
+    <!-- Visite rapide : ne fait défiler que mes ruches -->
+    <v-btn
+      block
+      color="accent"
+      size="x-large"
+      class="text-none mb-4"
+      prepend-icon="mdi-bee"
+      :to="{ name: 'visit-live-mine' }"
+    >
+      Visite rapide de mes ruches
+    </v-btn>
+
     <!-- Stats rapides -->
     <v-row>
       <v-col cols="6" md="3" v-for="stat in stats" :key="stat.title">
@@ -10,6 +22,30 @@
         </v-card>
       </v-col>
     </v-row>
+
+    <!-- Prochains événements -->
+    <v-card class="mt-4" v-if="upcomingEvents.length">
+      <v-card-title class="text-subtitle-1 d-flex align-center">
+        <v-icon class="mr-2" color="primary">mdi-calendar-star</v-icon>
+        Prochains événements
+        <v-spacer />
+        <v-btn size="small" variant="text" :to="{ name: 'events' }" class="text-none">Tout voir</v-btn>
+      </v-card-title>
+      <v-list density="compact">
+        <v-list-item v-for="ev in upcomingEvents" :key="ev.id" :to="{ name: 'events' }">
+          <template v-slot:prepend>
+            <v-icon :color="ev.my_response === 'yes' ? 'success' : ev.my_response === 'no' ? 'error' : ev.my_response === 'maybe' ? 'warning' : 'grey'">
+              {{ ev.my_response ? 'mdi-calendar-check' : 'mdi-calendar-blank' }}
+            </v-icon>
+          </template>
+          <v-list-item-title>{{ ev.title }}</v-list-item-title>
+          <v-list-item-subtitle>{{ eventWhen(ev) }}{{ ev.location ? ' · ' + ev.location : '' }}</v-list-item-subtitle>
+          <template v-slot:append>
+            <v-chip size="x-small" color="success" variant="tonal">{{ ev.counts.yes }} <v-icon end size="12">mdi-check</v-icon></v-chip>
+          </template>
+        </v-list-item>
+      </v-list>
+    </v-card>
 
     <!-- Quick button visite -->
     <v-card class="mt-4 pa-4">
@@ -148,7 +184,12 @@ const activeAlerts = ref([])
 const recentVisits = ref([])
 const stockAlerts = ref([])
 const honeyStats = ref({})
+const upcomingEvents = ref([])
 const currentYear = new Date().getFullYear()
+
+function eventWhen(ev) {
+  return new Date(ev.start_at).toLocaleString('fr-FR', { weekday: 'short', day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' })
+}
 
 const monthLabels = ['Jan','Fév','Mar','Avr','Mai','Juin','Juil','Aoû','Sep','Oct','Nov','Déc']
 
@@ -202,6 +243,17 @@ onMounted(async () => {
     ]
   } catch (e) {
     console.error('Dashboard load error:', e)
+  }
+
+  // Prochains événements (chargement séparé — ne bloque pas le reste du tableau de bord)
+  try {
+    const { data } = await api.get('/events/')
+    const now = new Date()
+    upcomingEvents.value = data
+      .filter(e => new Date(e.end_at || e.start_at) >= now)
+      .slice(0, 3)
+  } catch (e) {
+    console.error('Events load error:', e)
   }
 })
 </script>

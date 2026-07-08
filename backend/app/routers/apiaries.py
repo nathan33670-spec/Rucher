@@ -110,6 +110,22 @@ async def list_editable_hives(
     return [_hive_out(h) for h in editable]
 
 
+@router.get("/hives/mine", response_model=list[HiveOut])
+async def list_my_hives(
+    db: AsyncSession = Depends(get_db),
+    user: User = Depends(get_current_user),
+):
+    """Ruches actives dont l'utilisateur courant est propriétaire (gestionnaire),
+    tous ruchers confondus. Utilisé par la « visite rapide »."""
+    result = await db.execute(
+        select(Hive)
+        .join(hive_managers, hive_managers.c.hive_id == Hive.id)
+        .where(hive_managers.c.user_id == user.id, Hive.status == "active")
+        .order_by(Hive.apiary_id, Hive.name)
+    )
+    return [_hive_out(h) for h in result.scalars().all()]
+
+
 @router.post("/hives", response_model=HiveOut, status_code=201)
 async def create_hive(
     body: HiveCreate,

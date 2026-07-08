@@ -69,9 +69,10 @@ const busy = ref(false)
 const testing = ref(false)
 const msg = ref('')
 const msgType = ref('success')
-const prefs = reactive({ enabled: true, visits: true, inventory: true, alerts: true, sanitary: true, treasury: false })
+const prefs = reactive({ enabled: true, visits: true, inventory: true, alerts: true, sanitary: true, treasury: false, events: true })
 
 const categories = [
+  { key: 'events', icon: 'mdi-calendar-star', label: 'Événements', desc: 'Une sortie ou réunion est annoncée' },
   { key: 'visits', icon: 'mdi-clipboard-text', label: 'Nouvelle visite', desc: 'Quand une visite est saisie' },
   { key: 'inventory', icon: 'mdi-package-variant', label: 'Mouvement de matériel', desc: 'Entrée, sortie, déplacement' },
   { key: 'alerts', icon: 'mdi-alert', label: 'Alerte terrain', desc: 'Problème signalé sur une ruche' },

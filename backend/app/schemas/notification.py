@@ -25,6 +25,7 @@ class PrefsOut(BaseModel):
     alerts: bool
     sanitary: bool
     treasury: bool
+    events: bool
     class Config:
         from_attributes = True
 
@@ -36,3 +37,4 @@ class PrefsUpdate(BaseModel):
     alerts: Optional[bool] = None
     sanitary: Optional[bool] = None
     treasury: Optional[bool] = None
+    events: Optional[bool] = None

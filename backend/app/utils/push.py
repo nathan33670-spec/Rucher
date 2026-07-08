@@ -19,7 +19,7 @@ from app.models.notification import AppSetting, PushSubscription, NotificationPr
 from app.config import get_settings
 
 # Catégories notifiables (doivent correspondre aux colonnes de NotificationPref)
-CATEGORIES = {"visits", "inventory", "alerts", "sanitary", "treasury"}
+CATEGORIES = {"visits", "inventory", "alerts", "sanitary", "treasury", "events"}
 
 
 def _generate_keys():
