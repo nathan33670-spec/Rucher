@@ -58,12 +58,13 @@ seule fois — mot de passe initial commun `rucher2026`, à changer) :
 | **Tableau de bord** | Alertes actives, stats, dernières visites, stocks bas |
 | **Ruchers** | CRUD ruchers, plan visuel drag & drop des ruches, géolocalisation |
 | **Visites** | Formulaire complet + **Mode Live terrain** (gros boutons, sliders, utilisable avec gants) |
+| **Visite rapide** | Bouton sur le tableau de bord et le menu mobile : lance le Mode Live en ne faisant défiler **que les ruches dont l'utilisateur est propriétaire** (tous ruchers confondus) |
 | **Inventaire** | Entrées/sorties de matériel, seuils d'alerte, lien trésorerie |
 | **Trésorerie** | Recettes/dépenses catégorisées, upload factures, bilan annuel |
 | **Sanitaire** | Suivi traitements (varroa…), comptages, calendrier |
 | **Météo** | Météo de Bois-d'Arcy (température, hygrométrie, pluie, vent) + **créneau optimal de visite** sur 7 jours + planification |
 | **Événements** | Les admins créent des événements (sortie, réunion, récolte), publics ou privés, avec notification optionnelle de tous les adhérents. Chaque adhérent indique s'il vient (oui / peut-être / absent), peut changer sa réponse et **ajouter l'événement à son calendrier** (Apple/Android `.ics` ou Google Agenda). Les admins voient la liste des participants. |
-| **Notifications** | Notifications push web (opt-in) : chacun choisit ses catégories (événement de l'association, nouvelle visite, mouvement de matériel, alerte, sanitaire, trésorerie). Envoyées aux abonnés ayant installé l'app. |
+| **Notifications** | Notifications push web (opt-in) : chacun choisit ses catégories (événement de l'association, nouvelle visite, mouvement de matériel, alerte, sanitaire, trésorerie). L'activation est **proposée au premier lancement de l'app installée**, et réglable à tout moment. Fonctionne sur **Android** (navigateur ou app installée) et **iOS** (app installée sur l'écran d'accueil). |
 | **Utilisateurs** | 5 rôles, import CSV, création/suppression, reset mot de passe |
 | **Journal** | Historique complet des actions (audit) |
 | **Documentation** | Centre d'aide **public** : mémo rapide, guide illustré, formation (cycle de l'abeille, varroa, réglementation & registres). Les admins créent leurs propres pages (Markdown). |
