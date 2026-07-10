@@ -48,6 +48,22 @@ export async function enablePush() {
   return true
 }
 
+/**
+ * Ré-enregistre l'abonnement de cet appareil côté serveur (auto-réparation).
+ * Utile quand le navigateur a un abonnement mais que le serveur ne l'a pas
+ * (ex. abonnement créé pendant que /subscribe renvoyait une erreur). Le point
+ * de terminaison /subscribe fait un upsert, l'appel est donc idempotent.
+ */
+export async function resyncSubscription() {
+  if (!pushSupported()) return false
+  const reg = await navigator.serviceWorker.ready
+  const sub = await reg.pushManager.getSubscription()
+  if (!sub) return false
+  const json = sub.toJSON()
+  await api.post('/notifications/subscribe', { endpoint: sub.endpoint, keys: json.keys })
+  return true
+}
+
 /** Désabonne cet appareil. */
 export async function disablePush() {
   if (!pushSupported()) return

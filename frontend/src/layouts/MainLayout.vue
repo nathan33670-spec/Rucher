@@ -137,6 +137,7 @@ import { useAuthStore } from '../stores/auth'
 import { useNotifStore } from '../stores/notif'
 import api from '../services/api'
 import { pendingCount, refreshPendingCount, syncPendingVisits } from '../services/offline'
+import { resyncSubscription } from '../services/push'
 import { canInstall } from '../services/pwa'
 import InstallButton from '../components/InstallButton.vue'
 import ChangePasswordDialog from '../components/ChangePasswordDialog.vue'
@@ -174,6 +175,9 @@ onMounted(async () => {
   await refreshPendingCount()
   if (navigator.onLine) syncNow()
   window.addEventListener('online', onOnline)
+  // Auto-réparation silencieuse : ré-enregistre l'abonnement push de cet
+  // appareil s'il existe (corrige les abonnements perdus côté serveur).
+  resyncSubscription().catch(() => {})
 })
 onUnmounted(() => window.removeEventListener('online', onOnline))
 

@@ -59,7 +59,7 @@
 
 <script setup>
 import { ref, reactive, onMounted } from 'vue'
-import { pushSupported, isStandalone, isIOS, getPushState, enablePush, disablePush, getPrefs, setPrefs, sendTest } from '../services/push'
+import { pushSupported, isStandalone, isIOS, getPushState, enablePush, disablePush, getPrefs, setPrefs, sendTest, resyncSubscription } from '../services/push'
 
 const state = reactive({ supported: pushSupported(), subscribed: false, permission: 'default' })
 const standalone = isStandalone()
@@ -85,6 +85,12 @@ function flash(text, type = 'success') { msg.value = text; msgType.value = type 
 async function refresh() {
   const s = await getPushState()
   Object.assign(state, s)
+  // Auto-réparation : si l'appareil est abonné localement, on ré-enregistre
+  // l'abonnement côté serveur au cas où il y manquerait (abonnement créé
+  // pendant une panne serveur). Idempotent (upsert par endpoint).
+  if (s.subscribed) {
+    try { await resyncSubscription() } catch { /* ignore */ }
+  }
   try {
     const p = await getPrefs()
     Object.assign(prefs, p)
