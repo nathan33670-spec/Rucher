@@ -111,6 +111,28 @@
     <!-- Changer son propre mot de passe -->
     <ChangePasswordDialog v-model="showChangePw" @done="syncMsg = 'Mot de passe modifié'" />
 
+    <!-- Demande d'activation des notifications au 1er lancement (après installation) -->
+    <v-dialog v-model="showNotifPrompt" max-width="420" persistent>
+      <v-card>
+        <v-card-item>
+          <template v-slot:prepend><v-icon size="36" color="primary">mdi-bell-ring</v-icon></template>
+          <v-card-title>Activer les notifications ?</v-card-title>
+        </v-card-item>
+        <v-card-text>
+          Soyez prévenu sur ce téléphone des événements de l'association (sorties, réunions),
+          des nouvelles visites et des alertes. Vous pourrez tout régler ensuite dans l'onglet
+          <b>Notifications</b>.
+        </v-card-text>
+        <v-card-actions>
+          <v-btn variant="text" @click="dismissNotifPrompt">Plus tard</v-btn>
+          <v-spacer />
+          <v-btn color="primary" variant="flat" :loading="notifPromptBusy" @click="acceptNotifPrompt">
+            Activer
+          </v-btn>
+        </v-card-actions>
+      </v-card>
+    </v-dialog>
+
     <!-- Panneau alertes -->
     <v-dialog v-model="showAlerts" max-width="500">
       <v-card>
@@ -137,7 +159,7 @@ import { useAuthStore } from '../stores/auth'
 import { useNotifStore } from '../stores/notif'
 import api from '../services/api'
 import { pendingCount, refreshPendingCount, syncPendingVisits } from '../services/offline'
-import { resyncSubscription } from '../services/push'
+import { resyncSubscription, pushSupported, isStandalone, getPushState, enablePush } from '../services/push'
 import { canInstall } from '../services/pwa'
 import InstallButton from '../components/InstallButton.vue'
 import ChangePasswordDialog from '../components/ChangePasswordDialog.vue'
@@ -151,6 +173,8 @@ const { mobile } = useDisplay()
 const drawer = ref(false)
 const showAlerts = ref(false)
 const showChangePw = ref(false)
+const showNotifPrompt = ref(false)
+const notifPromptBusy = ref(false)
 const syncing = ref(false)
 const isMobile = computed(() => mobile.value)
 
@@ -171,6 +195,39 @@ async function syncNow() {
 }
 function onOnline() { syncNow() }
 
+const NOTIF_PROMPT_KEY = 'notif_prompt_seen'
+
+async function maybeAskNotifications() {
+  // Proposé une seule fois, au 1er lancement de l'app installée (écran d'accueil).
+  if (localStorage.getItem(NOTIF_PROMPT_KEY)) return
+  if (!pushSupported() || !isStandalone()) return
+  try {
+    const st = await getPushState()
+    // On ne propose que si l'utilisateur n'a pas encore choisi (ni abonné, ni refusé).
+    if (st.subscribed || st.permission !== 'default') return
+    showNotifPrompt.value = true
+  } catch { /* ignore */ }
+}
+
+async function acceptNotifPrompt() {
+  notifPromptBusy.value = true
+  try {
+    await enablePush()
+    syncMsg.value = 'Notifications activées'
+  } catch (e) {
+    syncMsg.value = 'Notifications non activées (autorisation refusée)'
+  } finally {
+    localStorage.setItem(NOTIF_PROMPT_KEY, '1')
+    notifPromptBusy.value = false
+    showNotifPrompt.value = false
+  }
+}
+
+function dismissNotifPrompt() {
+  localStorage.setItem(NOTIF_PROMPT_KEY, '1')
+  showNotifPrompt.value = false
+}
+
 onMounted(async () => {
   await refreshPendingCount()
   if (navigator.onLine) syncNow()
@@ -178,6 +235,8 @@ onMounted(async () => {
   // Auto-réparation silencieuse : ré-enregistre l'abonnement push de cet
   // appareil s'il existe (corrige les abonnements perdus côté serveur).
   resyncSubscription().catch(() => {})
+  // Proposition d'activation des notifications au 1er lancement (installé).
+  maybeAskNotifications()
 })
 onUnmounted(() => window.removeEventListener('online', onOnline))
 
