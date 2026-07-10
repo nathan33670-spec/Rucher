@@ -5,8 +5,13 @@
     lead="L'essentiel pour saisir vos visites et suivre vos ruches. À garder sous la main."
   >
     <v-alert type="success" variant="tonal" density="comfortable" class="mb-6">
-      <b>En bref :</b> ouvrez l'app → <b>Ruchers</b> → bouton <b>Mode Live</b> →
-      pour chaque ruche, réglez les curseurs et validez. C'est tout.
+      <b>En bref :</b> ouvrez l'app → bouton <b>Visite rapide</b> (ou <b>Ruchers</b>
+      → <b>Mode Live</b>) → pour chaque ruche, réglez les curseurs et validez. C'est tout.
+    </v-alert>
+
+    <v-alert type="info" variant="tonal" density="comfortable" class="mb-6">
+      <b>Astuce :</b> le bouton <b>« Visite rapide de mes ruches »</b> (tableau de bord
+      et onglet <b>Visite</b> du menu mobile) ne fait défiler que <b>vos</b> ruches.
     </v-alert>
 
     <h2>1. Saisir une visite (mode terrain)</h2>

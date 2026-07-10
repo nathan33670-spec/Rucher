@@ -49,8 +49,23 @@ const sections = [
   {
     id: 'dashboard', t: 'Tableau de bord',
     p: ["L'écran d'accueil de l'application donne une vue d'ensemble immédiate."],
-    li: ['<b>Alertes actives</b> signalées lors des visites.', '<b>Dernières visites</b> et statistiques du rucher.', '<b>Stocks bas</b> (matériel sous le seuil).', 'Accès rapide au <b>Mode Live</b> de chaque rucher.'],
+    li: ['Bouton <b>Visite rapide de mes ruches</b> (voir plus bas).', '<b>Prochains événements</b> de l\'association et votre réponse.', '<b>Alertes actives</b> signalées lors des visites.', '<b>Visites du mois</b> et statistiques du rucher.', '<b>Stocks bas</b> (matériel sous le seuil).'],
     img: 'dashboard.jpg',
+  },
+  {
+    id: 'visite-rapide', t: 'Visite rapide',
+    p: ['Un bouton <b>« Visite rapide de mes ruches »</b> est présent sur le tableau de bord et dans la barre de navigation du téléphone (onglet <b>Visite</b>). Il lance le Mode Live mais ne fait défiler <b>que les ruches dont vous êtes propriétaire</b>, tous ruchers confondus — idéal pour faire le tour de vos propres colonies sans chercher.'],
+    li: ['Même interface terrain que le Mode Live (curseurs, gros boutons, hors-ligne).', 'La visite par rucher reste disponible depuis l\'onglet <b>Ruchers</b>.'],
+  },
+  {
+    id: 'evenements', t: 'Événements',
+    p: ['L\'onglet <b>Événements</b> liste les sorties, réunions et récoltes de l\'association, séparées en <b>« À venir »</b> et <b>« Passés »</b>.'],
+    li: ['Indiquez si vous venez : <b>Je viens / Peut-être / Absent</b> — réponse <b>modifiable</b> à tout moment.', 'Bouton <b>Calendrier</b> pour ajouter l\'événement à votre agenda (<b>Apple/Android .ics</b> ou <b>Google Agenda</b>).', '<b>Admins</b> : créer un événement (public ou privé), notifier tous les adhérents, et consulter la <b>liste des participants</b>.'],
+  },
+  {
+    id: 'notifications', t: 'Notifications',
+    p: ['Recevez des notifications <b>sur votre téléphone</b> pour ce qui vous intéresse. L\'activation vous est <b>proposée au premier lancement</b> de l\'app installée ; vous pouvez la régler à tout moment dans l\'onglet <b>Notifications</b>.'],
+    li: ['Choisissez vos <b>catégories</b> : événements, nouvelle visite, matériel, alerte, sanitaire, trésorerie.', 'Bouton <b>« Envoyer une notification de test »</b> pour vérifier sur votre appareil.', '<b>Android</b> : fonctionne dans le navigateur ou l\'app installée. <b>iPhone</b> : l\'app doit d\'abord être <b>installée sur l\'écran d\'accueil</b>.'],
   },
   {
     id: 'ruchers', t: 'Ruchers',
