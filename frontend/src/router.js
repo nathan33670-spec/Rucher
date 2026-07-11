@@ -2,7 +2,15 @@ import { createRouter, createWebHistory } from 'vue-router'
 import { useAuthStore } from './stores/auth'
 
 const routes = [
-  { path: '/', name: 'landing', component: () => import('./views/LandingView.vue') },
+  {
+    // Site vitrine « reportage » — PUBLIC, multi-pages (une URL par chapitre)
+    path: '/',
+    component: () => import('./layouts/VitrineLayout.vue'),
+    children: [
+      { path: '', name: 'vitrine-home', component: () => import('./views/vitrine/VitrineHome.vue') },
+      { path: ':slug', name: 'vitrine-chapter', component: () => import('./components/ReportageChapter.vue'), props: true },
+    ],
+  },
   { path: '/login', name: 'login', component: () => import('./views/LoginView.vue') },
   {
     // Documentation — PUBLIQUE (accessible sans connexion)
@@ -44,7 +52,14 @@ const routes = [
   },
 ]
 
-const router = createRouter({ history: createWebHistory(), routes })
+const router = createRouter({
+  history: createWebHistory(),
+  routes,
+  scrollBehavior(to, from, saved) {
+    // Retour à la position sauvegardée (bouton précédent) sinon haut de page.
+    return saved || { top: 0 }
+  },
+})
 
 router.beforeEach((to) => {
   const auth = useAuthStore()
