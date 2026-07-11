@@ -8,6 +8,8 @@ const routes = [
     component: () => import('./layouts/VitrineLayout.vue'),
     children: [
       { path: '', name: 'vitrine-home', component: () => import('./views/vitrine/VitrineHome.vue') },
+      { path: 'quiz', name: 'vitrine-quiz', component: () => import('./views/vitrine/VitrineQuiz.vue') },
+      { path: 'credits', name: 'vitrine-credits', component: () => import('./views/vitrine/VitrineCredits.vue') },
       { path: ':slug', name: 'vitrine-chapter', component: () => import('./components/ReportageChapter.vue'), props: true },
     ],
   },

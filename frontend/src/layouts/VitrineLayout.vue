@@ -14,6 +14,9 @@
           :title="c.nav"
           @click="drawer = false"
         />
+        <v-divider class="my-1" />
+        <v-list-item :to="{ name: 'vitrine-quiz' }" prepend-icon="mdi-help-circle" title="Quiz" @click="drawer = false" />
+        <v-list-item :to="{ name: 'vitrine-credits' }" prepend-icon="mdi-camera" title="Crédits & sources" @click="drawer = false" />
       </v-list>
       <template v-slot:append>
         <div class="pa-2">
@@ -67,6 +70,12 @@
                 class="vitrine-flink d-block"
                 :to="{ name: 'vitrine-chapter', params: { slug: c.slug } }"
               >{{ c.nav }}</router-link>
+            </div>
+            <div>
+              <div class="text-caption font-weight-bold mb-1">Explorer</div>
+              <router-link class="vitrine-flink d-block" :to="{ name: 'vitrine-quiz' }">Le quiz de l'abeille</router-link>
+              <router-link class="vitrine-flink d-block" :to="{ name: 'vitrine-credits' }">Crédits &amp; sources</router-link>
+              <router-link class="vitrine-flink d-block" :to="{ name: 'login' }">Accéder à l'application</router-link>
             </div>
           </div>
           <v-divider class="my-3" />

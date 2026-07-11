@@ -1,12 +1,17 @@
 <template>
   <article v-if="chapter" class="reportage">
-    <!-- En-tête de chapitre -->
-    <header class="chap-hero" :style="heroStyle">
+    <!-- En-tête de chapitre : photo + dégradé -->
+    <header class="chap-hero">
+      <img :src="'/vitrine/' + chapter.slug + '.jpg'" :alt="chapter.title" class="chap-hero-img" loading="eager" />
+      <div class="chap-hero-veil" :style="heroVeil"></div>
       <div class="chap-hero-inner">
-        <v-icon size="52" class="chap-hero-icon">{{ chapter.icon }}</v-icon>
+        <v-icon size="46" class="chap-hero-icon">{{ chapter.icon }}</v-icon>
         <div class="chap-eyebrow">{{ chapter.eyebrow }}</div>
         <h1 class="chap-title">{{ chapter.title }}</h1>
         <p class="chap-lead">{{ chapter.lead }}</p>
+      </div>
+      <div v-if="credit" class="chap-hero-credit">
+        📷 {{ credit.creator }} · {{ credit.license }}
       </div>
     </header>
 
@@ -76,39 +81,49 @@
 <script setup>
 import { computed } from 'vue'
 import { chapters, chaptersBySlug } from '../data/reportage'
+import { creditsByKey } from '../data/credits'
 
 const props = defineProps({ slug: { type: String, required: true } })
 
 const chapter = computed(() => chaptersBySlug[props.slug] || null)
+const credit = computed(() => creditsByKey[props.slug] || null)
 const index = computed(() => chapters.findIndex((c) => c.slug === props.slug))
 const prev = computed(() => (index.value > 0 ? chapters[index.value - 1] : null))
 const next = computed(() => (index.value >= 0 && index.value < chapters.length - 1 ? chapters[index.value + 1] : null))
 
-const heroStyle = computed(() => {
+const heroVeil = computed(() => {
   const [a, b] = chapter.value?.hero || ['#f6b73c', '#e08a1e']
-  return { background: `linear-gradient(135deg, ${a}, ${b})` }
+  return { background: `linear-gradient(160deg, ${a}cc 0%, ${a}66 40%, rgba(0,0,0,0.72) 100%)` }
 })
 </script>
 
 <style scoped>
 .chap-hero {
   color: #fff;
-  padding: 56px 16px 48px;
   text-align: center;
   position: relative;
   overflow: hidden;
+  min-height: clamp(320px, 46vh, 480px);
+  display: flex;
+  align-items: center;
+  justify-content: center;
 }
-.chap-hero::after {
-  /* motif alvéolé discret */
+.chap-hero-img { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover; }
+.chap-hero-veil { position: absolute; inset: 0; }
+.chap-hero-veil::after {
   content: '';
   position: absolute; inset: 0;
-  background-image: radial-gradient(rgba(255,255,255,0.12) 2px, transparent 2px);
+  background-image: radial-gradient(rgba(255,255,255,0.10) 2px, transparent 2px);
   background-size: 26px 26px;
   opacity: 0.5;
-  pointer-events: none;
 }
-.chap-hero-inner { position: relative; max-width: 780px; margin: 0 auto; }
+.chap-hero-inner { position: relative; max-width: 780px; margin: 0 auto; padding: 56px 18px; }
 .chap-hero-icon { opacity: 0.95; margin-bottom: 8px; }
+.chap-hero-credit {
+  position: absolute; right: 8px; bottom: 6px;
+  font-size: 0.68rem; color: rgba(255,255,255,0.75);
+  background: rgba(0,0,0,0.28); padding: 2px 8px; border-radius: 8px;
+}
 .chap-eyebrow { text-transform: uppercase; letter-spacing: 2px; font-size: 0.8rem; font-weight: 700; opacity: 0.9; }
 .chap-title { font-size: clamp(1.9rem, 4.5vw, 3rem); font-weight: 800; line-height: 1.1; margin: 6px 0 12px; text-shadow: 0 2px 12px rgba(0,0,0,0.18); }
 .chap-lead { max-width: 640px; margin: 0 auto; font-size: clamp(1.02rem, 2vw, 1.2rem); line-height: 1.6; opacity: 0.97; }

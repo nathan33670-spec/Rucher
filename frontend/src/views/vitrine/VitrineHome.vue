@@ -2,7 +2,7 @@
   <div>
     <!-- Hero -->
     <section class="v-hero">
-      <img src="/accueil-canal.jpg" alt="Le canal de la Croix Bonnet à Bois-d'Arcy" class="v-hero-img" />
+      <img src="/vitrine/home.jpg" alt="Abeille butinant une fleur" class="v-hero-img" />
       <div class="v-hero-overlay">
         <div class="v-hero-eyebrow">Un reportage sur les abeilles</div>
         <h1 class="v-hero-title">Le Peuple des abeilles</h1>
@@ -45,7 +45,9 @@
       <v-row>
         <v-col v-for="(c, i) in chapters" :key="c.slug" cols="12" sm="6" md="4">
           <v-card class="v-chapcard h-100" :to="{ name: 'vitrine-chapter', params: { slug: c.slug } }" flat hover>
-            <div class="v-chapcard-top" :style="cardStyle(c)">
+            <div class="v-chapcard-top">
+              <img :src="'/vitrine/' + c.slug + '.jpg'" :alt="c.title" class="v-chapcard-img" loading="lazy" />
+              <div class="v-chapcard-veil" :style="cardStyle(c)"></div>
               <span class="v-chapnum">{{ (i + 1).toString().padStart(2, '0') }}</span>
               <v-icon size="34">{{ c.icon }}</v-icon>
             </div>
@@ -58,6 +60,36 @@
         </v-col>
       </v-row>
     </v-container>
+
+    <!-- Teaser Quiz -->
+    <section class="v-quiz">
+      <v-container style="max-width: 900px;">
+        <div class="v-quiz-card">
+          <div class="v-quiz-icon"><v-icon size="46">mdi-help-circle</v-icon></div>
+          <div class="flex-grow-1">
+            <div class="v-eyebrow" style="color:#ffe4a0;">Interactif</div>
+            <h2 class="text-h5 font-weight-bold mb-1" style="color:#fff;">Connaissez-vous vraiment les abeilles ?</h2>
+            <p class="mb-0" style="color:#f4ead6;">12 questions pour tester vos connaissances après la lecture.</p>
+          </div>
+          <v-btn size="large" color="amber-darken-2" class="text-none" :to="{ name: 'vitrine-quiz' }" prepend-icon="mdi-play">
+            Lancer le quiz
+          </v-btn>
+        </div>
+      </v-container>
+    </section>
+
+    <!-- Notre rucher (photo réelle du site) -->
+    <section class="v-rucher">
+      <img src="/accueil-canal.jpg" alt="Le canal de la Croix Bonnet à Bois-d'Arcy" class="v-rucher-img" />
+      <div class="v-rucher-text">
+        <div class="v-eyebrow">Sur le terrain</div>
+        <h2 class="v-h2" style="color:#fff;">Notre rucher, au bord du canal</h2>
+        <p style="color:#f0e8d8; line-height:1.7;">
+          L'association veille sur ses colonies le long du canal de la Croix Bonnet,
+          à Bois-d'Arcy (78) — un site calme et fleuri, idéal pour la santé des abeilles.
+        </p>
+      </div>
+    </section>
 
     <!-- Bandeau final vers l'app -->
     <section class="v-cta">
@@ -94,7 +126,7 @@ function goFirst() {
 
 function cardStyle(c) {
   const [a, b] = c.hero || ['#f6b73c', '#e08a1e']
-  return { background: `linear-gradient(135deg, ${a}, ${b})` }
+  return { background: `linear-gradient(150deg, ${a}b3, ${b}66 55%, rgba(0,0,0,0.35))` }
 }
 </script>
 
@@ -124,11 +156,30 @@ function cardStyle(c) {
 .v-chapcard { border: 1px solid rgba(0,0,0,0.07); border-radius: 16px; overflow: hidden; transition: transform .15s ease; }
 .v-chapcard:hover { transform: translateY(-3px); }
 .v-chapcard-top {
-  height: 96px; color: #fff;
+  height: 132px; color: #fff;
   display: flex; align-items: center; justify-content: center; gap: 12px;
-  position: relative;
+  position: relative; overflow: hidden;
 }
-.v-chapnum { position: absolute; left: 14px; top: 8px; font-size: 1.6rem; font-weight: 900; opacity: 0.45; }
+.v-chapcard-img { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover; }
+.v-chapcard-veil { position: absolute; inset: 0; }
+.v-chapnum { position: absolute; left: 14px; top: 6px; font-size: 1.7rem; font-weight: 900; opacity: 0.85; text-shadow: 0 2px 8px rgba(0,0,0,0.4); z-index: 1; }
+.v-chapcard-top .v-icon { position: relative; z-index: 1; filter: drop-shadow(0 2px 6px rgba(0,0,0,0.4)); }
+
+.v-quiz { padding: 8px 12px 40px; }
+.v-quiz-card {
+  display: flex; flex-wrap: wrap; align-items: center; gap: 18px;
+  background: linear-gradient(135deg, #3a2f14, #7a5a1e);
+  border-radius: 20px; padding: 24px 26px;
+}
+.v-quiz-icon { color: #ffd98a; }
+
+.v-rucher { position: relative; min-height: 360px; display: flex; align-items: center; }
+.v-rucher-img { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover; }
+.v-rucher-text {
+  position: relative; max-width: 560px; margin-left: clamp(16px, 8vw, 120px);
+  padding: 28px; border-radius: 18px;
+  background: rgba(20,18,14,0.62); backdrop-filter: blur(2px);
+}
 
 .v-cta { background: #1b1a17; color: #f4ead6; padding: 56px 12px; }
 .v-cta-title { font-size: clamp(1.5rem, 3.5vw, 2.1rem); font-weight: 800; margin-bottom: 8px; }
