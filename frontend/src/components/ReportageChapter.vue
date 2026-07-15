@@ -16,8 +16,19 @@
     </header>
 
     <v-container class="py-8" style="max-width: 820px;">
-      <section v-for="(s, i) in chapter.sections" :key="i" class="mb-8">
+      <section v-for="(s, i) in chapter.sections" :key="i" class="mb-10">
         <h2 v-if="s.h" class="chap-h2">{{ s.h }}</h2>
+
+        <!-- Illustration de section (alternée), masquée si absente -->
+        <figure v-if="hasSectionImg[i]" class="chap-figure" :class="i % 2 ? 'fig-right' : 'fig-left'">
+          <img
+            :src="'/vitrine/sec/' + chapter.slug + '-' + i + '.jpg'"
+            :alt="s.h || chapter.title"
+            loading="lazy"
+            @error="onImgError(i)"
+          />
+          <figcaption v-if="sectionCredit(i)">📷 {{ sectionCredit(i).creator }} · {{ sectionCredit(i).license }}</figcaption>
+        </figure>
 
         <p v-for="(p, pi) in (s.p || [])" :key="'p' + pi" class="chap-p" v-html="p"></p>
 
@@ -79,7 +90,7 @@
 </template>
 
 <script setup>
-import { computed } from 'vue'
+import { computed, reactive, watch } from 'vue'
 import { chapters, chaptersBySlug } from '../data/reportage'
 import { creditsByKey } from '../data/credits'
 
@@ -87,6 +98,19 @@ const props = defineProps({ slug: { type: String, required: true } })
 
 const chapter = computed(() => chaptersBySlug[props.slug] || null)
 const credit = computed(() => creditsByKey[props.slug] || null)
+
+// Une image de section n'est affichée que si un crédit existe pour elle
+// (donc si le fichier a bien été récupéré). On masque aussi en cas d'erreur.
+const hasSectionImg = reactive({})
+function rebuildImg() {
+  Object.keys(hasSectionImg).forEach((k) => delete hasSectionImg[k])
+  ;(chapter.value?.sections || []).forEach((s, i) => {
+    hasSectionImg[i] = !!creditsByKey[props.slug + '-' + i]
+  })
+}
+watch(() => props.slug, rebuildImg, { immediate: true })
+function onImgError(i) { hasSectionImg[i] = false }
+function sectionCredit(i) { return creditsByKey[props.slug + '-' + i] || null }
 const index = computed(() => chapters.findIndex((c) => c.slug === props.slug))
 const prev = computed(() => (index.value > 0 ? chapters[index.value - 1] : null))
 const next = computed(() => (index.value >= 0 && index.value < chapters.length - 1 ? chapters[index.value + 1] : null))
@@ -129,6 +153,19 @@ const heroVeil = computed(() => {
 .chap-lead { max-width: 640px; margin: 0 auto; font-size: clamp(1.02rem, 2vw, 1.2rem); line-height: 1.6; opacity: 0.97; }
 
 .chap-h2 { font-size: 1.5rem; font-weight: 800; margin: 8px 0 12px; color: rgb(var(--v-theme-primary)); }
+
+.reportage section { display: flow-root; } /* contient le float de l'image dans sa section */
+.chap-figure { margin: 0 0 12px; }
+.chap-figure img { width: 100%; height: 100%; object-fit: cover; border-radius: 14px; display: block; box-shadow: 0 6px 20px rgba(0,0,0,0.12); }
+.chap-figure figcaption { font-size: 0.72rem; color: rgba(0,0,0,0.5); margin-top: 5px; text-align: right; }
+@media (min-width: 720px) {
+  .chap-figure { width: 42%; margin-bottom: 8px; }
+  .chap-figure img { height: 230px; }
+  .fig-right { float: right; margin-left: 24px; }
+  .fig-left { float: left; margin-right: 24px; }
+}
+.chap-h2 { clear: both; }
+@media (prefers-color-scheme: dark) { .chap-figure figcaption { color: rgba(255,255,255,0.5); } }
 .chap-p { font-size: 1.05rem; line-height: 1.8; margin-bottom: 14px; }
 .chap-ul { padding-left: 20px; margin-bottom: 14px; }
 .chap-ul li { line-height: 1.75; margin-bottom: 8px; }

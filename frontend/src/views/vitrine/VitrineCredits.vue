@@ -16,10 +16,10 @@
       </p>
 
       <v-row>
-        <v-col v-for="c in credits" :key="c.key" cols="12" sm="6">
+        <v-col v-for="c in credits" :key="c.key" cols="12" sm="6" md="4">
           <v-card class="cr-card h-100" flat variant="outlined">
             <div class="d-flex">
-              <img :src="'/vitrine/' + c.key + '.jpg'" :alt="c.title" class="cr-thumb" loading="lazy" />
+              <img :src="thumb(c.key)" :alt="c.title" class="cr-thumb" loading="lazy" />
               <div class="pa-3">
                 <div class="text-caption text-medium-emphasis">{{ chapterName(c.key) }}</div>
                 <div class="text-body-2 font-weight-bold">{{ c.creator }}</div>
@@ -48,8 +48,16 @@ import { imageCredits } from '../../data/credits'
 import { chaptersBySlug } from '../../data/reportage'
 
 const credits = imageCredits
+const SECTION_RE = /^(.*)-(\d+)$/
+
+function isSection(key) { return SECTION_RE.test(key) }
+function thumb(key) {
+  return isSection(key) ? '/vitrine/sec/' + key + '.jpg' : '/vitrine/' + key + '.jpg'
+}
 function chapterName(key) {
   if (key === 'home') return 'Page d\'accueil'
+  const m = key.match(SECTION_RE)
+  if (m && chaptersBySlug[m[1]]) return chaptersBySlug[m[1]].nav + ' · illustration'
   return chaptersBySlug[key]?.nav || key
 }
 function licenseLabel(c) {

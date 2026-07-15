@@ -39,6 +39,39 @@ export const chapters = [
   },
 
   {
+    slug: 'abeilles-sauvages',
+    nav: 'Les abeilles sauvages',
+    icon: 'mdi-bee-flower',
+    eyebrow: 'Diversité',
+    title: 'Les abeilles sauvages, cousines discrètes',
+    lead: "Quand on dit « abeille », on pense à la ruche. Mais l'abeille à miel n'est qu'une espèce parmi des milliers — la plupart vivent seules et ne font pas de miel.",
+    hero: ['#c9a227', '#8a6d1b'],
+    sections: [
+      {
+        h: 'Un peuple aux mille visages',
+        p: [
+          "On compte près de 1 000 espèces d'abeilles sauvages en France, et près de 20 000 dans le monde. La grande majorité sont solitaires : chaque femelle construit et approvisionne seule son nid, dans le sol, le bois mort ou des tiges creuses. Bourdons, osmies, andrènes, abeilles charpentières… une variété insoupçonnée.",
+        ],
+        li: [
+          "La plupart ne piquent pas ou très peu et n'ont pas de colonie.",
+          "Elles ne produisent pas de miel : elles butinent pour nourrir leur seule descendance.",
+          "Le bourdon, tout rond et velu, en est le représentant le plus connu.",
+        ],
+      },
+      {
+        h: 'Des pollinisatrices irremplaçables',
+        p: [
+          "Les abeilles sauvages sont souvent des pollinisatrices redoutablement efficaces, parfois plus que l'abeille domestique pour certaines plantes. Elles butinent tôt, par temps frais, et visitent des fleurs que d'autres délaissent. Mais elles subissent les mêmes menaces — pesticides, disparition des fleurs — et déclinent partout.",
+        ],
+        note: {
+          title: 'Un geste pour elles',
+          text: "Un « hôtel à insectes », des tiges creuses ou un carré de sol nu et ensoleillé offrent un abri précieux aux abeilles solitaires.",
+        },
+      },
+    ],
+  },
+
+  {
     slug: 'cycle-de-vie',
     nav: 'Le cycle de vie',
     icon: 'mdi-egg-outline',
@@ -68,6 +101,34 @@ export const chapters = [
           "Ouvrière d'hiver : plusieurs mois, pour passer la mauvaise saison.",
           "Reine : 2 à 5 ans, unique pondeuse de la colonie.",
         ],
+      },
+    ],
+  },
+
+  {
+    slug: 'essaimage',
+    nav: "L'essaimage",
+    icon: 'mdi-transit-connection-variant',
+    eyebrow: 'Reproduction',
+    title: "L'essaimage, la ruche qui se divise",
+    lead: "Une colonie ne se reproduit pas comme un individu : c'est la ruche entière qui se scinde en deux. Un moment décisif dans la vie des abeilles.",
+    hero: ['#e0a030', '#a9701a'],
+    sections: [
+      {
+        h: 'Partir pour se multiplier',
+        p: [
+          "Au printemps, quand la colonie est populeuse, l'ancienne reine quitte la ruche avec la moitié des ouvrières : c'est l'essaim. Il se pose en grappe sur une branche, le temps que des éclaireuses trouvent un nouveau logis. Dans la ruche d'origine, une jeune reine naît et prend la relève. D'une colonie, il y en a désormais deux.",
+        ],
+      },
+      {
+        h: 'Impressionnant mais paisible',
+        p: [
+          "Le nuage d'abeilles qui tourbillonne impressionne, mais un essaim est généralement très doux : gorgées de miel pour le voyage et sans couvain à défendre, les abeilles n'ont aucune raison d'être agressives. L'apiculteur peut alors recueillir l'essaim pour lui offrir une nouvelle ruche.",
+        ],
+        note: {
+          title: 'Bon à savoir',
+          text: "Un essaim dans votre jardin ? Ne le détruisez pas : contactez un apiculteur local, qui viendra le récupérer gratuitement.",
+        },
       },
     ],
   },
@@ -291,6 +352,37 @@ export const chapters = [
   },
 
   {
+    slug: 'varietes-de-miel',
+    nav: 'Les variétés de miel',
+    icon: 'mdi-palette',
+    eyebrow: 'Dégustation',
+    title: 'Mille fleurs, mille miels',
+    lead: "Du miel d'acacia limpide au châtaignier corsé, chaque miel raconte un paysage et une saison. La fleur d'origine fait tout.",
+    hero: ['#d98f2b', '#a5641a'],
+    sections: [
+      {
+        h: 'Monofloral ou toutes fleurs',
+        p: [
+          "Quand les abeilles butinent surtout une espèce, on obtient un miel « monofloral » au caractère marqué ; sinon, un miel « toutes fleurs » (polyfloral), reflet de la flore locale. L'apiculteur oriente la récolte selon les floraisons, mais ce sont les abeilles qui choisissent leurs fleurs.",
+        ],
+        li: [
+          "<b>Acacia</b> : très clair, liquide longtemps, doux et délicat.",
+          "<b>Châtaignier</b> : foncé, corsé, légèrement amer.",
+          "<b>Lavande, tilleul</b> : parfumés, typés de leur région.",
+          "<b>Colza</b> : clair, doux, cristallise très vite.",
+          "<b>Miellat de forêt</b> : sombre, boisé, issu non des fleurs mais du miellat des arbres.",
+        ],
+      },
+      {
+        h: 'Couleur, arôme, texture',
+        p: [
+          "La couleur va du presque blanc au brun foncé selon l'origine florale ; l'arôme, de la douceur florale aux notes boisées. La texture dépend de l'équilibre des sucres : riches en glucose, certains miels figent en une crème onctueuse ; riches en fructose, d'autres restent liquides des mois. Aucun n'est meilleur dans l'absolu — tout est affaire de goût.",
+        ],
+      },
+    ],
+  },
+
+  {
     slug: 'produits-de-la-ruche',
     nav: 'Produits de la ruche',
     icon: 'mdi-jar',
@@ -405,6 +497,34 @@ export const chapters = [
         note: {
           title: 'Cadre réglementaire',
           text: "En France, toute personne possédant des ruches doit les déclarer chaque année et tenir un registre d'élevage. Une exigence que nous respectons scrupuleusement.",
+        },
+      },
+    ],
+  },
+
+  {
+    slug: 'histoire-apiculture',
+    nav: "Histoire de l'apiculture",
+    icon: 'mdi-history',
+    eyebrow: 'Patrimoine',
+    title: "Une histoire vieille de 9 000 ans",
+    lead: "Bien avant d'élever les abeilles, l'humanité a chassé leur miel. Des peintures rupestres aux ruches modernes, une longue aventure commune.",
+    hero: ['#b98a3e', '#7c5a22'],
+    sections: [
+      {
+        h: 'Des chasseurs de miel aux premières ruches',
+        p: [
+          "Il y a près de 9 000 ans, des peintures rupestres montrent déjà des hommes récoltant le miel d'essaims sauvages. Les Égyptiens de l'Antiquité élevaient les abeilles dans des ruches de terre cuite et transportaient leurs colonies le long du Nil. Au Moyen Âge, on utilisait des paniers de paille tressée, les « ruches-paniers ».",
+        ],
+      },
+      {
+        h: 'La révolution de la ruche moderne',
+        p: [
+          "En 1851, l'Américain Lorenzo Langstroth comprend qu'en laissant un espace précis entre les cadres — l'« espace abeille » —, celles-ci ne les collent plus. Il invente la ruche à cadres mobiles : on peut désormais visiter la colonie et récolter le miel sans détruire les rayons. C'est la naissance de l'apiculture moderne, dont nos ruches Dadant sont les héritières.",
+        ],
+        note: {
+          title: 'Un héritage vivant',
+          text: "Les ruches à cadres mobiles que nous utilisons aujourd'hui découlent directement de cette découverte du XIXᵉ siècle.",
         },
       },
     ],
