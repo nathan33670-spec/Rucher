@@ -15,8 +15,8 @@ export const useAuthStore = defineStore('auth', {
     hasRole: (s) => (role) => s.user?.roles?.includes(role) || s.user?.roles?.includes('admin'),
   },
   actions: {
-    async login(username, password) {
-      const { data } = await api.post('/users/login', { username, password })
+    async login(username, password, remember = true) {
+      const { data } = await api.post('/users/login', { username, password, remember })
       this.token = data.access_token
       localStorage.setItem('token', data.access_token)
       await this.fetchUser()
