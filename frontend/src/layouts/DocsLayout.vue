@@ -6,7 +6,7 @@
         <v-icon start>mdi-book-open-variant</v-icon> Documentation — Rucher
       </v-app-bar-title>
       <v-spacer />
-      <v-btn variant="text" class="text-none d-none d-sm-flex" :to="{ name: 'landing' }" prepend-icon="mdi-home">Accueil</v-btn>
+      <v-btn variant="text" class="text-none d-none d-sm-flex" :to="{ name: 'vitrine-home' }" prepend-icon="mdi-home">Accueil</v-btn>
       <v-btn variant="flat" color="amber-darken-3" class="text-none" :to="appTarget" prepend-icon="mdi-login">
         {{ isAuth ? "Ouvrir l'app" : 'Se connecter' }}
       </v-btn>
