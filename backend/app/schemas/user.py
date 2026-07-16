@@ -56,3 +56,5 @@ class LoginRequest(BaseModel):
     # Le champ JSON « email » reste accepté (compatibilité ascendante).
     username: str = Field(validation_alias=AliasChoices("username", "email"))
     password: str
+    # « Rester connecté » : demande un jeton quasi-permanent (10 ans).
+    remember: bool = False

@@ -2,6 +2,7 @@
 
 import csv
 import io
+from datetime import timedelta
 from fastapi import APIRouter, Depends, HTTPException, UploadFile, File
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select, func, update
@@ -33,7 +34,12 @@ async def login(body: LoginRequest, db: AsyncSession = Depends(get_db)):
         raise HTTPException(status_code=401, detail="Identifiant ou mot de passe incorrect")
     if not user.is_active:
         raise HTTPException(status_code=403, detail="Compte désactivé")
-    token = create_access_token({"sub": user.id, "username": user.email, "roles": get_user_roles(user)})
+    # « Rester connecté » → jeton quasi-permanent (10 ans) ; sinon durée par défaut.
+    expires = timedelta(days=3650) if body.remember else None
+    token = create_access_token(
+        {"sub": user.id, "username": user.email, "roles": get_user_roles(user)},
+        expires_delta=expires,
+    )
     return {"access_token": token, "token_type": "bearer"}
 
 
