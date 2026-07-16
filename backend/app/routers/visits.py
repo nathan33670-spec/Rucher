@@ -181,6 +181,7 @@ def _visit_out(v: Visit, author: User = None, hive: Hive = None) -> VisitOut:
         feeding=v.feeding,
         comment=v.comment, is_alert=v.is_alert,
         alert_message=v.alert_message, honey_harvest_kg=v.honey_harvest_kg,
+        pollen_harvest_kg=v.pollen_harvest_kg,
         is_live_mode=v.is_live_mode, synced=v.synced,
         created_at=v.created_at,
         author_name=f"{author.first_name} {author.last_name}" if author else None,

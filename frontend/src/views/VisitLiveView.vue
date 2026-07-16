@@ -9,6 +9,13 @@
     </v-alert>
 
     <div v-if="currentHive" class="text-center">
+      <!-- Bouton : dernier commentaire de la ruche (popup) -->
+      <div class="d-flex justify-end mb-1">
+        <v-btn size="small" variant="tonal" color="primary" prepend-icon="mdi-comment-text-outline" @click="showLastComment">
+          Dernier commentaire
+        </v-btn>
+      </div>
+
       <!-- Sélecteur de ruche -->
       <v-select
         v-model="currentIndex"
@@ -119,6 +126,23 @@
         </div>
       </v-card>
 
+      <!-- ═══ SECTION RÉCOLTE (miel + pollen) ═══ -->
+      <v-card variant="outlined" class="mb-4 pa-3">
+        <div class="text-subtitle-2 font-weight-bold mb-3">
+          <v-icon class="mr-1" color="amber-darken-2">mdi-bee-flower</v-icon> Récolte
+        </div>
+        <v-row dense>
+          <v-col cols="6">
+            <v-text-field v-model.number="form.honey_harvest_kg" label="Miel (kg)" type="number" min="0" step="0.1"
+              variant="outlined" density="comfortable" hide-details prepend-inner-icon="mdi-jar" />
+          </v-col>
+          <v-col cols="6">
+            <v-text-field v-model.number="form.pollen_harvest_kg" label="Pollen (kg)" type="number" min="0" step="0.1"
+              variant="outlined" density="comfortable" hide-details prepend-inner-icon="mdi-flower-pollen" />
+          </v-col>
+        </v-row>
+      </v-card>
+
       <!-- NOURRISSEMENT rapide -->
       <div class="mb-4">
         <p class="text-overline">Nourrissement</p>
@@ -200,6 +224,33 @@
         </v-btn>
       </div>
     </div>
+
+    <!-- Popup : dernier commentaire de la ruche courante -->
+    <v-dialog v-model="showComment" max-width="440">
+      <v-card>
+        <v-card-title class="d-flex align-center">
+          <v-icon class="mr-2" color="primary">mdi-comment-text-outline</v-icon>
+          Dernier commentaire
+        </v-card-title>
+        <v-card-text>
+          <div v-if="loadingComment" class="text-center py-4"><v-progress-circular indeterminate color="primary" /></div>
+          <template v-else-if="lastVisit && lastVisit.comment">
+            <p class="text-body-1" style="white-space: pre-line;">{{ lastVisit.comment }}</p>
+            <p class="text-caption text-medium-emphasis mt-3">
+              {{ new Date(lastVisit.visited_at).toLocaleString('fr-FR') }}
+              <template v-if="lastVisit.author_name"> · {{ lastVisit.author_name }}</template>
+            </p>
+          </template>
+          <p v-else class="text-medium-emphasis text-center py-4">
+            Aucun commentaire sur la dernière visite de cette ruche.
+          </p>
+        </v-card-text>
+        <v-card-actions>
+          <v-spacer />
+          <v-btn variant="text" @click="showComment = false">Fermer</v-btn>
+        </v-card-actions>
+      </v-card>
+    </v-dialog>
   </div>
 </template>
 
@@ -236,8 +287,25 @@ const feedingOptions = ['Aucun', 'Sirop 50/50', 'Sirop 70/30', 'Candi', 'Pâte p
 
 const form = ref({
   queen_seen: null, brood_score: 5, reserves_score: 5,
-  supers_count: 0, feeding: 'Aucun', comment: '', is_alert: false, honey_harvest_kg: null,
+  supers_count: 0, feeding: 'Aucun', comment: '', is_alert: false, honey_harvest_kg: null, pollen_harvest_kg: null,
 })
+
+// Popup « dernier commentaire »
+const showComment = ref(false)
+const loadingComment = ref(false)
+const lastVisit = ref(null)
+
+async function showLastComment() {
+  if (!currentHive.value) return
+  showComment.value = true
+  loadingComment.value = true
+  lastVisit.value = null
+  try {
+    const { data } = await api.get('/apiaries/hives/' + currentHive.value.id + '/last-visit')
+    lastVisit.value = data
+  } catch { lastVisit.value = null }
+  finally { loadingComment.value = false }
+}
 
 const currentHive = computed(() => hives.value[currentIndex.value] || null)
 const progress = computed(() => hives.value.length ? ((currentIndex.value) / hives.value.length) * 100 : 0)
@@ -277,7 +345,7 @@ function toggleDictation() {
 function resetForm() {
   form.value = {
     queen_seen: null, brood_score: 5, reserves_score: 5,
-    supers_count: 0, feeding: 'Aucun', comment: '', is_alert: false, honey_harvest_kg: null,
+    supers_count: 0, feeding: 'Aucun', comment: '', is_alert: false, honey_harvest_kg: null, pollen_harvest_kg: null,
   }
   bodyOpened.value = true
 }
@@ -300,6 +368,7 @@ async function saveAndNext() {
     is_alert: form.value.is_alert,
     alert_message: form.value.is_alert ? (form.value.comment || 'Alerte terrain') : null,
     honey_harvest_kg: form.value.honey_harvest_kg,
+    pollen_harvest_kg: form.value.pollen_harvest_kg,
     is_live_mode: true,
   }
 

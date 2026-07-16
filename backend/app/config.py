@@ -10,7 +10,7 @@ class Settings(BaseSettings):
     redis_url: str = "redis://redis:6379/0"
     secret_key: str = "change-me-in-production"
     algorithm: str = "HS256"
-    access_token_expire_minutes: int = 480
+    access_token_expire_minutes: int = 43200  # 30 jours — évite les déconnexions fréquentes
     first_admin_email: str = "admin@rucher.local"
     first_admin_password: str = "admin1234"
     upload_dir: str = "/app/uploads"
