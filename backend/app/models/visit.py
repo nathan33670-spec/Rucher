@@ -22,6 +22,7 @@ class Visit(Base):
     is_alert = Column(Boolean, default=False)
     alert_message = Column(String(500))
     honey_harvest_kg = Column(Float)
+    pollen_harvest_kg = Column(Float)
     is_live_mode = Column(Boolean, default=False)
     synced = Column(Boolean, default=True)
     created_at = Column(DateTime, default=datetime.utcnow)

@@ -21,6 +21,12 @@ COLUMN_MIGRATIONS = [
         "events",
         "ALTER TABLE notification_prefs ADD COLUMN IF NOT EXISTS events BOOLEAN NOT NULL DEFAULT TRUE",
     ),
+    # Récolte de pollen ajoutée aux visites (comme le miel).
+    (
+        "visits",
+        "pollen_harvest_kg",
+        "ALTER TABLE visits ADD COLUMN IF NOT EXISTS pollen_harvest_kg DOUBLE PRECISION",
+    ),
 ]
 
 

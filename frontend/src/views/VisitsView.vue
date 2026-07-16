@@ -18,6 +18,10 @@
       <template v-slot:item.queen_seen="{ item }">
         {{ item.queen_seen === true ? '✅' : item.queen_seen === false ? '❌' : '—' }}
       </template>
+      <template v-slot:item.comment="{ item }">
+        <span v-if="item.comment" class="comment-cell" :title="item.comment">{{ item.comment }}</span>
+        <span v-else class="text-medium-emphasis">—</span>
+      </template>
       <template v-slot:item.is_alert="{ item }">
         <v-icon v-if="item.is_alert" color="error">mdi-alert</v-icon>
       </template>
@@ -42,7 +46,10 @@
               <v-btn :value="0">= Hausse</v-btn>
               <v-btn :value="1" color="success">+1 Hausse</v-btn>
             </v-btn-toggle>
-            <v-text-field v-model.number="form.honey_harvest_kg" label="Récolte miel (kg)" type="number" density="compact" />
+            <v-row dense>
+              <v-col cols="6"><v-text-field v-model.number="form.honey_harvest_kg" label="Récolte miel (kg)" type="number" density="compact" /></v-col>
+              <v-col cols="6"><v-text-field v-model.number="form.pollen_harvest_kg" label="Récolte pollen (kg)" type="number" density="compact" /></v-col>
+            </v-row>
           </v-card>
 
           <!-- Section Corps -->
@@ -83,7 +90,7 @@ const showForm = ref(false)
 const formEditId = ref(null)
 const form = ref({
   hive_id: null, queen_seen: null, brood_score: 5, reserves_score: 5,
-  supers_delta: 0, feeding: '', comment: '', is_alert: false, alert_message: '', honey_harvest_kg: null,
+  supers_delta: 0, feeding: '', comment: '', is_alert: false, alert_message: '', honey_harvest_kg: null, pollen_harvest_kg: null,
 })
 
 const headers = computed(() => {
@@ -95,6 +102,7 @@ const headers = computed(() => {
     { title: 'Couvain', key: 'brood_score' },
     { title: 'Réserves', key: 'reserves_score' },
     { title: 'Hausses', key: 'supers_delta' },
+    { title: 'Commentaire', key: 'comment', sortable: false },
     { title: 'Alerte', key: 'is_alert' },
   ]
   if (canEdit.value) h.push({ title: 'Actions', key: 'actions', sortable: false })
@@ -122,6 +130,7 @@ function editVisit(v) {
     is_alert: v.is_alert,
     alert_message: v.alert_message || '',
     honey_harvest_kg: v.honey_harvest_kg,
+    pollen_harvest_kg: v.pollen_harvest_kg,
   }
   showForm.value = true
 }
@@ -150,3 +159,15 @@ async function deleteVisit(id) {
 
 onMounted(load)
 </script>
+
+<style scoped>
+.comment-cell {
+  display: inline-block;
+  max-width: 240px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  vertical-align: bottom;
+  cursor: help;
+}
+</style>

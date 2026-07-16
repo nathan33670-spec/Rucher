@@ -18,6 +18,7 @@ class VisitCreate(BaseModel):
     is_alert: bool = False
     alert_message: Optional[str] = None
     honey_harvest_kg: Optional[float] = None
+    pollen_harvest_kg: Optional[float] = None
     is_live_mode: bool = False
 
 class VisitUpdate(BaseModel):
@@ -31,6 +32,7 @@ class VisitUpdate(BaseModel):
     is_alert: Optional[bool] = None
     alert_message: Optional[str] = None
     honey_harvest_kg: Optional[float] = None
+    pollen_harvest_kg: Optional[float] = None
 
 class VisitOut(BaseModel):
     id: int
@@ -47,6 +49,7 @@ class VisitOut(BaseModel):
     is_alert: bool
     alert_message: Optional[str] = None
     honey_harvest_kg: Optional[float] = None
+    pollen_harvest_kg: Optional[float] = None
     is_live_mode: bool
     synced: bool
     created_at: datetime
