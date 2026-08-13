@@ -20,6 +20,7 @@
     <v-row v-else>
       <v-col v-for="apiary in apiaries" :key="apiary.id" cols="12" sm="6" md="4">
         <v-card @click="$router.push({ name: 'apiary-detail', params: { id: apiary.id } })" class="cursor-pointer h-100 d-flex flex-column">
+          <v-img v-if="apiary.photo_url" :src="apiary.photo_url" height="130" cover />
           <v-card-title class="d-flex align-center">
             <v-icon color="primary" class="mr-2">mdi-hexagon-multiple</v-icon>
             <span class="text-truncate">{{ apiary.name }}</span>

@@ -9,9 +9,22 @@
       </v-btn>
     </div>
 
-    <v-card class="mb-4 pa-4" v-if="apiary">
-      <p v-if="apiary.address">📍 {{ apiary.address }}</p>
-      <p v-if="apiary.description">{{ apiary.description }}</p>
+    <v-card class="mb-4" v-if="apiary">
+      <v-img v-if="apiary.photo_url" :src="apiary.photo_url" height="240" cover>
+        <template v-slot:error><div class="d-flex fill-height align-center justify-center text-grey">Photo indisponible</div></template>
+      </v-img>
+      <v-card-text>
+        <p v-if="apiary.address" class="mb-1">📍 {{ apiary.address }}</p>
+        <p v-if="apiary.description" class="mb-0">{{ apiary.description }}</p>
+        <div v-if="canEdit" class="d-flex flex-wrap align-center ga-2 mt-3">
+          <v-file-input v-model="apiaryPhotoFile" accept="image/*" density="compact" hide-details
+            prepend-icon="mdi-camera" :label="apiary.photo_url ? 'Remplacer la photo aérienne' : 'Ajouter une photo aérienne'"
+            style="max-width:340px" :loading="photoUploading" @update:model-value="uploadApiaryPhoto" />
+          <v-btn v-if="apiary.photo_url" size="small" color="error" variant="text" @click="deleteApiaryPhoto">
+            Supprimer la photo
+          </v-btn>
+        </div>
+      </v-card-text>
     </v-card>
 
     <!-- Plan du rucher -->
@@ -338,6 +351,8 @@ const planImageFile = ref(null)
 const planBgImage = ref(localStorage.getItem('planBg_' + (props.id || '')) || null)
 const hiveForm = ref({ name: '', napi_number: '', ownership: 'associative', status: 'active', notes: '', manager_ids: [] })
 const hivePhotoFile = ref(null)
+const apiaryPhotoFile = ref(null)
+const photoUploading = ref(false)
 
 const hiveHeaders = [
   { title: 'Nom', key: 'name' },
@@ -415,6 +430,8 @@ async function load() {
     ])
     apiary.value = apRes.data.find((a) => a.id == apiaryId)
     hives.value = hivesRes.data
+    // La photo serveur du rucher sert de fond de plan (partagée entre appareils).
+    if (apiary.value?.photo_url) planBgImage.value = apiary.value.photo_url
   } catch (e) {
     showError('Erreur de chargement du rucher')
     console.error('Apiary detail load error:', e)
@@ -488,6 +505,64 @@ async function deleteHivePhoto(hiveId) {
     selectedHive.value.photo_url = null
     successMsg.value = 'Photo supprimée'
     successSnack.value = true
+    await load()
+  } catch (e) {
+    showError(e.response?.data?.detail || 'Erreur suppression photo')
+  }
+}
+
+// ─── Photo aérienne du rucher ──────────────────────────
+// Redimensionne/compresse côté client pour un chargement rapide.
+function compressImage(file, maxDim = 1600, quality = 0.82) {
+  return new Promise((resolve) => {
+    const img = new Image()
+    const url = URL.createObjectURL(file)
+    img.onload = () => {
+      URL.revokeObjectURL(url)
+      let { width, height } = img
+      if (Math.max(width, height) > maxDim) {
+        const r = maxDim / Math.max(width, height)
+        width = Math.round(width * r); height = Math.round(height * r)
+      }
+      const canvas = document.createElement('canvas')
+      canvas.width = width; canvas.height = height
+      canvas.getContext('2d').drawImage(img, 0, 0, width, height)
+      canvas.toBlob((blob) => resolve(blob || file), 'image/jpeg', quality)
+    }
+    img.onerror = () => { URL.revokeObjectURL(url); resolve(file) }
+    img.src = url
+  })
+}
+
+async function uploadApiaryPhoto() {
+  if (!apiaryPhotoFile.value) return
+  const file = Array.isArray(apiaryPhotoFile.value) ? apiaryPhotoFile.value[0] : apiaryPhotoFile.value
+  if (!file) return
+  photoUploading.value = true
+  try {
+    const blob = await compressImage(file)
+    const fd = new FormData()
+    fd.append('file', blob, 'rucher.jpg')
+    const res = await api.post(`/apiaries/${apiaryId}/photo`, fd, { headers: { 'Content-Type': 'multipart/form-data' } })
+    if (apiary.value) apiary.value.photo_url = res.data.photo_url
+    planBgImage.value = res.data.photo_url
+    apiaryPhotoFile.value = null
+    showSuccess('Photo du rucher enregistrée')
+    await load()
+  } catch (e) {
+    showError(e.response?.data?.detail || 'Erreur upload photo')
+  } finally {
+    photoUploading.value = false
+  }
+}
+
+async function deleteApiaryPhoto() {
+  if (!(await confirmAction('Supprimer la photo du rucher ?'))) return
+  try {
+    await api.delete(`/apiaries/${apiaryId}/photo`)
+    if (apiary.value) apiary.value.photo_url = null
+    planBgImage.value = localStorage.getItem('planBg_' + apiaryId) || null
+    showSuccess('Photo supprimée')
     await load()
   } catch (e) {
     showError(e.response?.data?.detail || 'Erreur suppression photo')

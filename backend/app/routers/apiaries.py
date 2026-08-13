@@ -28,6 +28,7 @@ async def list_apiaries(db: AsyncSession = Depends(get_db), user: User = Depends
     for a in apiaries:
         data = ApiaryOut.model_validate(a)
         data.hives_count = len(a.hives) if a.hives else 0
+        data.photo_url = f"/uploads/{os.path.basename(a.photo_path)}" if a.photo_path else None
         out.append(data)
     return out
 
@@ -73,6 +74,55 @@ async def delete_apiary(
         raise HTTPException(404, "Rucher introuvable")
     await db.delete(apiary)
     await log_action(db, user.id, "delete", "apiary", apiary_id)
+
+
+@router.post("/{apiary_id}/photo", status_code=201)
+async def upload_apiary_photo(
+    apiary_id: int,
+    file: UploadFile = File(...),
+    db: AsyncSession = Depends(get_db),
+    user: User = Depends(require_roles(RoleEnum.ADMIN, RoleEnum.YARD_MANAGER)),
+):
+    """Photo (aérienne) du rucher — sert aussi de fond au plan des ruches."""
+    apiary = await db.get(Apiary, apiary_id)
+    if not apiary:
+        raise HTTPException(404, "Rucher introuvable")
+
+    upload_dir = get_settings().upload_dir
+    os.makedirs(upload_dir, exist_ok=True)
+    ext = os.path.splitext(file.filename)[1]
+    filename = f"apiary_{apiary_id}_{uuid.uuid4()}{ext}"
+    path = os.path.join(upload_dir, filename)
+    content = await file.read()
+    with open(path, "wb") as f:
+        f.write(content)
+
+    if apiary.photo_path and os.path.exists(apiary.photo_path):
+        try: os.remove(apiary.photo_path)
+        except: pass
+
+    apiary.photo_path = path
+    await log_action(db, user.id, "upload", "apiary_photo", apiary_id)
+    await db.flush()
+    return {"photo_url": f"/uploads/{filename}"}
+
+
+@router.delete("/{apiary_id}/photo", status_code=204)
+async def delete_apiary_photo(
+    apiary_id: int,
+    db: AsyncSession = Depends(get_db),
+    user: User = Depends(require_roles(RoleEnum.ADMIN, RoleEnum.YARD_MANAGER)),
+):
+    apiary = await db.get(Apiary, apiary_id)
+    if not apiary or not apiary.photo_path:
+        raise HTTPException(404, "Photo introuvable")
+    try:
+        if os.path.exists(apiary.photo_path): os.remove(apiary.photo_path)
+    except:
+        pass
+    apiary.photo_path = None
+    await log_action(db, user.id, "delete", "apiary_photo", apiary_id)
+    await db.flush()
 
 
 # ─── Ruches ─────────────────────────────────────────────
