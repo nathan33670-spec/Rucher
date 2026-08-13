@@ -29,38 +29,25 @@
 
     <!-- Plan du rucher -->
     <v-card class="mb-4">
-      <v-card-title>
-        Plan du rucher <span class="text-caption text-grey ml-2">(glissez les ruches pour les placer)</span>
+      <v-card-title class="d-flex align-center">
+        Plan du rucher
         <v-spacer />
-        <v-btn v-if="canEdit" icon size="small" variant="text" @click="showPlanEditor = true" title="Fond du plan">
-          <v-icon>mdi-pencil-ruler</v-icon>
+        <v-btn v-if="canEdit && apiary?.photo_url" size="small" variant="tonal" prepend-icon="mdi-crop" @click="showCrop = true">
+          Recadrer
         </v-btn>
       </v-card-title>
       <v-card-text>
-        <div
-          ref="planContainer"
-          class="plan-container"
-          :style="planBgImage ? { backgroundImage: 'url(' + planBgImage + ')', backgroundSize: 'cover', backgroundPosition: 'center' } : {}"
-          @dragover.prevent
-          @drop="onDrop"
-        >
-          <div
-            v-for="hive in hives" :key="hive.id"
-            class="hive-marker"
-            :style="{ left: (hive.position_x != null ? hive.position_x : 20 + (hive.id * 60) % 500) + 'px', top: (hive.position_y != null ? hive.position_y : 50) + 'px' }"
-            :class="{ 'hive-selected': selectedHive?.id === hive.id, 'hive-alert': hive.status === 'dead' }"
-            :draggable="canEdit ? 'true' : 'false'"
-            @dragstart="onDragStart($event, hive)"
-            @click.stop="selectHive(hive)"
-          >
-            <div class="hive-diamond" :class="{ 'status-active': hive.status === 'active', 'status-dead': hive.status === 'dead', 'ownership-private': hive.ownership === 'private', 'ownership-associative': hive.ownership !== 'private' }">
-              <div class="hive-number">{{ hive.napi_number || ('#' + hive.id) }}</div>
-            </div>
-            <div class="hive-fullname" :title="hive.name || hive.napi_number || ('Ruche #' + hive.id)">
-              {{ hive.name || hive.napi_number || ('Ruche #' + hive.id) }}
-            </div>
-          </div>
-        </div>
+        <ApiaryPlan
+          :photo-url="apiary?.photo_url"
+          :hives="hives"
+          :can-edit="canEdit"
+          :selected-id="selectedHive?.id"
+          @select="selectHive"
+          @move="onMarkerMove"
+        />
+        <p v-if="!apiary?.photo_url" class="text-caption text-medium-emphasis mt-2">
+          Ajoutez une photo aérienne (ci-dessus) : elle servira de fond au plan.
+        </p>
       </v-card-text>
     </v-card>
 
@@ -276,30 +263,8 @@
       </v-card>
     </v-dialog>
 
-    <!-- Dialog plan editor -->
-    <v-dialog v-model="showPlanEditor" max-width="500">
-      <v-card>
-        <v-card-title>Personnaliser le plan</v-card-title>
-        <v-card-text>
-          <p class="text-body-2 mb-3">Ajoutez une photo aérienne ou un schéma en fond du plan du rucher.</p>
-          <v-file-input
-            v-model="planImageFile"
-            label="Image de fond"
-            accept="image/*"
-            prepend-icon="mdi-camera"
-            show-size
-          />
-          <v-btn v-if="planBgImage" color="error" variant="text" size="small" @click="clearPlanBg" class="mt-1">
-            <v-icon class="mr-1">mdi-delete</v-icon> Supprimer le fond
-          </v-btn>
-        </v-card-text>
-        <v-card-actions>
-          <v-spacer />
-          <v-btn @click="showPlanEditor = false">Annuler</v-btn>
-          <v-btn color="primary" @click="applyPlanBg">Appliquer</v-btn>
-        </v-card-actions>
-      </v-card>
-    </v-dialog>
+    <!-- Recadrage de la photo (admin) -->
+    <PhotoFrameDialog v-model="showCrop" :src="apiary?.photo_url" @cropped="onCropped" />
 
     <v-snackbar v-model="errorSnack" color="error" timeout="4000">{{ errorMsg }}</v-snackbar>
     <v-snackbar v-model="successSnack" color="success" timeout="2000">{{ successMsg }}</v-snackbar>
@@ -312,6 +277,8 @@ import { useRoute } from 'vue-router'
 import api from '../services/api'
 import { confirmAction } from '../services/confirm'
 import { useAuthStore } from '../stores/auth'
+import ApiaryPlan from '../components/ApiaryPlan.vue'
+import PhotoFrameDialog from '../components/PhotoFrameDialog.vue'
 
 const props = defineProps({ id: [String, Number] })
 const route = useRoute()
@@ -333,7 +300,6 @@ const errorSnack = ref(false)
 const errorMsg = ref('')
 const successSnack = ref(false)
 const successMsg = ref('')
-const dragHive = ref(null)
 
 // Visit dialog
 const showVisitDialog = ref(false)
@@ -345,10 +311,8 @@ const visitForm = ref({
   supers_count: 0, feeding: 'Aucun', comment: '', is_alert: false,
 })
 
-// Plan editor
-const showPlanEditor = ref(false)
-const planImageFile = ref(null)
-const planBgImage = ref(localStorage.getItem('planBg_' + (props.id || '')) || null)
+// Recadrage photo (admin)
+const showCrop = ref(false)
 const hiveForm = ref({ name: '', napi_number: '', ownership: 'associative', status: 'active', notes: '', manager_ids: [] })
 const hivePhotoFile = ref(null)
 const apiaryPhotoFile = ref(null)
@@ -400,26 +364,15 @@ async function selectHive(hive) {
   }
 }
 
-// Drag & drop sur le plan
-function onDragStart(event, hive) {
-  if (!canEdit.value) { event.preventDefault(); return }
-  dragHive.value = hive
-  event.dataTransfer.effectAllowed = 'move'
-}
-
-async function onDrop(event) {
-  if (!dragHive.value) return
-  const rect = event.currentTarget.getBoundingClientRect()
-  const x = Math.max(0, event.clientX - rect.left - 18)
-  const y = Math.max(0, event.clientY - rect.top - 18)
+// Déplacement d'une ruche sur le plan (positions en %, stables sur tout écran)
+async function onMarkerMove({ id, x, y }) {
   try {
-    await api.put(`/apiaries/hives/${dragHive.value.id}`, { position_x: x, position_y: y })
-    dragHive.value.position_x = x
-    dragHive.value.position_y = y
+    await api.put(`/apiaries/hives/${id}`, { position_x: x, position_y: y })
+    const h = hives.value.find((v) => v.id === id)
+    if (h) { h.position_x = x; h.position_y = y }
   } catch (e) {
     showError('Erreur lors du déplacement')
   }
-  dragHive.value = null
 }
 
 async function load() {
@@ -430,8 +383,6 @@ async function load() {
     ])
     apiary.value = apRes.data.find((a) => a.id == apiaryId)
     hives.value = hivesRes.data
-    // La photo serveur du rucher sert de fond de plan (partagée entre appareils).
-    if (apiary.value?.photo_url) planBgImage.value = apiary.value.photo_url
   } catch (e) {
     showError('Erreur de chargement du rucher')
     console.error('Apiary detail load error:', e)
@@ -534,19 +485,13 @@ function compressImage(file, maxDim = 1600, quality = 0.82) {
   })
 }
 
-async function uploadApiaryPhoto() {
-  if (!apiaryPhotoFile.value) return
-  const file = Array.isArray(apiaryPhotoFile.value) ? apiaryPhotoFile.value[0] : apiaryPhotoFile.value
-  if (!file) return
+async function sendApiaryPhoto(blob) {
   photoUploading.value = true
   try {
-    const blob = await compressImage(file)
     const fd = new FormData()
     fd.append('file', blob, 'rucher.jpg')
     const res = await api.post(`/apiaries/${apiaryId}/photo`, fd, { headers: { 'Content-Type': 'multipart/form-data' } })
     if (apiary.value) apiary.value.photo_url = res.data.photo_url
-    planBgImage.value = res.data.photo_url
-    apiaryPhotoFile.value = null
     showSuccess('Photo du rucher enregistrée')
     await load()
   } catch (e) {
@@ -556,12 +501,25 @@ async function uploadApiaryPhoto() {
   }
 }
 
+async function uploadApiaryPhoto() {
+  if (!apiaryPhotoFile.value) return
+  const file = Array.isArray(apiaryPhotoFile.value) ? apiaryPhotoFile.value[0] : apiaryPhotoFile.value
+  if (!file) return
+  const blob = await compressImage(file)
+  apiaryPhotoFile.value = null
+  await sendApiaryPhoto(blob)
+}
+
+// Recadrage (admin) : le composant renvoie l'image rognée, on la ré-enregistre.
+async function onCropped(blob) {
+  if (blob) await sendApiaryPhoto(blob)
+}
+
 async function deleteApiaryPhoto() {
   if (!(await confirmAction('Supprimer la photo du rucher ?'))) return
   try {
     await api.delete(`/apiaries/${apiaryId}/photo`)
     if (apiary.value) apiary.value.photo_url = null
-    planBgImage.value = localStorage.getItem('planBg_' + apiaryId) || null
     showSuccess('Photo supprimée')
     await load()
   } catch (e) {
@@ -619,25 +577,6 @@ async function saveQuickVisit() {
   } finally {
     visitSaving.value = false
   }
-}
-
-// ─── Plan background ──────────────────────────────────
-function applyPlanBg() {
-  if (planImageFile.value) {
-    const reader = new FileReader()
-    reader.onload = (e) => {
-      planBgImage.value = e.target.result
-      localStorage.setItem('planBg_' + apiaryId, e.target.result)
-      showPlanEditor.value = false
-    }
-    reader.readAsDataURL(planImageFile.value)
-  }
-}
-
-function clearPlanBg() {
-  planBgImage.value = null
-  localStorage.removeItem('planBg_' + apiaryId)
-  planImageFile.value = null
 }
 
 function showSuccess(msg) { successMsg.value = msg; successSnack.value = true }
