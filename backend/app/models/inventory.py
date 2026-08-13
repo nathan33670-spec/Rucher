@@ -24,6 +24,8 @@ class InventoryItem(Base):
     alert_threshold = Column(Integer)
     qr_code = Column(String(500))
     unit_price = Column(Float)
+    # Propriété de l'article : NULL = l'association ; sinon l'utilisateur propriétaire.
+    owner_user_id = Column(Integer, ForeignKey("users.id", ondelete="SET NULL"), nullable=True)
     created_at = Column(DateTime, default=datetime.utcnow)
     updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
     movements = relationship("InventoryMovement", back_populates="item", cascade="all, delete-orphan", lazy="selectin")

@@ -32,6 +32,8 @@ class User(Base):
     last_name = Column(String(100), nullable=False)
     phone = Column(String(20), nullable=True)
     is_active = Column(Boolean, default=True)
+    # Rôle actif par défaut (parmi les rôles autorisés) ; NULL = tous ses rôles.
+    default_role = Column(String(30), nullable=True)
     created_at = Column(DateTime, default=datetime.utcnow)
     updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
 

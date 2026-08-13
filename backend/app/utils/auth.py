@@ -55,12 +55,24 @@ async def get_current_user(
     user = result.scalar_one_or_none()
     if user is None or not user.is_active:
         raise HTTPException(status_code=401, detail="Utilisateur introuvable ou inactif")
+    # Rôle « actif » transporté par le jeton (commutation de rôle à la volée).
+    user.active_role = payload.get("active_role")
     return user
 
 
-def get_user_roles(user: User) -> list[str]:
-    """Retourne la liste des rôles d'un utilisateur."""
+def get_authorized_roles(user: User) -> list[str]:
+    """Tous les rôles réellement attribués à l'utilisateur (par l'admin)."""
     return [r.role.value if hasattr(r.role, 'value') else r.role for r in user.roles]
+
+
+def get_user_roles(user: User) -> list[str]:
+    """Rôles EFFECTIFS pour les permissions : si un rôle actif est sélectionné
+    (et autorisé), les droits sont limités à ce seul rôle ; sinon tous les rôles."""
+    roles = get_authorized_roles(user)
+    active = getattr(user, "active_role", None)
+    if active and active in roles:
+        return [active]
+    return roles
 
 
 def require_roles(*required: RoleEnum):

@@ -58,6 +58,29 @@
         </v-btn>
       </v-badge>
 
+      <!-- Sélecteur de rôle actif (à la volée) — si plusieurs rôles autorisés -->
+      <v-menu location="bottom end" v-if="auth.authorizedRoles.length > 1">
+        <template v-slot:activator="{ props }">
+          <v-chip v-bind="props" class="ml-1" size="small" color="white" variant="outlined" link title="Rôle utilisé">
+            <v-icon size="16" start>{{ roleIcon(currentRole) }}</v-icon>
+            <span class="d-none d-sm-inline">{{ roleLabel(currentRole) }}</span>
+          </v-chip>
+        </template>
+        <v-list density="compact" min-width="240">
+          <v-list-subheader>J'utilise le rôle</v-list-subheader>
+          <v-list-item
+            v-for="r in orderedRoles" :key="r"
+            :prepend-icon="roleIcon(r)" :title="roleLabel(r)"
+            :active="currentRole === r" @click="doSwitchRole(r)"
+          >
+            <template v-slot:append>
+              <v-icon v-if="currentRole === r" size="18" color="primary">mdi-check</v-icon>
+              <v-icon v-else-if="auth.defaultRole === r" size="14" color="amber-darken-2">mdi-star</v-icon>
+            </template>
+          </v-list-item>
+        </v-list>
+      </v-menu>
+
       <!-- Nom cliquable → menu profil / déconnexion -->
       <v-menu location="bottom end">
         <template v-slot:activator="{ props }">
@@ -66,12 +89,27 @@
             <span class="d-none d-sm-inline ml-1">{{ auth.user?.first_name }}</span>
           </v-chip>
         </template>
-        <v-list density="compact" min-width="220">
+        <v-list density="compact" min-width="230">
           <v-list-item
             :title="`${auth.user?.first_name || ''} ${auth.user?.last_name || ''}`.trim() || auth.user?.email"
             :subtitle="auth.user?.email"
             prepend-icon="mdi-account-circle"
           />
+          <template v-if="auth.authorizedRoles.length > 1">
+            <v-divider />
+            <v-list-subheader class="text-caption">Rôle par défaut (à la connexion)</v-list-subheader>
+            <v-list-item
+              v-for="r in orderedRoles" :key="'d' + r"
+              density="compact" @click="doSetDefaultRole(r)"
+            >
+              <template v-slot:prepend>
+                <v-icon size="18" :color="auth.defaultRole === r ? 'amber-darken-2' : 'grey'">
+                  {{ auth.defaultRole === r ? 'mdi-star' : 'mdi-star-outline' }}
+                </v-icon>
+              </template>
+              <v-list-item-title class="text-body-2">{{ roleLabel(r) }}</v-list-item-title>
+            </v-list-item>
+          </template>
           <v-divider />
           <v-list-item
             prepend-icon="mdi-lock-reset"
@@ -287,6 +325,42 @@ const pageTitle = computed(() => {
   }
   return titles[route.name] || 'Rucher Manager'
 })
+
+// ─── Rôles (commutation à la volée + par défaut) ─────────
+const ROLE_LABELS = { admin: 'Administrateur', treasurer: 'Trésorier', yard_manager: 'Responsable rucher', user: 'Usager', readonly: 'Lecture seule' }
+const ROLE_ICONS = { admin: 'mdi-shield-crown', treasurer: 'mdi-cash', yard_manager: 'mdi-hexagon-multiple', user: 'mdi-account', readonly: 'mdi-eye' }
+const ROLE_ORDER = ['admin', 'yard_manager', 'treasurer', 'user', 'readonly']
+function roleLabel(r) { return ROLE_LABELS[r] || r }
+function roleIcon(r) { return ROLE_ICONS[r] || 'mdi-account' }
+const orderedRoles = computed(() => [...auth.authorizedRoles].sort((a, b) => ROLE_ORDER.indexOf(a) - ROLE_ORDER.indexOf(b)))
+const currentRole = computed(() => auth.activeRole || orderedRoles.value[0])
+
+async function doSwitchRole(r) {
+  if (r === currentRole.value) return
+  try {
+    await auth.switchRole(r)
+    syncMsg.value = 'Vous utilisez maintenant : ' + roleLabel(r)
+    // Si la page courante n'est plus autorisée, revenir à l'accueil.
+    if (route.name && !isRouteAllowed(route.name)) router.push({ name: 'dashboard' })
+  } catch {
+    syncMsg.value = 'Changement de rôle impossible'
+  }
+}
+async function doSetDefaultRole(r) {
+  // Re-cliquer sur le rôle par défaut actuel l'annule (→ tous les rôles à la connexion).
+  const target = auth.defaultRole === r ? null : r
+  try {
+    await auth.setDefaultRole(target)
+    syncMsg.value = target
+      ? 'Rôle par défaut : ' + roleLabel(target)
+      : 'Rôle par défaut annulé (tous les rôles)'
+  } catch { syncMsg.value = 'Impossible d\'enregistrer le rôle par défaut' }
+}
+function isRouteAllowed(name) {
+  if (name === 'treasury') return auth.hasRole('treasurer') || auth.isAdmin
+  if (name === 'users') return auth.isAdmin
+  return true
+}
 
 function logout() {
   auth.logout()

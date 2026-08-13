@@ -8,11 +8,20 @@ export const useAuthStore = defineStore('auth', {
   }),
   getters: {
     isAuthenticated: (s) => !!s.token,
-    roles: (s) => s.user?.roles || [],
-    isAdmin: (s) => s.user?.roles?.includes('admin'),
-    isYardManager: (s) => s.user?.roles?.includes('yard_manager'),
-    isTreasurer: (s) => s.user?.roles?.includes('treasurer'),
-    hasRole: (s) => (role) => s.user?.roles?.includes(role) || s.user?.roles?.includes('admin'),
+    // Tous les rôles attribués par l'admin (options du sélecteur).
+    authorizedRoles: (s) => s.user?.roles || [],
+    activeRole: (s) => s.user?.active_role || null,
+    defaultRole: (s) => s.user?.default_role || null,
+    // Rôles EFFECTIFS : limités au rôle actif s'il est sélectionné.
+    roles(s) {
+      const all = s.user?.roles || []
+      const active = s.user?.active_role
+      return active && all.includes(active) ? [active] : all
+    },
+    isAdmin() { return this.roles.includes('admin') },
+    isYardManager() { return this.roles.includes('yard_manager') },
+    isTreasurer() { return this.roles.includes('treasurer') },
+    hasRole() { return (role) => this.roles.includes(role) || this.roles.includes('admin') },
   },
   actions: {
     async login(username, password, remember = true) {
@@ -20,6 +29,19 @@ export const useAuthStore = defineStore('auth', {
       this.token = data.access_token
       localStorage.setItem('token', data.access_token)
       await this.fetchUser()
+    },
+    // Change le rôle actif « à la volée » (nouveau jeton).
+    async switchRole(role) {
+      const { data } = await api.post('/users/switch-role', { role })
+      this.token = data.access_token
+      localStorage.setItem('token', data.access_token)
+      await this.fetchUser()
+    },
+    // Définit le rôle actif par défaut (prochaines connexions).
+    async setDefaultRole(role) {
+      const { data } = await api.put('/users/me/default-role', { role })
+      this.user = data
+      localStorage.setItem('user', JSON.stringify(data))
     },
     async changeMyPassword(currentPassword, newPassword) {
       await api.put('/users/me/password', {

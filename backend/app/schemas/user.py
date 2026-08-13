@@ -30,10 +30,16 @@ class UserOut(BaseModel):
     last_name: str
     phone: Optional[str] = None
     is_active: bool
-    roles: list[str] = []
+    roles: list[str] = []            # rôles autorisés (attribués par l'admin)
+    active_role: Optional[str] = None  # rôle actif courant (None = tous)
+    default_role: Optional[str] = None # rôle actif par défaut
     created_at: datetime
     class Config:
         from_attributes = True
+
+
+class SwitchRoleIn(BaseModel):
+    role: Optional[str] = None   # None = utiliser tous ses rôles
 
 
 class PasswordReset(BaseModel):

@@ -64,6 +64,12 @@
         </v-chip>
         <span v-else class="text-grey">—</span>
       </template>
+      <template v-slot:item.owner="{ item }">
+        <v-chip size="small" variant="tonal" :color="item.owner_user_id ? 'purple' : 'teal'">
+          <v-icon start size="14">{{ item.owner_user_id ? 'mdi-account' : 'mdi-account-group' }}</v-icon>
+          {{ item.owner_name || 'Association' }}
+        </v-chip>
+      </template>
       <template v-slot:item.actions="{ item }">
         <template v-if="canEdit">
           <v-btn icon size="small" color="success" title="Entrée" @click.stop="openMovement(item, 'in')"><v-icon>mdi-plus</v-icon></v-btn>
@@ -132,6 +138,14 @@
             <v-col><v-text-field v-model.number="itemForm.unit_price" label="Prix unitaire (€)" type="number" /></v-col>
             <v-col><v-text-field v-model.number="itemForm.alert_threshold" label="Seuil alerte" type="number" /></v-col>
           </v-row>
+          <v-select
+            v-model="itemForm.owner_user_id"
+            :items="ownerOptions"
+            label="Propriété"
+            prepend-inner-icon="mdi-account-key"
+            hint="Qui possède cet article ?"
+            persistent-hint
+          />
         </v-card-text>
         <v-card-actions>
           <v-spacer />
@@ -240,8 +254,15 @@ const moveNewLocation = ref('')
 const moveQty = ref(1)
 const moveLocationSelect = ref(null)
 
-const defaultItemForm = { name: '', category: '', location: '', quantity: 0, unit: 'unité', unit_price: null, alert_threshold: null }
+const defaultItemForm = { name: '', category: '', location: '', quantity: 0, unit: 'unité', unit_price: null, alert_threshold: null, owner_user_id: null }
 const itemForm = ref({ ...defaultItemForm })
+
+// Utilisateurs (pour le champ « Propriété ») — chargés si l'admin/gestionnaire peut éditer.
+const users = ref([])
+const ownerOptions = computed(() => [
+  { title: "🐝 L'association", value: null },
+  ...users.value.map(u => ({ title: `${u.first_name} ${u.last_name}`.trim(), value: u.id })),
+])
 
 // Listes déroulantes Nom / Catégorie avec option « nouveau libellé »
 const NEW_OPTION = '__new__'
@@ -260,6 +281,7 @@ const headers = computed(() => {
     { title: 'Nom', key: 'name' },
     { title: 'Catégorie', key: 'category' },
     { title: 'Emplacement', key: 'location' },
+    { title: 'Propriété', key: 'owner', sortable: false },
     { title: 'Stock', key: 'quantity' },
     { title: 'Prix unit.', key: 'unit_price' },
   ]
@@ -347,6 +369,13 @@ async function load() {
   } catch (e) {
     showError('Erreur de chargement de l\'inventaire')
     console.error('Inventory load error:', e)
+  }
+  // Liste des utilisateurs pour le champ « Propriété » (admin uniquement).
+  if (auth.isAdmin) {
+    try {
+      const { data } = await api.get('/users/')
+      users.value = data
+    } catch (e) { /* non bloquant */ }
   }
 }
 

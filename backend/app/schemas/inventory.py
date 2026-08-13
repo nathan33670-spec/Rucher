@@ -15,6 +15,7 @@ class ItemCreate(BaseModel):
     unit: str = "unité"
     alert_threshold: Optional[int] = None
     unit_price: Optional[float] = None
+    owner_user_id: Optional[int] = None   # None = l'association
 
 class ItemUpdate(BaseModel):
     name: Optional[str] = None
@@ -23,6 +24,7 @@ class ItemUpdate(BaseModel):
     location: Optional[str] = None
     alert_threshold: Optional[int] = None
     unit_price: Optional[float] = None
+    owner_user_id: Optional[int] = None
 
 class ItemMove(BaseModel):
     """Déplacement d'un article vers un emplacement.
@@ -40,6 +42,8 @@ class ItemOut(BaseModel):
     alert_threshold: Optional[int] = None
     unit_price: Optional[float] = None
     qr_code: Optional[str] = None
+    owner_user_id: Optional[int] = None
+    owner_name: Optional[str] = None      # nom du propriétaire, ou None = l'association
     created_at: datetime
     class Config:
         from_attributes = True
