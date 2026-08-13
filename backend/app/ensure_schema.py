@@ -27,6 +27,12 @@ COLUMN_MIGRATIONS = [
         "pollen_harvest_kg",
         "ALTER TABLE visits ADD COLUMN IF NOT EXISTS pollen_harvest_kg DOUBLE PRECISION",
     ),
+    # Photo (aérienne) du rucher.
+    (
+        "apiaries",
+        "photo_path",
+        "ALTER TABLE apiaries ADD COLUMN IF NOT EXISTS photo_path VARCHAR(500)",
+    ),
 ]
 
 

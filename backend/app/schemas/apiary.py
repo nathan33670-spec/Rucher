@@ -28,6 +28,7 @@ class ApiaryOut(BaseModel):
     description: Optional[str] = None
     created_at: datetime
     hives_count: int = 0
+    photo_url: Optional[str] = None
     class Config:
         from_attributes = True
 

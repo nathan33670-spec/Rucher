@@ -27,6 +27,7 @@ class Apiary(Base):
     latitude = Column(Float)
     longitude = Column(Float)
     description = Column(Text)
+    photo_path = Column(String(500), nullable=True)
     created_at = Column(DateTime, default=datetime.utcnow)
     updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
     hives = relationship("Hive", back_populates="apiary", cascade="all, delete-orphan", lazy="selectin")
