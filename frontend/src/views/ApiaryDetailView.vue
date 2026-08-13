@@ -10,9 +10,6 @@
     </div>
 
     <v-card class="mb-4" v-if="apiary">
-      <v-img v-if="apiary.photo_url" :src="apiary.photo_url" height="240" cover>
-        <template v-slot:error><div class="d-flex fill-height align-center justify-center text-grey">Photo indisponible</div></template>
-      </v-img>
       <v-card-text>
         <p v-if="apiary.address" class="mb-1">📍 {{ apiary.address }}</p>
         <p v-if="apiary.description" class="mb-0">{{ apiary.description }}</p>

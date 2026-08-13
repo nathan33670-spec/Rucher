@@ -1,8 +1,8 @@
 <template>
   <div class="ap-plan">
     <div class="ap-toolbar">
-      <v-btn icon size="x-small" variant="tonal" @click="zoomBy(1.25)" title="Zoomer"><v-icon>mdi-magnify-plus</v-icon></v-btn>
-      <v-btn icon size="x-small" variant="tonal" @click="zoomBy(0.8)" title="Dézoomer"><v-icon>mdi-magnify-minus</v-icon></v-btn>
+      <v-btn icon size="x-small" variant="tonal" @click="zoomBy(1.3)" title="Zoomer"><v-icon>mdi-magnify-plus</v-icon></v-btn>
+      <v-btn icon size="x-small" variant="tonal" @click="zoomBy(0.77)" title="Dézoomer"><v-icon>mdi-magnify-minus</v-icon></v-btn>
       <v-btn icon size="x-small" variant="tonal" @click="fit" title="Voir toute la photo"><v-icon>mdi-fit-to-screen</v-icon></v-btn>
       <span class="text-caption text-medium-emphasis ml-1">{{ Math.round(zoom * 100) }}%</span>
       <v-spacer />
@@ -13,6 +13,7 @@
       ref="vp"
       class="ap-viewport"
       :class="{ grabbing: panning }"
+      :style="{ aspectRatio: String(aspect) }"
       @pointerdown="onDown"
       @pointermove="onMove"
       @pointerup="onUp"
@@ -45,7 +46,7 @@
 </template>
 
 <script setup>
-import { ref, reactive, computed } from 'vue'
+import { ref, reactive, computed, onMounted, onUnmounted, nextTick } from 'vue'
 
 const props = defineProps({
   photoUrl: { type: String, default: null },
@@ -58,8 +59,8 @@ const emit = defineEmits(['select', 'move'])
 const vp = ref(null)
 const zoom = ref(1)
 const pan = reactive({ x: 0, y: 0 })
-const base = reactive({ w: 0, h: 0 })   // taille "fit" de la photo dans le viewport
-const nat = reactive({ w: 0, h: 0 })    // taille naturelle de l'image
+const base = reactive({ w: 0, h: 0 }) // taille de la zone (= viewport, au format de la photo)
+const aspect = ref(3 / 2)             // format de la zone = format de la photo
 
 const stageStyle = computed(() => ({
   width: base.w + 'px',
@@ -67,69 +68,67 @@ const stageStyle = computed(() => ({
   transform: `translate(${pan.x}px, ${pan.y}px) scale(${zoom.value})`,
 }))
 
-function vpSize() {
+function measure() {
   const r = vp.value?.getBoundingClientRect()
-  return { w: r?.width || 0, h: r?.height || 0 }
+  base.w = r?.width || 0
+  base.h = r?.height || 0
+  clampPan()
 }
 
-function computeFit() {
-  const { w: vw, h: vh } = vpSize()
-  if (!vw || !vh || !nat.w || !nat.h) return
-  const s = Math.min(vw / nat.w, vh / nat.h)
-  base.w = nat.w * s
-  base.h = nat.h * s
-  zoom.value = 1
-  pan.x = (vw - base.w) / 2
-  pan.y = (vh - base.h) / 2
+// Contrainte : l'image couvre toujours la zone → impossible de « sortir » de la photo.
+function clampPan() {
+  const iw = base.w * zoom.value, ih = base.h * zoom.value
+  pan.x = Math.min(0, Math.max(base.w - iw, pan.x))
+  pan.y = Math.min(0, Math.max(base.h - ih, pan.y))
 }
 
 function onImgLoad(e) {
-  nat.w = e.target.naturalWidth
-  nat.h = e.target.naturalHeight
-  computeFit()
+  const nw = e.target.naturalWidth, nh = e.target.naturalHeight
+  if (nw && nh) aspect.value = nw / nh
+  // Nouvelle image → on repart de la vue complète (le zoom n'est réinitialisé
+  // QUE lorsque la photo change réellement, pas pendant l'usage).
+  zoom.value = 1; pan.x = 0; pan.y = 0
+  nextTick(measure)
 }
-function fit() { computeFit() }
+function fit() { zoom.value = 1; pan.x = 0; pan.y = 0; measure() }
 
 function zoomBy(f, cx, cy) {
-  const { w: vw, h: vh } = vpSize()
-  cx = cx ?? vw / 2; cy = cy ?? vh / 2
-  const nz = Math.min(6, Math.max(0.5, zoom.value * f))
-  // zoom centré sur (cx,cy)
+  cx = cx ?? base.w / 2; cy = cy ?? base.h / 2
+  const nz = Math.min(6, Math.max(1, zoom.value * f))   // zoom minimum = 1 (jamais plus petit que la zone)
   const sx = (cx - pan.x) / zoom.value
   const sy = (cy - pan.y) / zoom.value
   pan.x = cx - sx * nz
   pan.y = cy - sy * nz
   zoom.value = nz
+  clampPan()
 }
 function onWheel(e) {
   const r = vp.value.getBoundingClientRect()
   zoomBy(e.deltaY < 0 ? 1.12 : 0.89, e.clientX - r.left, e.clientY - r.top)
 }
 
-// ─── Interaction (pan / drag de marqueur) ─────────────────
+// ─── Déplacement (pan) / glisser d'un marqueur ────────────
 const panning = ref(false)
 let dragHive = null
 let last = { x: 0, y: 0 }
-let moved = false
 
 function onDown(e) {
   if (dragHive) return
-  panning.value = true; moved = false
+  panning.value = true
   last = { x: e.clientX, y: e.clientY }
   vp.value.setPointerCapture?.(e.pointerId)
 }
 function onMove(e) {
   if (dragHive) {
     const p = toPercent(e.clientX, e.clientY)
-    dragHive.position_x = p.x
-    dragHive.position_y = p.y
+    dragHive.position_x = p.x; dragHive.position_y = p.y
     return
   }
   if (!panning.value) return
-  const dx = e.clientX - last.x, dy = e.clientY - last.y
-  if (Math.abs(dx) + Math.abs(dy) > 2) moved = true
-  pan.x += dx; pan.y += dy
+  pan.x += e.clientX - last.x
+  pan.y += e.clientY - last.y
   last = { x: e.clientX, y: e.clientY }
+  clampPan()
 }
 function onUp(e) {
   if (dragHive) {
@@ -142,9 +141,8 @@ function onUp(e) {
 
 function toPercent(clientX, clientY) {
   const r = vp.value.getBoundingClientRect()
-  const px = clientX - r.left, py = clientY - r.top
-  const sx = (px - pan.x) / zoom.value
-  const sy = (py - pan.y) / zoom.value
+  const sx = (clientX - r.left - pan.x) / zoom.value
+  const sy = (clientY - r.top - pan.y) / zoom.value
   return {
     x: Math.min(100, Math.max(0, (sx / base.w) * 100)),
     y: Math.min(100, Math.max(0, (sy / base.h) * 100)),
@@ -158,25 +156,19 @@ function onMarkerDown(e, h) {
   vp.value.setPointerCapture?.(e.pointerId)
 }
 
-// ─── Position des marqueurs (en %) ────────────────────────
+// ─── Marqueurs (positions en %) ───────────────────────────
 function pos(h, i) {
-  // position enregistrée (0-100) ; sinon disposition en grille par défaut
   let x = h.position_x, y = h.position_y
-  const legacy = (v) => v != null && v > 100   // anciennes valeurs en pixels
+  const legacy = (v) => v != null && v > 100
   if (x == null || y == null || legacy(x) || legacy(y)) {
     const col = i % 5, row = Math.floor(i / 5)
-    x = 10 + col * 18
-    y = 14 + row * 22
+    x = 10 + col * 18; y = 14 + row * 22
   }
   return { x, y }
 }
 function markerStyle(h, i) {
   const p = pos(h, i)
-  return {
-    left: p.x + '%',
-    top: p.y + '%',
-    zIndex: props.selectedId === h.id ? 5 : 2,
-  }
+  return { left: p.x + '%', top: p.y + '%', zIndex: props.selectedId === h.id ? 5 : 2 }
 }
 function diamondClass(h) {
   return {
@@ -189,6 +181,10 @@ function diamondClass(h) {
 }
 function shortLabel(h) { return h.napi_number || ('#' + h.id) }
 function fullName(h) { return h.name || h.napi_number || ('Ruche #' + h.id) }
+
+const onResize = () => measure()
+onMounted(() => { measure(); window.addEventListener('resize', onResize) })
+onUnmounted(() => window.removeEventListener('resize', onResize))
 </script>
 
 <style scoped>
@@ -197,24 +193,23 @@ function fullName(h) { return h.name || h.napi_number || ('Ruche #' + h.id) }
 .ap-viewport {
   position: relative;
   width: 100%;
-  height: clamp(260px, 52vh, 520px);
   overflow: hidden;
   border-radius: 10px;
   border: 1px solid rgba(0,0,0,0.12);
-  background: #eef1f3;
+  background: #222;
   touch-action: none;
   cursor: grab;
 }
 .ap-viewport.grabbing { cursor: grabbing; }
 .ap-stage { position: absolute; top: 0; left: 0; transform-origin: 0 0; }
-.ap-photo { display: block; width: 100%; height: 100%; -webkit-user-drag: none; user-select: none; }
+.ap-photo { display: block; width: 100%; height: 100%; object-fit: cover; -webkit-user-drag: none; user-select: none; }
 .ap-empty {
-  width: 320px; height: 200px; display: flex; flex-direction: column;
+  width: 100%; height: 100%; min-height: 220px; display: flex; flex-direction: column;
   align-items: center; justify-content: center; color: #9e9e9e;
   background: linear-gradient(135deg, #f5f0e1, #e8dcc8);
 }
 
-.ap-marker { position: absolute; transform: translate(-50%, -50%); cursor: v-bind("canEdit ? 'grab' : 'pointer'"); }
+.ap-marker { position: absolute; transform: translate(-50%, -50%); cursor: v-bind("props.canEdit ? 'grab' : 'pointer'"); }
 .ap-inner { transform-origin: center; text-align: center; }
 .ap-diamond {
   width: 34px; height: 34px; transform: rotate(45deg);
