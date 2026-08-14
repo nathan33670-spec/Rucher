@@ -3,8 +3,8 @@
     <v-btn
       :block="block"
       :size="block ? 'large' : 'small'"
-      :variant="block ? 'flat' : 'text'"
-      :color="block ? 'primary' : undefined"
+      :variant="block ? 'tonal' : 'text'"
+      color="primary"
       prepend-icon="mdi-cellphone-arrow-down"
       @click="onClick"
     >

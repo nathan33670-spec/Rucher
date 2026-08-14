@@ -11,7 +11,7 @@
 
     <v-card class="mb-4" v-if="apiary">
       <v-card-text>
-        <p v-if="apiary.address" class="mb-1">📍 {{ apiary.address }}</p>
+        <p v-if="apiary.address" class="mb-1"><v-icon size="15" class="mr-1">mdi-map-marker</v-icon>{{ apiary.address }}</p>
         <p v-if="apiary.description" class="mb-0">{{ apiary.description }}</p>
         <div v-if="canEdit" class="d-flex flex-wrap align-center ga-2 mt-3">
           <v-file-input v-model="apiaryPhotoFile" accept="image/*" density="compact" hide-details
@@ -57,7 +57,7 @@
           {{ selectedHive.status }}
         </v-chip>
         <v-chip :color="selectedHive.ownership === 'private' ? 'orange' : 'blue'" size="x-small" class="ml-1">
-          {{ selectedHive.ownership === 'private' ? '🏠 Privé' : '🏛️ Asso' }}
+          {{ selectedHive.ownership === 'private' ? 'Privé' : 'Associative' }}
         </v-chip>
         <v-spacer />
         <v-btn size="small" variant="text" @click="selectedHive = null"><v-icon>mdi-close</v-icon></v-btn>
@@ -80,7 +80,7 @@
           <v-progress-circular indeterminate size="24" />
         </div>
         <div v-else-if="lastVisit">
-          <p class="text-caption text-grey mb-2">
+          <p class="text-caption r-muted mb-2">
             Dernière visite le {{ new Date(lastVisit.visited_at).toLocaleDateString('fr-FR') }}
             par {{ lastVisit.author_name }}
           </p>
@@ -121,11 +121,11 @@
           <p v-if="lastVisit.honey_harvest_kg" class="mt-1 text-body-2">
             🏺 Récolte : {{ lastVisit.honey_harvest_kg }} kg
           </p>
-          <v-card v-if="lastVisit.comment" variant="tonal" color="blue-grey" class="mt-2 pa-3">
+          <v-card v-if="lastVisit.comment" variant="tonal" color="secondary" class="mt-2 pa-3">
             <div class="text-body-2"><v-icon size="16" class="mr-1">mdi-comment-text</v-icon>{{ lastVisit.comment }}</div>
           </v-card>
         </div>
-        <div v-else class="text-center text-grey pa-2">
+        <div v-else class="text-center r-muted pa-2">
           Aucune visite enregistrée pour cette ruche
         </div>
       </v-card-text>
@@ -149,20 +149,20 @@
         </div>
         <v-row dense>
           <v-col cols="12" sm="6" v-if="sanitarySummary.last_treatment">
-            <div class="text-caption text-grey">Dernier traitement</div>
+            <div class="text-caption r-muted">Dernier traitement</div>
             <div class="text-body-2 font-weight-bold">{{ sanitarySummary.last_treatment.treatment_type }}</div>
             <div class="text-caption">{{ sanitarySummary.last_treatment.product }} · {{ new Date(sanitarySummary.last_treatment.date).toLocaleDateString('fr-FR') }}</div>
             <div class="text-caption" v-if="sanitarySummary.last_treatment.end_date">→ fin : {{ new Date(sanitarySummary.last_treatment.end_date).toLocaleDateString('fr-FR') }}</div>
           </v-col>
           <v-col cols="12" sm="6" v-if="sanitarySummary.last_varroa">
-            <div class="text-caption text-grey">Dernier comptage varroa</div>
+            <div class="text-caption r-muted">Dernier comptage varroa</div>
             <v-chip :color="sanitarySummary.last_varroa.varroa_count > 3 ? 'error' : sanitarySummary.last_varroa.varroa_count > 1 ? 'warning' : 'success'" size="small" class="mr-1">
               {{ sanitarySummary.last_varroa.varroa_count }} varroas/jour
             </v-chip>
             <span class="text-caption">{{ new Date(sanitarySummary.last_varroa.date).toLocaleDateString('fr-FR') }}</span>
           </v-col>
           <v-col cols="12" v-if="!sanitarySummary.last_treatment && !sanitarySummary.last_varroa">
-            <div class="text-caption text-grey text-center">Aucun suivi sanitaire enregistré</div>
+            <div class="text-caption r-muted text-center">Aucun suivi sanitaire enregistré</div>
           </v-col>
         </v-row>
       </v-card>
@@ -180,7 +180,7 @@
         <v-chip v-for="m in item.managers" :key="m.id" size="x-small" class="mr-1">{{ m.name }}</v-chip>
       </template>
       <template v-slot:item.actions="{ item }">
-        <v-btn icon size="small" @click.stop="editHive(item)"><v-icon>mdi-pencil</v-icon></v-btn>
+        <v-btn icon size="small" variant="text" @click.stop="editHive(item)"><v-icon>mdi-pencil</v-icon></v-btn>
         <v-btn v-if="auth.isAdmin" icon size="small" @click.stop="deleteHive(item.id)"><v-icon color="error">mdi-delete</v-icon></v-btn>
       </template>
     </v-data-table>
@@ -193,8 +193,8 @@
           <v-text-field v-model="hiveForm.name" label="Nom" />
           <v-text-field v-model="hiveForm.napi_number" label="N° NAPI" />
           <v-btn-toggle v-model="hiveForm.ownership" mandatory class="mb-3 d-flex">
-            <v-btn value="associative" color="blue" class="flex-grow-1">🏛️ Associatif</v-btn>
-            <v-btn value="private" color="orange" class="flex-grow-1">🏠 Privé</v-btn>
+            <v-btn value="associative" color="info" class="flex-grow-1" prepend-icon="mdi-account-group">Associatif</v-btn>
+            <v-btn value="private" color="accent" class="flex-grow-1" prepend-icon="mdi-home">Privé</v-btn>
           </v-btn-toggle>
           <v-select v-model="hiveForm.status" :items="['active', 'inactive', 'dead']" label="Statut" />
           <v-select v-model="hiveForm.manager_ids" :items="allUsers" item-title="label" item-value="id" label="Responsables" multiple chips />
@@ -219,7 +219,7 @@
           <!-- Hausses -->
           <v-card variant="outlined" class="mb-3 pa-3">
             <div class="text-subtitle-2 font-weight-bold mb-2">
-              <v-icon class="mr-1" color="amber-darken-3">mdi-beehive-outline</v-icon> Hausses
+              <v-icon class="mr-1" color="primary">mdi-beehive-outline</v-icon> Hausses
             </div>
             <div class="d-flex align-center justify-center ga-3">
               <v-btn icon color="error" @click="visitForm.supers_count = Math.max(0, visitForm.supers_count - 1)"><v-icon>mdi-minus</v-icon></v-btn>
@@ -241,7 +241,7 @@
               </v-btn-toggle>
             </div>
             <template v-if="visitBodyOpened">
-              <v-slider v-model="visitForm.brood_score" :min="0" :max="9" :step="1" label="Couvain" thumb-label color="amber" class="mb-1" />
+              <v-slider v-model="visitForm.brood_score" :min="0" :max="9" :step="1" label="Couvain" thumb-label color="primary" class="mb-1" />
               <v-slider v-model="visitForm.reserves_score" :min="0" :max="9" :step="1" label="Réserves" thumb-label color="deep-orange" />
             </template>
             <v-chip v-else color="grey" variant="tonal" class="mt-1">N/A — corps non ouvert</v-chip>
@@ -565,7 +565,7 @@ async function saveQuickVisit() {
       is_live_mode: false,
     })
     showVisitDialog.value = false
-    successMsg.value = '✅ Visite enregistrée'
+    successMsg.value = 'Visite enregistrée'
     successSnack.value = true
     // Recharger le détail de la ruche
     await selectHive(visitHive.value)

@@ -7,7 +7,7 @@
       </v-app-bar-title>
       <v-spacer />
       <v-btn variant="text" class="text-none d-none d-sm-flex" :to="{ name: 'vitrine-home' }" prepend-icon="mdi-home">Accueil</v-btn>
-      <v-btn variant="flat" color="amber-darken-3" class="text-none" :to="appTarget" prepend-icon="mdi-login">
+      <v-btn variant="flat" color="primary" :to="appTarget" prepend-icon="mdi-login">
         {{ isAuth ? "Ouvrir l'app" : 'Se connecter' }}
       </v-btn>
     </v-app-bar>

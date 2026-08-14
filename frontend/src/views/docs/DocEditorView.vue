@@ -3,7 +3,7 @@
     <div class="d-flex align-center mb-4">
       <h1 class="text-h5 font-weight-bold">{{ editing ? 'Modifier la page' : 'Nouvelle page' }}</h1>
       <v-spacer />
-      <v-btn variant="text" class="text-none" :to="{ name: 'docs-home' }">Annuler</v-btn>
+      <v-btn variant="text" :to="{ name: 'docs-home' }">Annuler</v-btn>
     </div>
 
     <v-alert v-if="!isAdmin" type="error" variant="tonal">Réservé aux administrateurs.</v-alert>

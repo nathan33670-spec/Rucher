@@ -10,8 +10,8 @@
     <!-- Filtre Associatif / Privé -->
     <v-tabs v-model="ownershipTab" class="mb-4" color="primary">
       <v-tab value="">Tout</v-tab>
-      <v-tab value="associative">🏛️ Associatif</v-tab>
-      <v-tab value="private">🏠 Privé</v-tab>
+      <v-tab value="associative" prepend-icon="mdi-account-group">Associatif</v-tab>
+      <v-tab value="private" prepend-icon="mdi-home">Privé</v-tab>
     </v-tabs>
 
     <!-- Filtre utilisateur (admins uniquement, onglet privé) -->
@@ -40,17 +40,17 @@
       <v-card-text>
         <v-row v-if="honeyByCategory.length" dense>
           <v-col v-for="hc in honeyByCategory" :key="hc.category" cols="6" sm="3">
-            <v-card variant="tonal" color="amber" class="text-center pa-2">
+            <v-card variant="tonal" color="primary" class="text-center pa-2">
               <div class="text-h6 font-weight-bold">{{ hc.total_kg.toFixed(1) }} kg</div>
               <div class="text-caption font-weight-medium">{{ hc.category }}</div>
-              <div class="text-caption text-grey">mis en pot : {{ hc.jarred_kg.toFixed(1) }} kg</div>
-              <div class="text-caption" :class="hc.remaining_kg > 0 ? 'text-success' : 'text-grey'">
+              <div class="text-caption r-muted">mis en pot : {{ hc.jarred_kg.toFixed(1) }} kg</div>
+              <div class="text-caption" :class="hc.remaining_kg > 0 ? 'text-success' : 'r-muted'">
                 reste : {{ hc.remaining_kg.toFixed(1) }} kg
               </div>
             </v-card>
           </v-col>
         </v-row>
-        <p v-else class="text-grey text-center">Aucune récolte enregistrée</p>
+        <p v-else class="r-muted text-center">Aucune récolte enregistrée</p>
       </v-card-text>
     </v-card>
 
@@ -67,11 +67,11 @@
             <v-card variant="tonal" :color="js.ownership === 'associative' ? 'blue' : 'orange'" class="text-center pa-2">
               <div class="text-h6 font-weight-bold">{{ js.stock }}</div>
               <div class="text-caption">Pot {{ js.jar_weight_g }}g</div>
-              <div class="text-caption text-grey">{{ js.ownership === 'associative' ? '🏛️' : '🏠' }} · vendus: {{ js.sold }}</div>
+              <div class="text-caption r-muted">{{ js.ownership === 'associative' ? 'Associatif' : 'Privé' }} · vendus : {{ js.sold }}</div>
             </v-card>
           </v-col>
         </v-row>
-        <p v-else class="text-grey text-center">Aucun pot en stock</p>
+        <p v-else class="r-muted text-center">Aucun pot en stock</p>
       </v-card-text>
     </v-card>
 
@@ -84,12 +84,12 @@
       </v-card-title>
       <v-data-table v-if="sales.length" :headers="saleHeaders" :items="sales" density="compact">
         <template v-slot:item.sold_at="{ item }">{{ new Date(item.sold_at).toLocaleDateString('fr-FR') }}</template>
-        <template v-slot:item.total_amount="{ item }"><v-chip color="success" size="small">{{ item.total_amount.toFixed(2) }} €</v-chip></template>
+        <template v-slot:item.total_amount="{ item }"><v-chip color="success" size="small">{{ money(item.total_amount) }}</v-chip></template>
         <template v-slot:item.ownership="{ item }">
           <v-chip :color="item.ownership === 'associative' ? 'blue' : 'orange'" size="x-small">{{ item.ownership === 'associative' ? 'Asso' : 'Privé' }}</v-chip>
         </template>
       </v-data-table>
-      <v-card-text v-else><p class="text-grey text-center">Aucune vente enregistrée</p></v-card-text>
+      <v-card-text v-else><p class="r-muted text-center">Aucune vente enregistrée</p></v-card-text>
     </v-card>
 
     <!-- Tableau des récoltes -->
@@ -97,17 +97,17 @@
       <v-card-title class="text-subtitle-1">Récoltes</v-card-title>
       <v-data-table :headers="headers" :items="harvests" density="compact">
         <template v-slot:item.harvest_date="{ item }">{{ new Date(item.harvest_date).toLocaleDateString('fr-FR') }}</template>
-        <template v-slot:item.quantity_kg="{ item }"><v-chip color="amber" size="small">{{ item.quantity_kg }} kg</v-chip></template>
+        <template v-slot:item.quantity_kg="{ item }"><v-chip color="primary" size="small" variant="tonal">{{ item.quantity_kg }} kg</v-chip></template>
         <template v-slot:item.ownership="{ item }">
           <v-chip :color="item.ownership === 'associative' ? 'blue' : 'orange'" size="x-small">{{ item.ownership === 'associative' ? 'Asso' : 'Privé' }}</v-chip>
         </template>
         <template v-slot:item.category_name="{ item }">{{ item.category_name || '—' }}</template>
         <template v-slot:item.jars="{ item }">
           <span v-if="item.jars?.length">{{ item.jars.map(j => j.quantity + 'x' + j.jar_weight_g + 'g').join(', ') }}</span>
-          <span v-else class="text-grey">—</span>
+          <span v-else class="r-muted">—</span>
         </template>
         <template v-slot:item.actions="{ item }">
-          <v-btn icon size="small" @click="editHarvest(item)"><v-icon>mdi-pencil</v-icon></v-btn>
+          <v-btn icon size="small" variant="text" @click="editHarvest(item)"><v-icon>mdi-pencil</v-icon></v-btn>
           <v-btn v-if="auth.isAdmin" icon size="small" @click="deleteHarvest(item.id)"><v-icon color="error">mdi-delete</v-icon></v-btn>
         </template>
       </v-data-table>
@@ -131,8 +131,8 @@
         <v-card-title>{{ editId ? 'Modifier' : 'Nouvelle' }} récolte</v-card-title>
         <v-card-text>
           <v-btn-toggle v-model="form.ownership" mandatory class="mb-3 d-flex">
-            <v-btn value="associative" color="blue" class="flex-grow-1" :disabled="!canManageAsso">🏛️ Associatif</v-btn>
-            <v-btn value="private" color="orange" class="flex-grow-1">🏠 Privé</v-btn>
+            <v-btn value="associative" color="info" class="flex-grow-1" :disabled="!canManageAsso" prepend-icon="mdi-account-group">Associatif</v-btn>
+            <v-btn value="private" color="accent" class="flex-grow-1" prepend-icon="mdi-home">Privé</v-btn>
           </v-btn-toggle>
           <v-select v-model="form.category_id" :items="categories" item-title="name" item-value="id" label="Catégorie de miel" clearable />
           <v-select v-model="form.apiary_id" :items="apiaries" item-title="name" item-value="id" label="Rucher" clearable />
@@ -158,8 +158,8 @@
         <v-card-text>
           <v-select v-model="jarForm.harvest_id" :items="harvests" :item-title="h => new Date(h.harvest_date).toLocaleDateString('fr-FR') + ' — ' + h.quantity_kg + 'kg ' + (h.category_name || '')" item-value="id" label="Récolte source" />
           <v-btn-toggle v-model="jarForm.ownership" mandatory class="mb-3 d-flex">
-            <v-btn value="associative" color="blue" class="flex-grow-1" :disabled="!canManageAsso">🏛️ Asso</v-btn>
-            <v-btn value="private" color="orange" class="flex-grow-1">🏠 Privé</v-btn>
+            <v-btn value="associative" color="info" class="flex-grow-1" :disabled="!canManageAsso" prepend-icon="mdi-account-group">Asso</v-btn>
+            <v-btn value="private" color="accent" class="flex-grow-1" prepend-icon="mdi-home">Privé</v-btn>
           </v-btn-toggle>
           <v-select v-model="jarForm.jar_weight_g" :items="jarSizes" label="Format du pot" />
           <v-text-field v-model.number="jarForm.quantity" label="Nombre de pots" type="number" min="1" />
@@ -197,6 +197,7 @@
 <script setup>
 import { ref, computed, watch, onMounted } from 'vue'
 import api from '../services/api'
+import { money } from '../services/format'
 import { confirmAction } from '../services/confirm'
 import { useAuthStore } from '../stores/auth'
 

@@ -23,6 +23,9 @@ class Visit(Base):
     alert_message = Column(String(500))
     honey_harvest_kg = Column(Float)
     pollen_harvest_kg = Column(Float)
+    # Traitement appliqué pendant la visite (alimente aussi le registre sanitaire).
+    treatment_type = Column(String(200))
+    treatment_product = Column(String(200))
     is_live_mode = Column(Boolean, default=False)
     synced = Column(Boolean, default=True)
     created_at = Column(DateTime, default=datetime.utcnow)

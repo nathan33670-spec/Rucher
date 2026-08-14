@@ -49,7 +49,7 @@
         </v-list>
       </v-card>
 
-      <v-btn v-if="active" variant="tonal" color="primary" class="text-none" prepend-icon="mdi-bell-check"
+      <v-btn v-if="active" variant="tonal" color="primary" prepend-icon="mdi-bell-check"
         :loading="testing" @click="test">
         Envoyer une notification de test
       </v-btn>

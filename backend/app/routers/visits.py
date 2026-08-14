@@ -8,6 +8,7 @@ from sqlalchemy import select, desc, func
 from app.database import get_db
 from app.models.visit import Visit
 from app.models.apiary import Hive
+from app.models.sanitary import SanitaryRecord
 from app.models.user import User, RoleEnum
 from app.schemas.visit import VisitCreate, VisitUpdate, VisitOut
 from app.utils.auth import get_current_user, get_user_roles
@@ -19,6 +20,26 @@ def _hive_label(hive: Hive) -> str:
     if not hive:
         return "Ruche"
     return hive.name or hive.napi_number or f"Ruche #{hive.id}"
+
+
+def _record_treatment(db: AsyncSession, visit: Visit, user: User) -> None:
+    """Reporte le traitement saisi sur le terrain dans le registre sanitaire.
+
+    Le traitement reste stocké sur la visite (historique de la ruche) mais il
+    doit aussi apparaître dans le suivi sanitaire, qui fait office de registre
+    réglementaire. Appelé uniquement à la création d'une visite.
+    """
+    if not visit.treatment_type:
+        return
+    db.add(SanitaryRecord(
+        hive_id=visit.hive_id,
+        record_type="treatment",
+        treatment_type=visit.treatment_type,
+        product=visit.treatment_product,
+        application_date=visit.visited_at.date(),
+        notes="Saisi lors d'une visite de ruche",
+        performed_by=user.id,
+    ))
 
 router = APIRouter(prefix="/api/visits", tags=["visits"])
 
@@ -82,6 +103,7 @@ async def create_visit(
     db.add(visit)
     await db.flush()
     await log_action(db, user.id, "create", "visit", visit.id)
+    _record_treatment(db, visit, user)
 
     # Notifications push (aux abonnés ayant activé la catégorie)
     label = _hive_label(hive)
@@ -117,6 +139,7 @@ async def sync_visits(
         )
         db.add(visit)
         await db.flush()
+        _record_treatment(db, visit, user)
         out.append(_visit_out(visit, user, hive))
     if out:
         notify("visits", "🐝 Visites synchronisées",
@@ -182,6 +205,7 @@ def _visit_out(v: Visit, author: User = None, hive: Hive = None) -> VisitOut:
         comment=v.comment, is_alert=v.is_alert,
         alert_message=v.alert_message, honey_harvest_kg=v.honey_harvest_kg,
         pollen_harvest_kg=v.pollen_harvest_kg,
+        treatment_type=v.treatment_type, treatment_product=v.treatment_product,
         is_live_mode=v.is_live_mode, synced=v.synced,
         created_at=v.created_at,
         author_name=f"{author.first_name} {author.last_name}" if author else None,

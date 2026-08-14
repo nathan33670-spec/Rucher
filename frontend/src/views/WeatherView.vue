@@ -11,6 +11,30 @@
 
     <v-alert v-if="error" type="error" density="compact" class="mb-4">{{ error }}</v-alert>
 
+    <!-- Rappel des critères en vigueur (+ réglage pour l'administrateur).
+         Volontairement hors du bloc de prévisions : l'administrateur doit
+         pouvoir régler les critères même si le service météo est injoignable. -->
+    <v-card class="mb-4 pa-3 criteria-bar" :elevation="0">
+      <div class="d-flex align-center ga-2 flex-wrap">
+        <v-icon size="16" color="primary">mdi-tune-variant</v-icon>
+        <span class="text-caption">
+          <b>Créneau idéal</b> : {{ criteria.ideal.hour_start }}h–{{ criteria.ideal.hour_end }}h,
+          {{ criteria.ideal.temp_min }}–{{ criteria.ideal.temp_max }}°C,
+          pluie &lt; {{ criteria.ideal.rain_max }}%, vent &lt; {{ criteria.ideal.wind_max }} km/h,
+          au moins {{ criteria.ideal.min_hours }} h dans la journée
+        </span>
+        <v-spacer />
+        <v-btn
+          v-if="auth.isAdmin"
+          size="small" variant="tonal" color="primary"
+          prepend-icon="mdi-cog-outline"
+          @click="openCriteria"
+        >
+          Régler les critères
+        </v-btn>
+      </div>
+    </v-card>
+
     <template v-if="current">
       <!-- Conditions actuelles -->
       <v-card class="mb-4 pa-4 current-card" flat>
@@ -34,35 +58,58 @@
         <v-icon color="primary" class="mr-2">mdi-calendar-week</v-icon>
         <span class="text-subtitle-1 font-weight-bold">Meilleurs créneaux de visite (7 jours)</span>
       </div>
-      <p class="text-caption text-medium-emphasis mb-3">
+      <p class="text-caption r-muted mb-3">
         Touchez <v-icon size="14">mdi-calendar-plus</v-icon> pour planifier une visite un jour donné.
         Vos jours planifiés sont enregistrés et modifiables à tout moment.
       </p>
 
-      <v-card v-for="d in days" :key="d.iso" class="mb-2" :color="planned.has(d.iso) ? 'blue-lighten-5' : undefined"
-        variant="outlined" border>
+      <v-card
+        v-for="d in days" :key="d.iso"
+        class="mb-2 day-card"
+        :class="{ 'day-card--planned': planned.has(d.iso) }"
+      >
         <div class="d-flex align-center pa-3 ga-3 flex-wrap">
           <div class="text-h5">{{ wmo(d.code).emoji }}</div>
-          <div style="min-width: 120px;">
+          <div style="min-width: 128px;">
             <div class="font-weight-bold text-capitalize">{{ d.label }}</div>
-            <div class="text-caption text-medium-emphasis">{{ d.tmin }}–{{ d.tmax }}°C</div>
+            <div class="text-caption r-muted">{{ d.tmin }}–{{ d.tmax }}°C</div>
           </div>
           <v-chip :color="d.color" size="small" variant="flat" class="text-white">{{ d.verdict }}</v-chip>
-          <div class="text-body-2 text-medium-emphasis flex-grow-1">
-            <template v-if="d.window">🕒 Créneau : <b>{{ d.window }}</b></template>
-            <template v-else>Pas de créneau idéal</template>
-            <span class="ml-2">💧 {{ d.maxRain }}% · 💨 {{ d.maxWind }} km/h</span>
+          <div class="text-caption r-muted flex-grow-1">
+            <v-icon size="13">mdi-weather-rainy</v-icon> {{ d.maxRain }}%
+            <v-icon size="13" class="ml-2">mdi-weather-windy</v-icon> {{ d.maxWind }} km/h
           </div>
           <v-btn
-            :color="planned.has(d.iso) ? 'primary' : 'grey'"
+            :color="planned.has(d.iso) ? 'primary' : undefined"
             :variant="planned.has(d.iso) ? 'flat' : 'tonal'"
             size="small"
-            class="text-none"
             :prepend-icon="planned.has(d.iso) ? 'mdi-calendar-check' : 'mdi-calendar-plus'"
             @click="togglePlan(d.iso)"
           >
             {{ planned.has(d.iso) ? 'Planifiée' : 'Planifier' }}
           </v-btn>
+        </div>
+
+        <!-- Heures idéales : toutes les plages de la journée, pas seulement la première -->
+        <v-divider />
+        <div class="px-3 py-2 d-flex align-center ga-2 flex-wrap">
+          <span class="text-caption font-weight-bold r-muted">
+            <v-icon size="14">mdi-clock-outline</v-icon>
+            Heures idéales
+          </span>
+          <template v-if="d.windows.length">
+            <v-chip
+              v-for="w in d.windows" :key="w.start"
+              size="small" color="success" variant="tonal"
+            >
+              {{ w.label }}
+              <span class="ml-1 font-weight-regular">· {{ w.temp }}°C</span>
+            </v-chip>
+            <span class="text-caption r-muted">
+              ({{ d.idealCount }} h au total)
+            </span>
+          </template>
+          <span v-else class="text-caption r-muted">Aucune heure ne remplit les critères</span>
         </div>
       </v-card>
 
@@ -94,12 +141,90 @@
     <div v-else-if="loading" class="text-center pa-8">
       <v-progress-circular indeterminate color="primary" />
     </div>
+
+    <!-- Réglage des critères — administrateur uniquement -->
+    <v-dialog v-model="showCriteria" max-width="560">
+      <v-card>
+        <v-card-title class="d-flex align-center">
+          <v-icon class="mr-2" color="primary">mdi-tune-variant</v-icon>
+          Critères de créneau
+        </v-card-title>
+        <v-card-text>
+          <p class="text-body-2 r-muted mb-4">
+            Ces critères déterminent si une journée est classée <b>Idéale</b>, <b>Correcte</b>
+            ou <b>Déconseillée</b>, et quelles heures sont proposées pour la visite.
+          </p>
+
+          <div class="text-subtitle-2 font-weight-bold mb-2">
+            <v-chip size="small" color="success" variant="tonal" class="mr-2">Idéal</v-chip>
+            Conditions d'ouverture des ruches
+          </div>
+          <v-row dense>
+            <v-col cols="6">
+              <v-text-field v-model.number="criteriaForm.ideal.hour_start" label="Heure de début" type="number" min="0" max="23" suffix="h" density="compact" />
+            </v-col>
+            <v-col cols="6">
+              <v-text-field v-model.number="criteriaForm.ideal.hour_end" label="Heure de fin" type="number" min="0" max="23" suffix="h" density="compact" />
+            </v-col>
+            <v-col cols="6">
+              <v-text-field v-model.number="criteriaForm.ideal.temp_min" label="Température mini" type="number" suffix="°C" density="compact" />
+            </v-col>
+            <v-col cols="6">
+              <v-text-field v-model.number="criteriaForm.ideal.temp_max" label="Température maxi" type="number" suffix="°C" density="compact" />
+            </v-col>
+            <v-col cols="6">
+              <v-text-field v-model.number="criteriaForm.ideal.rain_max" label="Pluie maxi" type="number" min="0" max="100" suffix="%" density="compact" />
+            </v-col>
+            <v-col cols="6">
+              <v-text-field v-model.number="criteriaForm.ideal.wind_max" label="Vent maxi" type="number" min="0" suffix="km/h" density="compact" />
+            </v-col>
+            <v-col cols="12">
+              <v-text-field
+                v-model.number="criteriaForm.ideal.min_hours"
+                label="Heures idéales requises pour classer la journée « Idéale »"
+                type="number" min="1" max="12" suffix="h" density="compact"
+              />
+            </v-col>
+          </v-row>
+
+          <v-divider class="my-3" />
+
+          <div class="text-subtitle-2 font-weight-bold mb-2">
+            <v-chip size="small" color="warning" variant="tonal" class="mr-2">Correct</v-chip>
+            Journée acceptable à défaut d'idéale
+          </div>
+          <v-row dense>
+            <v-col cols="4">
+              <v-text-field v-model.number="criteriaForm.ok.temp_min" label="Temp. maxi ≥" type="number" suffix="°C" density="compact" />
+            </v-col>
+            <v-col cols="4">
+              <v-text-field v-model.number="criteriaForm.ok.rain_max" label="Pluie &lt;" type="number" min="0" max="100" suffix="%" density="compact" />
+            </v-col>
+            <v-col cols="4">
+              <v-text-field v-model.number="criteriaForm.ok.wind_max" label="Vent &lt;" type="number" min="0" suffix="km/h" density="compact" />
+            </v-col>
+          </v-row>
+          <p class="text-caption r-muted mt-2">
+            En dehors de ces conditions, la journée est classée « Déconseillée ».
+          </p>
+        </v-card-text>
+        <v-card-actions>
+          <v-btn variant="text" :loading="savingCriteria" @click="resetCriteria">Valeurs par défaut</v-btn>
+          <v-spacer />
+          <v-btn @click="showCriteria = false">Annuler</v-btn>
+          <v-btn color="primary" :loading="savingCriteria" @click="saveCriteria">Enregistrer</v-btn>
+        </v-card-actions>
+      </v-card>
+    </v-dialog>
+
+    <v-snackbar v-model="showCriteriaMsg" color="success" timeout="2500">{{ criteriaMsg }}</v-snackbar>
   </div>
 </template>
 
 <script setup>
 import { ref, computed, reactive, onMounted } from 'vue'
 import api from '../services/api'
+import { useAuthStore } from '../stores/auth'
 
 // Bois-d'Arcy (78)
 const LAT = 48.80
@@ -109,12 +234,69 @@ const API = `https://api.open-meteo.com/v1/forecast?latitude=${LAT}&longitude=${
   + `&current=temperature_2m,relative_humidity_2m,apparent_temperature,precipitation,weather_code,wind_speed_10m`
   + `&hourly=temperature_2m,relative_humidity_2m,precipitation_probability,wind_speed_10m,weather_code`
 
+const auth = useAuthStore()
 const loading = ref(false)
 const error = ref('')
 const current = ref(null)
 const hourly = ref([])
 const plans = ref([])                 // visites planifiées (backend)
 const planned = reactive(new Set())   // ensemble des dates ISO planifiées
+
+// ─── Critères « idéal / correct » (réglables par l'administrateur) ───
+const DEFAULT_CRITERIA = {
+  ideal: { hour_start: 10, hour_end: 18, temp_min: 15, temp_max: 30, rain_max: 30, wind_max: 25, min_hours: 2 },
+  ok: { temp_min: 12, rain_max: 50, wind_max: 35 },
+}
+// Copie profonde d'un objet de données simple. `structuredClone` échouerait :
+// une valeur portée par un `ref` est un proxy réactif, non clonable.
+function clone(o) { return JSON.parse(JSON.stringify(o)) }
+
+const criteria = ref(clone(DEFAULT_CRITERIA))
+const showCriteria = ref(false)
+const criteriaForm = ref(clone(DEFAULT_CRITERIA))
+const savingCriteria = ref(false)
+const criteriaMsg = ref('')
+const showCriteriaMsg = computed({
+  get: () => !!criteriaMsg.value,
+  set: (v) => { if (!v) criteriaMsg.value = '' },
+})
+
+async function loadCriteria() {
+  try {
+    const { data } = await api.get('/settings/weather')
+    criteria.value = data
+  } catch { /* valeurs par défaut conservées */ }
+}
+
+function openCriteria() {
+  criteriaForm.value = clone(criteria.value)
+  showCriteria.value = true
+}
+
+async function saveCriteria() {
+  savingCriteria.value = true
+  try {
+    const { data } = await api.put('/settings/weather', criteriaForm.value)
+    criteria.value = data
+    showCriteria.value = false
+    criteriaMsg.value = 'Critères enregistrés'
+  } catch (e) {
+    criteriaMsg.value = e.response?.data?.detail || "Impossible d'enregistrer les critères"
+  } finally {
+    savingCriteria.value = false
+  }
+}
+
+async function resetCriteria() {
+  savingCriteria.value = true
+  try {
+    const { data } = await api.delete('/settings/weather')
+    criteria.value = data
+    criteriaForm.value = clone(data)
+    criteriaMsg.value = 'Critères par défaut rétablis'
+  } catch { criteriaMsg.value = 'Échec de la réinitialisation' }
+  finally { savingCriteria.value = false }
+}
 
 function wmo(code) {
   const m = {
@@ -132,8 +314,28 @@ function wmo(code) {
 
 function hourOf(t) { return new Date(t).getHours() }
 
-// Regroupe les prévisions horaires par jour et calcule le meilleur créneau
+// Regroupe des heures consécutives en plages lisibles : 10,11,12,15,16 → « 10h–13h », « 15h–17h »
+function groupRanges(hours) {
+  const ranges = []
+  for (const h of hours) {
+    const hr = hourOf(h.time)
+    const last = ranges[ranges.length - 1]
+    if (last && hr === last.end) last.end = hr + 1
+    else ranges.push({ start: hr, end: hr + 1, hours: [] })
+    ranges[ranges.length - 1].hours.push(h)
+  }
+  return ranges.map((r) => ({
+    ...r,
+    label: `${r.start}h–${r.end}h`,
+    // Température moyenne de la plage, pour aider au choix.
+    temp: Math.round(r.hours.reduce((s, h) => s + h.temp, 0) / r.hours.length),
+  }))
+}
+
+// Regroupe les prévisions horaires par jour et calcule les créneaux idéaux
+// selon les critères réglés par l'administrateur.
 const days = computed(() => {
+  const C = criteria.value
   const byDay = new Map()
   for (const h of hourly.value) {
     const d = h.time.slice(0, 10)
@@ -151,30 +353,25 @@ const days = computed(() => {
     const maxWind = Math.round(Math.max(...src.map((h) => h.wind)))
     const noon = hours.find((h) => hourOf(h.time) === 13) || hours[Math.floor(hours.length / 2)]
 
-    // Heures « idéales » : journée 10-18h, 15-30°C, pluie < 30%, vent < 25 km/h
+    // Heures « idéales » selon les critères configurés
     const ideal = hours.filter((h) => {
       const hr = hourOf(h.time)
-      return hr >= 10 && hr <= 18 && h.temp >= 15 && h.temp <= 30 && h.rain < 30 && h.wind < 25
+      return hr >= C.ideal.hour_start && hr <= C.ideal.hour_end
+        && h.temp >= C.ideal.temp_min && h.temp <= C.ideal.temp_max
+        && h.rain < C.ideal.rain_max && h.wind < C.ideal.wind_max
     })
-    let window = null
-    if (ideal.length) {
-      const run = [ideal[0]]
-      for (let i = 1; i < ideal.length; i++) {
-        if (hourOf(ideal[i].time) === hourOf(ideal[i - 1].time) + 1) run.push(ideal[i])
-        else break
-      }
-      window = `${hourOf(run[0].time)}h–${hourOf(run[run.length - 1].time) + 1}h`
-    }
+    // Toutes les plages idéales de la journée (et non plus seulement la première)
+    const windows = groupRanges(ideal)
 
     let verdict, color
-    if (ideal.length >= 2) { verdict = 'Idéal'; color = 'green' }
-    else if (maxRain < 50 && tmax >= 12 && maxWind < 35) { verdict = 'Correct'; color = 'amber-darken-2' }
-    else { verdict = 'Déconseillé'; color = 'red' }
+    if (ideal.length >= C.ideal.min_hours) { verdict = 'Idéal'; color = 'success' }
+    else if (maxRain < C.ok.rain_max && tmax >= C.ok.temp_min && maxWind < C.ok.wind_max) { verdict = 'Correct'; color = 'warning' }
+    else { verdict = 'Déconseillé'; color = 'error' }
 
     out.push({
       iso,
       label: new Date(iso).toLocaleDateString('fr-FR', { weekday: 'long', day: 'numeric', month: 'short' }),
-      tmin, tmax, maxRain, maxWind, code: noon?.code, window, verdict, color,
+      tmin, tmax, maxRain, maxWind, code: noon?.code, windows, idealCount: ideal.length, verdict, color,
     })
   }
   return out.slice(0, 7)
@@ -188,7 +385,16 @@ async function load() {
   loading.value = true
   error.value = ''
   try {
-    const res = await fetch(API)
+    // Délai maximal : sans cela, un service météo injoignable laisse la page
+    // sur un indicateur de chargement indéfiniment.
+    const ctrl = new AbortController()
+    const timer = setTimeout(() => ctrl.abort(), 12000)
+    let res
+    try {
+      res = await fetch(API, { signal: ctrl.signal })
+    } finally {
+      clearTimeout(timer)
+    }
     if (!res.ok) throw new Error('réseau')
     const d = await res.json()
     current.value = d.current
@@ -229,9 +435,29 @@ async function saveNote(p) {
   await loadPlans()
 }
 
-onMounted(() => { load(); loadPlans() })
+onMounted(() => { load(); loadPlans(); loadCriteria() })
 </script>
 
 <style scoped>
-.current-card { background: linear-gradient(135deg, #4FC3F7, #0288D1); color: #fff; }
+.current-card {
+  background: linear-gradient(135deg, #4A9FD4, #2A6C9C);
+  color: #fff;
+  border: none !important;
+}
+
+/* Rappel des critères : bandeau miel très discret. */
+.criteria-bar {
+  background: rgba(198, 138, 18, 0.07);
+  border-color: rgba(198, 138, 18, 0.24) !important;
+}
+
+.day-card {
+  transition: border-color 0.2s ease;
+}
+
+/* Journée planifiée : liseré miel à gauche plutôt qu'un aplat bleu. */
+.day-card--planned {
+  border-color: #9A6B0F !important;
+  box-shadow: inset 3px 0 0 #9A6B0F;
+}
 </style>

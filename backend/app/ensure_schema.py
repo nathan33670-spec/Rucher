@@ -33,6 +33,29 @@ COLUMN_MIGRATIONS = [
         "photo_path",
         "ALTER TABLE apiaries ADD COLUMN IF NOT EXISTS photo_path VARCHAR(500)",
     ),
+    # Propriété d'un article d'inventaire (NULL = l'association).
+    (
+        "inventory_items",
+        "owner_user_id",
+        "ALTER TABLE inventory_items ADD COLUMN IF NOT EXISTS owner_user_id INTEGER REFERENCES users(id) ON DELETE SET NULL",
+    ),
+    # Rôle actif par défaut de l'utilisateur.
+    (
+        "users",
+        "default_role",
+        "ALTER TABLE users ADD COLUMN IF NOT EXISTS default_role VARCHAR(30)",
+    ),
+    # Traitement saisi directement pendant une visite.
+    (
+        "visits",
+        "treatment_type",
+        "ALTER TABLE visits ADD COLUMN IF NOT EXISTS treatment_type VARCHAR(200)",
+    ),
+    (
+        "visits",
+        "treatment_product",
+        "ALTER TABLE visits ADD COLUMN IF NOT EXISTS treatment_product VARCHAR(200)",
+    ),
 ]
 
 

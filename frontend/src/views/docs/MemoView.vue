@@ -59,7 +59,7 @@
     </v-alert>
 
     <div class="mt-6">
-      <v-btn color="primary" variant="flat" class="text-none" :to="{ name: 'docs-guide' }" prepend-icon="mdi-book-open-page-variant">
+      <v-btn color="primary" variant="flat" :to="{ name: 'docs-guide' }" prepend-icon="mdi-book-open-page-variant">
         Voir le guide complet illustré
       </v-btn>
     </div>

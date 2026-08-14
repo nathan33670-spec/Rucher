@@ -1,0 +1,309 @@
+/* ═══════════════════════════════════════════════════════════════
+   Rucher Manager — feuille de style globale
+   Objectif : une interface fine et élégante, cohérente sur toutes
+   les pages. Les règles ci-dessous complètent le thème Vuetify
+   (plugins/vuetify.js) et s'appliquent donc à l'application entière.
+   ═══════════════════════════════════════════════════════════════ */
+
+:root {
+  --r-radius: 14px;
+  --r-hairline: rgba(93, 64, 55, 0.13);
+  --r-hairline-strong: rgba(93, 64, 55, 0.22);
+  --r-ink: #2B2520;
+  --r-muted: #7B6A5C;
+  --r-honey: #c68a12;
+  --r-shadow-sm: 0 1px 2px rgba(74, 52, 26, 0.05), 0 1px 3px rgba(74, 52, 26, 0.04);
+  --r-shadow-md: 0 4px 12px rgba(74, 52, 26, 0.08), 0 2px 4px rgba(74, 52, 26, 0.04);
+  --r-ease: cubic-bezier(0.22, 0.61, 0.36, 1);
+}
+
+/* ─── Typographie ────────────────────────────────────────────── */
+
+html {
+  -webkit-text-size-adjust: 100%;
+}
+
+body,
+.v-application {
+  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto,
+    'Helvetica Neue', 'Noto Sans', Arial, sans-serif;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+  text-rendering: optimizeLegibility;
+  font-feature-settings: 'kern' 1, 'liga' 1;
+  color: var(--r-ink);
+}
+
+/* Chiffres alignés verticalement dans les tableaux et statistiques :
+   évite le « sautillement » des colonnes de nombres. */
+.v-data-table,
+.r-stat-value,
+.text-h4,
+.text-h5,
+.text-h6 {
+  font-variant-numeric: tabular-nums;
+}
+
+/* Titre de page : chaque vue utilise un <h2> en tête de contenu. */
+.v-main h2 {
+  font-size: clamp(1.35rem, 1.1rem + 1.1vw, 1.75rem);
+  font-weight: 600;
+  letter-spacing: -0.021em;
+  line-height: 1.2;
+  color: var(--r-ink);
+}
+
+.v-main h3 {
+  font-size: 1.0625rem;
+  font-weight: 600;
+  letter-spacing: -0.012em;
+}
+
+/* Titres de carte : taille unique dans toute l'application (les vues
+   mélangeaient auparavant plusieurs échelles selon les écrans). */
+.v-card-title {
+  font-size: 1.0625rem !important;
+  font-weight: 600 !important;
+  letter-spacing: -0.011em !important;
+  line-height: 1.35 !important;
+}
+
+/* Les titres de section portent souvent une icône : on l'aligne
+   proprement sur la ligne de base du texte. */
+.v-card-title > .v-icon {
+  vertical-align: -0.16em;
+}
+
+.v-list-subheader {
+  font-weight: 600 !important;
+  letter-spacing: 0.04em !important;
+  text-transform: uppercase;
+  font-size: 0.6875rem !important;
+  opacity: 0.62;
+}
+
+/* ─── Boutons ────────────────────────────────────────────────── */
+
+/* Casse normale plutôt que MAJUSCULES : nettement plus élégant et
+   plus lisible, en particulier sur les libellés français accentués. */
+.v-btn {
+  text-transform: none;
+  letter-spacing: 0.005em;
+  font-weight: 600;
+}
+
+.v-btn--size-large,
+.v-btn--size-x-large {
+  letter-spacing: -0.004em;
+}
+
+/* Boutons pleins : ombre douce et légère élévation au survol. */
+.v-btn--variant-flat,
+.v-btn--variant-elevated {
+  box-shadow: var(--r-shadow-sm);
+  transition: box-shadow 0.2s var(--r-ease), transform 0.2s var(--r-ease);
+}
+
+@media (hover: hover) {
+  .v-btn--variant-flat:hover,
+  .v-btn--variant-elevated:hover {
+    box-shadow: var(--r-shadow-md);
+    transform: translateY(-1px);
+  }
+}
+
+.v-btn--variant-flat:active,
+.v-btn--variant-elevated:active {
+  transform: translateY(0);
+}
+
+/* Boutons-icônes d'action (tableaux, cartes) : légèrement estompés au
+   repos pour ne pas saturer la ligne, pleinement visibles au survol.
+   Les actions destructives cessent ainsi d'attirer l'œil en premier. */
+.v-btn--icon.v-btn--variant-text {
+  opacity: 0.7;
+  transition: opacity 0.18s var(--r-ease), background-color 0.18s var(--r-ease);
+}
+
+.v-btn--icon.v-btn--variant-text:hover,
+.v-btn--icon.v-btn--variant-text:focus-visible {
+  opacity: 1;
+}
+
+/* ─── Cartes ─────────────────────────────────────────────────── */
+
+/* Filet fin plutôt qu'ombre marquée : la hiérarchie vient du trait
+   et de l'espacement, pas de l'ombre portée. */
+.v-card {
+  transition: box-shadow 0.22s var(--r-ease), border-color 0.22s var(--r-ease);
+}
+
+.v-card--variant-elevated {
+  box-shadow: var(--r-shadow-sm) !important;
+}
+
+/* Cartes cliquables : réaction discrète au survol. */
+@media (hover: hover) {
+  .v-card--link:hover,
+  .v-card[tabindex]:hover {
+    box-shadow: var(--r-shadow-md) !important;
+    border-color: var(--r-hairline-strong);
+  }
+}
+
+/* ─── Puces (chips) ──────────────────────────────────────────── */
+
+.v-chip {
+  font-weight: 600;
+  letter-spacing: 0.002em;
+}
+
+.v-chip--size-x-small,
+.v-chip--size-small {
+  letter-spacing: 0.012em;
+}
+
+/* ─── Tableaux ───────────────────────────────────────────────── */
+
+/* En-têtes en petites capitales discrètes : structure le tableau
+   sans alourdir la page. */
+.v-data-table .v-data-table__th {
+  font-size: 0.6875rem !important;
+  font-weight: 700 !important;
+  letter-spacing: 0.06em !important;
+  text-transform: uppercase;
+  opacity: 0.66;
+  white-space: nowrap;
+}
+
+.v-data-table .v-data-table__td {
+  font-size: 0.875rem;
+}
+
+/* Ligne survolée : teinte miel très légère. */
+.v-data-table tbody tr:hover > td {
+  background-color: rgba(198, 138, 18, 0.045);
+}
+
+/* En mode « cartes » (téléphone), chaque ligne devient un bloc lisible. */
+.v-data-table.v-data-table--mobile .v-data-table__tr {
+  border-radius: var(--r-radius);
+  border: 1px solid var(--r-hairline);
+  margin-bottom: 10px;
+  padding: 4px 2px;
+}
+
+/* ─── Champs de saisie ───────────────────────────────────────── */
+
+.v-field {
+  transition: box-shadow 0.2s var(--r-ease);
+}
+
+.v-field--focused {
+  box-shadow: 0 0 0 3px rgba(198, 138, 18, 0.14);
+}
+
+/* Indications d'aide : discrètes mais lisibles. */
+.v-messages__message {
+  opacity: 0.72;
+  letter-spacing: 0.005em;
+}
+
+/* ─── Barre supérieure et navigation ─────────────────────────── */
+
+.v-app-bar {
+  backdrop-filter: saturate(140%) blur(8px);
+}
+
+.v-navigation-drawer .v-list-item--active {
+  font-weight: 600;
+}
+
+/* Onglet actif : soulignement net, sans effet criard. */
+.v-tab {
+  text-transform: none;
+  letter-spacing: -0.004em;
+  font-weight: 600;
+}
+
+/* ─── Dialogues ──────────────────────────────────────────────── */
+
+.v-overlay__content > .v-card {
+  box-shadow: 0 18px 48px rgba(60, 42, 20, 0.18),
+    0 4px 12px rgba(60, 42, 20, 0.08) !important;
+}
+
+/* ─── Accessibilité ──────────────────────────────────────────── */
+
+/* Anneau de focus visible au clavier uniquement (pas à la souris). */
+.v-btn:focus-visible,
+.v-chip:focus-visible,
+.v-list-item:focus-visible,
+a:focus-visible {
+  outline: 2px solid var(--r-honey);
+  outline-offset: 2px;
+}
+
+/* Respecte le réglage système « animations réduites ». */
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
+  }
+}
+
+/* ─── Barres de défilement (navigateurs de bureau) ───────────── */
+
+@media (pointer: fine) {
+  * {
+    scrollbar-width: thin;
+    scrollbar-color: rgba(93, 64, 55, 0.28) transparent;
+  }
+  ::-webkit-scrollbar {
+    width: 10px;
+    height: 10px;
+  }
+  ::-webkit-scrollbar-track {
+    background: transparent;
+  }
+  ::-webkit-scrollbar-thumb {
+    background-color: rgba(93, 64, 55, 0.26);
+    border-radius: 999px;
+    border: 3px solid transparent;
+    background-clip: content-box;
+  }
+  ::-webkit-scrollbar-thumb:hover {
+    background-color: rgba(93, 64, 55, 0.42);
+  }
+}
+
+/* ─── Utilitaires partagés ───────────────────────────────────── */
+
+/* Texte secondaire homogène (remplace les « text-grey » disparates). */
+.r-muted {
+  color: var(--r-muted) !important;
+}
+
+/* Grande valeur chiffrée d'une tuile de statistique. */
+.r-stat-value {
+  font-size: 1.6rem;
+  font-weight: 700;
+  letter-spacing: -0.03em;
+  line-height: 1.1;
+}
+
+/* Libellé d'une tuile de statistique. */
+.r-stat-label {
+  font-size: 0.75rem;
+  font-weight: 500;
+  letter-spacing: 0.01em;
+  color: var(--r-muted);
+}
+
+/* Filet de séparation homogène. */
+.r-hairline {
+  border-color: var(--r-hairline) !important;
+}

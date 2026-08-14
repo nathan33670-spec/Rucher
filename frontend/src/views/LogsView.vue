@@ -13,17 +13,17 @@
             <v-icon size="small" class="mr-2">{{ actionIcon(log.action) }}</v-icon>
             <strong>{{ log.user_name || 'Système' }}</strong>
             <v-spacer />
-            <span class="text-caption text-grey">{{ new Date(log.created_at).toLocaleString('fr-FR') }}</span>
+            <span class="text-caption r-muted">{{ new Date(log.created_at).toLocaleString('fr-FR') }}</span>
           </div>
           <div class="text-body-2 mt-1">
             {{ actionLabel(log.action) }} — {{ log.entity_type }} #{{ log.entity_id }}
           </div>
-          <div v-if="log.details" class="text-caption text-grey mt-1">{{ log.details }}</div>
+          <div v-if="log.details" class="text-caption r-muted mt-1">{{ log.details }}</div>
         </v-card>
       </v-timeline-item>
     </v-timeline>
 
-    <div v-if="!logs.length" class="text-center text-grey pa-8">Aucune entrée dans le journal</div>
+    <div v-if="!logs.length" class="text-center r-muted pa-8">Aucune entrée dans le journal</div>
   </div>
 </template>
 

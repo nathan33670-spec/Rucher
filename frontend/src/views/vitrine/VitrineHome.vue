@@ -10,7 +10,7 @@
           De l'œuf à la butineuse, de la fleur au pot de miel : plongée au cœur d'une
           société vieille de millions d'années, et de son rôle irremplaçable pour la nature.
         </p>
-        <v-btn size="large" color="amber-darken-2" class="text-none mt-3" @click="goFirst" prepend-icon="mdi-book-open-page-variant">
+        <v-btn size="large" color="amber-darken-2" class="mt-3" @click="goFirst" prepend-icon="mdi-book-open-page-variant">
           Commencer le reportage
         </v-btn>
       </div>

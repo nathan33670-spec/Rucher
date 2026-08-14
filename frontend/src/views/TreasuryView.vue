@@ -5,24 +5,45 @@
       <v-btn color="primary" prepend-icon="mdi-plus" @click="openNewTx">Nouvelle écriture</v-btn>
     </div>
 
-    <!-- Résumé annuel -->
-    <v-row class="mb-4">
-      <v-col cols="4">
-        <v-card class="text-center pa-3" color="success" variant="tonal">
-          <div class="text-h6">{{ summary.income?.toFixed(2) }} €</div>
-          <div class="text-caption">Recettes</div>
+    <!-- Résumé annuel — même traitement que les tuiles du tableau de bord -->
+    <v-row dense class="mb-4">
+      <v-col cols="12" sm="4">
+        <v-card class="pa-4">
+          <div class="d-flex align-center ga-3">
+            <v-avatar color="success" variant="tonal" size="40" rounded="lg">
+              <v-icon color="success" size="21">mdi-arrow-down-circle-outline</v-icon>
+            </v-avatar>
+            <div class="min-width-0">
+              <div class="r-stat-value text-success">{{ money(summary.income) }}</div>
+              <div class="r-stat-label">Recettes</div>
+            </div>
+          </div>
         </v-card>
       </v-col>
-      <v-col cols="4">
-        <v-card class="text-center pa-3" color="error" variant="tonal">
-          <div class="text-h6">{{ summary.expense?.toFixed(2) }} €</div>
-          <div class="text-caption">Dépenses</div>
+      <v-col cols="12" sm="4">
+        <v-card class="pa-4">
+          <div class="d-flex align-center ga-3">
+            <v-avatar color="error" variant="tonal" size="40" rounded="lg">
+              <v-icon color="error" size="21">mdi-arrow-up-circle-outline</v-icon>
+            </v-avatar>
+            <div class="min-width-0">
+              <div class="r-stat-value text-error">{{ money(summary.expense) }}</div>
+              <div class="r-stat-label">Dépenses</div>
+            </div>
+          </div>
         </v-card>
       </v-col>
-      <v-col cols="4">
-        <v-card class="text-center pa-3" :color="summary.balance >= 0 ? 'success' : 'error'" variant="tonal">
-          <div class="text-h6">{{ summary.balance?.toFixed(2) }} €</div>
-          <div class="text-caption">Solde</div>
+      <v-col cols="12" sm="4">
+        <v-card class="pa-4 balance-card">
+          <div class="d-flex align-center ga-3">
+            <v-avatar :color="balanceColor" variant="tonal" size="40" rounded="lg">
+              <v-icon :color="balanceColor" size="21">mdi-scale-balance</v-icon>
+            </v-avatar>
+            <div class="min-width-0">
+              <div class="r-stat-value" :class="`text-${balanceColor}`">{{ money(summary.balance) }}</div>
+              <div class="r-stat-label">Solde</div>
+            </div>
+          </div>
         </v-card>
       </v-col>
     </v-row>
@@ -37,7 +58,7 @@
         {{ categoryLabel(item.category) }}
       </template>
       <template v-slot:item.amount="{ item }">
-        {{ item.amount.toFixed(2) }} €
+        {{ money(item.amount) }}
       </template>
       <template v-slot:item.date="{ item }">
         {{ new Date(item.date).toLocaleDateString('fr-FR') }}
@@ -51,15 +72,15 @@
           size="x-small" class="mr-1" variant="tonal" color="primary"
           @click="downloadInvoice(inv.id, inv.filename)"
         >
-          📎 {{ inv.filename }}
+          <v-icon start size="12">mdi-paperclip</v-icon>{{ inv.filename }}
         </v-chip>
         <v-btn icon size="x-small" variant="text" @click="uploadInvoice(item.id)" title="Joindre facture">
           <v-icon size="16">mdi-paperclip</v-icon>
         </v-btn>
       </template>
       <template v-slot:item.actions="{ item }">
-        <v-btn icon size="small" @click="editTx(item)"><v-icon>mdi-pencil</v-icon></v-btn>
-        <v-btn icon size="small" @click="deleteTx(item.id)"><v-icon color="error">mdi-delete</v-icon></v-btn>
+        <v-btn icon size="small" variant="text" @click="editTx(item)"><v-icon>mdi-pencil</v-icon></v-btn>
+        <v-btn icon size="small" variant="text" @click="deleteTx(item.id)"><v-icon color="error">mdi-delete</v-icon></v-btn>
       </template>
     </v-data-table>
 
@@ -101,12 +122,15 @@
 </template>
 
 <script setup>
-import { ref, onMounted } from 'vue'
+import { ref, computed, onMounted } from 'vue'
 import api from '../services/api'
+import { money } from '../services/format'
 import { confirmAction } from '../services/confirm'
 
 const transactions = ref([])
 const summary = ref({ income: 0, expense: 0, balance: 0 })
+// Solde positif → vert, négatif → rouge.
+const balanceColor = computed(() => (summary.value.balance >= 0 ? 'success' : 'error'))
 const showForm = ref(false)
 const editId = ref(null)
 const saving = ref(false)
@@ -269,3 +293,14 @@ async function downloadInvoice(invoiceId, filename) {
 
 onMounted(load)
 </script>
+
+<style scoped>
+.min-width-0 {
+  min-width: 0;
+}
+
+/* Le solde porte l'information principale : filet légèrement plus marqué. */
+.balance-card {
+  border-color: rgba(93, 64, 55, 0.24) !important;
+}
+</style>

@@ -13,10 +13,11 @@ from app.models.visit import Visit
 from app.models.audit import AuditLog
 from app.schemas.user import (
     UserCreate, UserUpdate, UserOut, LoginRequest, Token, PasswordReset, SelfPasswordChange,
+    SwitchRoleIn,
 )
 from app.utils.auth import (
     hash_password, verify_password, create_access_token,
-    get_current_user, require_roles, get_user_roles,
+    get_current_user, require_roles, get_user_roles, get_authorized_roles,
 )
 from app.utils.audit import log_action
 
@@ -34,10 +35,13 @@ async def login(body: LoginRequest, db: AsyncSession = Depends(get_db)):
         raise HTTPException(status_code=401, detail="Identifiant ou mot de passe incorrect")
     if not user.is_active:
         raise HTTPException(status_code=403, detail="Compte désactivé")
+    # Rôle actif = rôle par défaut de l'utilisateur (s'il est autorisé), sinon tous.
+    authorized = get_authorized_roles(user)
+    active = user.default_role if user.default_role in authorized else None
     # « Rester connecté » → jeton quasi-permanent (10 ans) ; sinon durée par défaut.
     expires = timedelta(days=3650) if body.remember else None
     token = create_access_token(
-        {"sub": user.id, "username": user.email, "roles": get_user_roles(user)},
+        {"sub": user.id, "username": user.email, "active_role": active},
         expires_delta=expires,
     )
     return {"access_token": token, "token_type": "bearer"}
@@ -45,6 +49,38 @@ async def login(body: LoginRequest, db: AsyncSession = Depends(get_db)):
 
 @router.get("/me", response_model=UserOut)
 async def me(user: User = Depends(get_current_user)):
+    return _user_to_out(user)
+
+
+@router.post("/switch-role", response_model=Token)
+async def switch_role(
+    body: SwitchRoleIn,
+    db: AsyncSession = Depends(get_db),
+    user: User = Depends(get_current_user),
+):
+    """Change le rôle actif « à la volée » (émet un nouveau jeton).
+    Le rôle demandé doit faire partie des rôles autorisés de l'utilisateur."""
+    authorized = get_authorized_roles(user)
+    role = body.role
+    if role is not None and role not in authorized:
+        raise HTTPException(403, "Rôle non autorisé")
+    token = create_access_token({"sub": user.id, "username": user.email, "active_role": role})
+    return {"access_token": token, "token_type": "bearer"}
+
+
+@router.put("/me/default-role", response_model=UserOut)
+async def set_default_role(
+    body: SwitchRoleIn,
+    db: AsyncSession = Depends(get_db),
+    user: User = Depends(get_current_user),
+):
+    """Définit le rôle actif par défaut (appliqué aux prochaines connexions)."""
+    authorized = get_authorized_roles(user)
+    if body.role is not None and body.role not in authorized:
+        raise HTTPException(403, "Rôle non autorisé")
+    user.default_role = body.role
+    await db.flush()
+    await db.refresh(user)
     return _user_to_out(user)
 
 
@@ -245,6 +281,8 @@ def _user_to_out(user: User) -> UserOut:
         last_name=user.last_name,
         phone=user.phone,
         is_active=user.is_active,
-        roles=get_user_roles(user),
+        roles=get_authorized_roles(user),          # tous les rôles autorisés
+        active_role=getattr(user, "active_role", None),
+        default_role=user.default_role,
         created_at=user.created_at,
     )

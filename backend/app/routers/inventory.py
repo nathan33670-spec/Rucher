@@ -15,10 +15,26 @@ from app.utils.push import notify
 router = APIRouter(prefix="/api/inventory", tags=["inventory"])
 
 
+async def _owner_names(db: AsyncSession, items) -> dict:
+    ids = {i.owner_user_id for i in items if i.owner_user_id}
+    if not ids:
+        return {}
+    res = await db.execute(select(User).where(User.id.in_(ids)))
+    return {u.id: f"{u.first_name} {u.last_name}".strip() for u in res.scalars().all()}
+
+
+def _item_out(item: InventoryItem, names: dict) -> ItemOut:
+    data = ItemOut.model_validate(item)
+    data.owner_name = names.get(item.owner_user_id) if item.owner_user_id else None
+    return data
+
+
 @router.get("/", response_model=list[ItemOut])
 async def list_items(db: AsyncSession = Depends(get_db), user: User = Depends(get_current_user)):
     result = await db.execute(select(InventoryItem).order_by(InventoryItem.name))
-    return result.scalars().all()
+    items = list(result.scalars().all())
+    names = await _owner_names(db, items)
+    return [_item_out(i, names) for i in items]
 
 
 @router.post("/", response_model=ItemOut, status_code=201)
@@ -31,7 +47,7 @@ async def create_item(
     db.add(item)
     await db.flush()
     await log_action(db, user.id, "create", "inventory_item", item.id)
-    return item
+    return _item_out(item, await _owner_names(db, [item]))
 
 
 @router.put("/{item_id}", response_model=ItemOut)
@@ -46,7 +62,8 @@ async def update_item(
     for k, v in body.model_dump(exclude_unset=True).items():
         setattr(item, k, v)
     await log_action(db, user.id, "update", "inventory_item", item.id)
-    return item
+    await db.flush()
+    return _item_out(item, await _owner_names(db, [item]))
 
 
 @router.delete("/{item_id}", status_code=204)
@@ -201,6 +218,7 @@ async def move_item(
             unit=item.unit,
             alert_threshold=item.alert_threshold,
             unit_price=item.unit_price,
+            owner_user_id=item.owner_user_id,
         )
         db.add(target)
         await db.flush()
