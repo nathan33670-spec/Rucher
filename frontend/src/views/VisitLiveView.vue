@@ -29,14 +29,14 @@
         style="max-width: 350px; margin: 0 auto;"
       >
         <template v-slot:prepend-inner>
-          <v-icon :color="currentHive?.ownership === 'private' ? 'orange' : 'amber-darken-3'">
+          <v-icon :color="currentHive?.ownership === 'private' ? 'accent' : 'primary'">
             {{ currentHive?.ownership === 'private' ? 'mdi-home' : 'mdi-hexagon' }}
           </v-icon>
         </template>
       </v-select>
 
       <div class="d-flex align-center justify-center ga-2 mb-4">
-        <p class="text-caption text-grey mb-0">{{ currentIndex + 1 }} / {{ hives.length }}</p>
+        <p class="text-caption r-muted mb-0">{{ currentIndex + 1 }} / {{ hives.length }}</p>
         <v-chip
           :color="currentHive?.ownership === 'private' ? 'orange' : 'blue'"
           size="x-small" variant="tonal"
@@ -48,7 +48,7 @@
       <!-- ═══ SECTION HAUSSES ═══ -->
       <v-card variant="outlined" class="mb-4 pa-3">
         <div class="text-subtitle-2 font-weight-bold mb-3">
-          <v-icon class="mr-1" color="amber-darken-3">mdi-beehive-outline</v-icon> Hausses
+          <v-icon class="mr-1" color="primary">mdi-beehive-outline</v-icon> Hausses
         </div>
 
         <!-- HAUSSES — nombre avec +/- -->
@@ -107,7 +107,7 @@
             v-model="form.brood_score"
             :min="0" :max="9" :step="1"
             thumb-label="always"
-            color="amber" track-color="amber-lighten-3" thumb-size="40"
+            color="primary" track-color="primary" thumb-size="40"
           />
           <v-chip v-else color="grey" variant="tonal" size="large" class="px-6">N/A — corps non ouvert</v-chip>
         </div>
@@ -129,7 +129,7 @@
       <!-- ═══ SECTION RÉCOLTE (miel + pollen) ═══ -->
       <v-card variant="outlined" class="mb-4 pa-3">
         <div class="text-subtitle-2 font-weight-bold mb-3">
-          <v-icon class="mr-1" color="amber-darken-2">mdi-bee-flower</v-icon> Récolte
+          <v-icon class="mr-1" color="accent">mdi-bee-flower</v-icon> Récolte
         </div>
         <v-row dense>
           <v-col cols="6">
@@ -208,7 +208,7 @@
       <div v-else-if="savedCount === 0">
         <v-icon size="64" color="grey">mdi-beehive-outline</v-icon>
         <h3 class="mt-4">Aucune ruche à visiter</h3>
-        <p class="text-grey">
+        <p class="r-muted">
           {{ mine ? "Vous n'êtes propriétaire d'aucune ruche active pour le moment." : 'Aucune ruche active dans ce rucher.' }}
         </p>
         <v-btn color="primary" class="mt-4" @click="$router.push({ name: mine ? 'dashboard' : 'apiaries' })">
@@ -218,7 +218,7 @@
       <div v-else>
         <v-icon size="64" color="success">mdi-check-circle</v-icon>
         <h3 class="mt-4">Visite terminée !</h3>
-        <p class="text-grey">{{ savedCount }} ruches visitées</p>
+        <p class="r-muted">{{ savedCount }} ruches visitées</p>
         <v-btn color="primary" class="mt-4" @click="$router.push({ name: mine ? 'dashboard' : 'apiaries' })">
           {{ mine ? "Retour à l'accueil" : 'Retour aux ruchers' }}
         </v-btn>

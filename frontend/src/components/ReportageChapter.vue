@@ -62,7 +62,7 @@
           <span class="text-truncate">{{ prev.nav }}</span>
         </v-btn>
         <v-spacer />
-        <v-btn v-if="next" color="amber-darken-2" variant="flat" class="text-none chap-nav-btn" :to="{ name: 'vitrine-chapter', params: { slug: next.slug } }">
+        <v-btn v-if="next" color="accent" variant="flat" class="text-none chap-nav-btn" :to="{ name: 'vitrine-chapter', params: { slug: next.slug } }">
           <span class="text-truncate">{{ next.nav }}</span>
           <v-icon end>mdi-chevron-right</v-icon>
         </v-btn>
@@ -75,7 +75,7 @@
         <p class="text-body-2 text-medium-emphasis mb-3">
           Membre de l'association ? Accédez à l'espace de gestion des ruchers.
         </p>
-        <v-btn color="amber-darken-2" class="text-none" :to="{ name: 'login' }" prepend-icon="mdi-login">
+        <v-btn color="accent" class="text-none" :to="{ name: 'login' }" prepend-icon="mdi-login">
           Accéder à l'application
         </v-btn>
       </v-card>

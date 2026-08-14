@@ -27,7 +27,7 @@
         {{ item.end_date ? new Date(item.end_date).toLocaleDateString('fr-FR') : '—' }}
       </template>
       <template v-slot:item.hive_name="{ item }">
-        <v-chip size="small" color="amber" variant="tonal">{{ item.hive_name || '#' + item.hive_id }}</v-chip>
+        <v-chip size="small" color="primary" variant="tonal">{{ item.hive_name || '#' + item.hive_id }}</v-chip>
       </template>
       <template v-slot:item.actions="{ item }">
         <v-btn v-if="canEdit" icon size="small" @click="editRecord(item)"><v-icon>mdi-pencil</v-icon></v-btn>
@@ -41,7 +41,7 @@
         {{ new Date(item.application_date).toLocaleDateString('fr-FR') }}
       </template>
       <template v-slot:item.hive_name="{ item }">
-        <v-chip size="small" color="amber" variant="tonal">{{ item.hive_name || '#' + item.hive_id }}</v-chip>
+        <v-chip size="small" color="primary" variant="tonal">{{ item.hive_name || '#' + item.hive_id }}</v-chip>
       </template>
       <template v-slot:item.varroa_count="{ item }">
         <v-chip :color="item.varroa_count > 3 ? 'error' : item.varroa_count > 1 ? 'warning' : 'success'" size="small">

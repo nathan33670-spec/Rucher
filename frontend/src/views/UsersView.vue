@@ -58,7 +58,7 @@
         <v-card-text>
           <p>Supprimer définitivement <b>{{ delUser?.first_name }} {{ delUser?.last_name }}</b>
           (<code>{{ delUser?.email }}</code>) ?</p>
-          <p class="text-caption text-grey mt-1">Cette action est irréversible.</p>
+          <p class="text-caption r-muted mt-1">Cette action est irréversible.</p>
           <v-alert v-if="delError" type="error" density="compact" class="mt-3">{{ delError }}</v-alert>
         </v-card-text>
         <v-card-actions>

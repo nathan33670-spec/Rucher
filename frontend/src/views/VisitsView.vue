@@ -26,7 +26,7 @@
         <v-icon v-if="item.is_alert" color="error">mdi-alert</v-icon>
       </template>
       <template v-slot:item.actions="{ item }" v-if="canEdit">
-        <v-btn icon size="small" @click="editVisit(item)"><v-icon>mdi-pencil</v-icon></v-btn>
+        <v-btn icon size="small" variant="text" @click="editVisit(item)"><v-icon>mdi-pencil</v-icon></v-btn>
         <v-btn v-if="auth.isAdmin" icon size="small" @click="deleteVisit(item.id)"><v-icon color="error">mdi-delete</v-icon></v-btn>
       </template>
     </v-data-table>
@@ -39,7 +39,7 @@
           <!-- Section Hausses -->
           <v-card variant="outlined" class="mb-4 pa-3">
             <div class="text-subtitle-2 font-weight-bold mb-2">
-              <v-icon class="mr-1" color="amber">mdi-beehive-outline</v-icon> Hausses
+              <v-icon class="mr-1" color="primary">mdi-beehive-outline</v-icon> Hausses
             </div>
             <v-btn-toggle v-model="form.supers_delta" mandatory class="mb-3">
               <v-btn :value="-1" color="error">-1 Hausse</v-btn>

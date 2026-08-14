@@ -20,7 +20,7 @@
       </v-list>
       <template v-slot:append>
         <div class="pa-2">
-          <v-btn block color="amber-darken-2" class="text-none" :to="{ name: 'login' }" prepend-icon="mdi-login">
+          <v-btn block color="accent" class="text-none" :to="{ name: 'login' }" prepend-icon="mdi-login">
             Accéder à l'application
           </v-btn>
         </div>
@@ -31,12 +31,12 @@
     <v-app-bar color="white" flat density="comfortable" class="vitrine-bar" scroll-behavior="elevate">
       <v-app-bar-nav-icon @click="drawer = !drawer" aria-label="Sommaire" />
       <v-app-bar-title class="font-weight-bold" style="cursor: pointer;" @click="$router.push({ name: 'vitrine-home' })">
-        <v-icon color="amber-darken-3" class="mr-1">mdi-bee</v-icon>
+        <v-icon color="primary" class="mr-1">mdi-bee</v-icon>
         <span class="d-none d-sm-inline">Le Peuple des abeilles</span>
         <span class="d-sm-none">Les abeilles</span>
       </v-app-bar-title>
       <v-spacer />
-      <v-btn variant="flat" color="amber-darken-3" class="text-none" :to="{ name: 'login' }" prepend-icon="mdi-login">
+      <v-btn variant="flat" color="primary" class="text-none" :to="{ name: 'login' }" prepend-icon="mdi-login">
         <span class="d-none d-sm-inline">Accéder à l'application</span>
         <span class="d-sm-none">L'application</span>
       </v-btn>

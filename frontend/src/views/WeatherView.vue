@@ -167,9 +167,9 @@ const days = computed(() => {
     }
 
     let verdict, color
-    if (ideal.length >= 2) { verdict = 'Idéal'; color = 'green' }
-    else if (maxRain < 50 && tmax >= 12 && maxWind < 35) { verdict = 'Correct'; color = 'amber-darken-2' }
-    else { verdict = 'Déconseillé'; color = 'red' }
+    if (ideal.length >= 2) { verdict = 'Idéal'; color = 'success' }
+    else if (maxRain < 50 && tmax >= 12 && maxWind < 35) { verdict = 'Correct'; color = 'warning' }
+    else { verdict = 'Déconseillé'; color = 'error' }
 
     out.push({
       iso,

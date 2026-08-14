@@ -9,19 +9,27 @@
 
     <!-- Alertes stock -->
     <v-alert v-for="a in stockAlerts" :key="a.id" type="warning" density="compact" class="mb-2">
-      ⚠️ {{ a.name }} : {{ a.quantity }} restants (seuil : {{ a.threshold }})
+      <strong>{{ a.name }}</strong> : {{ a.quantity }} restants (seuil : {{ a.threshold }})
     </v-alert>
 
-    <!-- Résumé par emplacement -->
-    <v-row v-if="locationSummary.length > 0" class="mb-4">
-      <v-col v-for="loc in locationSummary" :key="loc.location" cols="12" sm="6" md="3">
-        <v-card variant="tonal" :color="loc.location === 'Non assigné' ? 'grey' : 'info'" @click="filterLocation = loc.location === 'Non assigné' ? null : loc.location">
-          <v-card-text class="text-center">
-            <v-icon size="28" class="mb-1">mdi-warehouse</v-icon>
-            <div class="text-subtitle-2 font-weight-bold">{{ loc.location }}</div>
-            <div class="text-caption">{{ loc.item_count }} articles · {{ loc.total_qty }} unités</div>
-            <div class="text-caption font-weight-bold">{{ loc.total_value.toFixed(2) }} €</div>
-          </v-card-text>
+    <!-- Résumé par emplacement — cliquable pour filtrer le tableau -->
+    <v-row v-if="locationSummary.length > 0" dense class="mb-4">
+      <v-col v-for="loc in locationSummary" :key="loc.location" cols="6" sm="6" md="3">
+        <v-card
+          class="pa-3 loc-card"
+          :class="{ 'loc-card--active': filterLocation === loc.location }"
+          @click="toggleLocationFilter(loc.location)"
+        >
+          <div class="d-flex align-center ga-3">
+            <v-avatar :color="filterLocation === loc.location ? 'primary' : 'secondary'" variant="tonal" size="38" rounded="lg">
+              <v-icon size="20" :color="filterLocation === loc.location ? 'primary' : 'secondary'">mdi-warehouse</v-icon>
+            </v-avatar>
+            <div class="min-width-0">
+              <div class="text-subtitle-2 font-weight-bold text-truncate">{{ loc.location }}</div>
+              <div class="text-caption r-muted">{{ loc.item_count }} article(s) · {{ loc.total_qty }} u.</div>
+              <div class="text-caption font-weight-bold text-primary">{{ money(loc.total_value) }}</div>
+            </div>
+          </div>
         </v-card>
       </v-col>
     </v-row>
@@ -62,21 +70,25 @@
           <v-icon start size="14">mdi-map-marker</v-icon>
           {{ item.location }}
         </v-chip>
-        <span v-else class="text-grey">—</span>
+        <span v-else class="r-muted">—</span>
+      </template>
+      <template v-slot:item.unit_price="{ item }">
+        <span v-if="item.unit_price != null">{{ money(item.unit_price) }}</span>
+        <span v-else class="r-muted">—</span>
       </template>
       <template v-slot:item.owner="{ item }">
-        <v-chip size="small" variant="tonal" :color="item.owner_user_id ? 'purple' : 'teal'">
+        <v-chip size="small" variant="tonal" :color="item.owner_user_id ? 'secondary' : 'primary'">
           <v-icon start size="14">{{ item.owner_user_id ? 'mdi-account' : 'mdi-account-group' }}</v-icon>
           {{ item.owner_name || 'Association' }}
         </v-chip>
       </template>
       <template v-slot:item.actions="{ item }">
         <template v-if="canEdit">
-          <v-btn icon size="small" color="success" title="Entrée" @click.stop="openMovement(item, 'in')"><v-icon>mdi-plus</v-icon></v-btn>
-          <v-btn icon size="small" color="error" title="Sortie" @click.stop="openMovement(item, 'out')"><v-icon>mdi-minus</v-icon></v-btn>
-          <v-btn icon size="small" color="indigo" title="Déplacer" @click.stop="openMove(item)"><v-icon>mdi-swap-horizontal</v-icon></v-btn>
-          <v-btn icon size="small" title="Modifier" @click.stop="editItem(item)"><v-icon>mdi-pencil</v-icon></v-btn>
-          <v-btn v-if="auth.isAdmin" icon size="small" title="Supprimer" @click.stop="deleteItem(item.id)"><v-icon color="error">mdi-delete</v-icon></v-btn>
+          <v-btn icon size="small" variant="text" color="success" title="Entrée" @click.stop="openMovement(item, 'in')"><v-icon>mdi-plus</v-icon></v-btn>
+          <v-btn icon size="small" variant="text" color="error" title="Sortie" @click.stop="openMovement(item, 'out')"><v-icon>mdi-minus</v-icon></v-btn>
+          <v-btn icon size="small" variant="text" color="info" title="Déplacer" @click.stop="openMove(item)"><v-icon>mdi-swap-horizontal</v-icon></v-btn>
+          <v-btn icon size="small" variant="text" title="Modifier" @click.stop="editItem(item)"><v-icon>mdi-pencil</v-icon></v-btn>
+          <v-btn v-if="auth.isAdmin" icon size="small" variant="text" title="Supprimer" @click.stop="deleteItem(item.id)"><v-icon color="error">mdi-delete</v-icon></v-btn>
         </template>
       </template>
     </v-data-table>
@@ -161,7 +173,7 @@
         <v-card-title>{{ mvtType === 'in' ? 'Entrée' : 'Sortie' }} de stock</v-card-title>
         <v-card-text>
           <p class="mb-2"><strong>{{ mvtItem?.name }}</strong></p>
-          <p v-if="mvtItem?.location" class="text-caption text-grey mb-2">📍 {{ mvtItem.location }}</p>
+          <p v-if="mvtItem?.location" class="text-caption r-muted mb-2">📍 {{ mvtItem.location }}</p>
           <v-text-field v-model.number="mvtQty" label="Quantité" type="number" min="1" />
           <v-text-field v-model="mvtReason" label="Motif" />
         </v-card-text>
@@ -179,7 +191,7 @@
         <v-card-title>Déplacer un article</v-card-title>
         <v-card-text>
           <p class="mb-1"><strong>{{ moveItem?.name }}</strong></p>
-          <p class="text-caption text-grey mb-3">
+          <p class="text-caption r-muted mb-3">
             Emplacement actuel : {{ moveItem?.location || 'Non assigné' }}
             · Stock disponible : {{ moveItem?.quantity }} {{ moveItem?.unit }}
           </p>
@@ -216,7 +228,7 @@
         <v-card-actions>
           <v-spacer />
           <v-btn @click="showMoveDialog = false">Annuler</v-btn>
-          <v-btn color="indigo" :loading="saving" @click="confirmMove">Déplacer</v-btn>
+          <v-btn color="info" :loading="saving" @click="confirmMove">Déplacer</v-btn>
         </v-card-actions>
       </v-card>
     </v-dialog>
@@ -230,6 +242,7 @@
 import { ref, computed, onMounted } from 'vue'
 import api from '../services/api'
 import { confirmAction } from '../services/confirm'
+import { money } from '../services/format'
 import { useAuthStore } from '../stores/auth'
 
 const auth = useAuthStore()
@@ -318,6 +331,12 @@ const locationFormOptions = computed(() => [
 ])
 function onLocationSelect(val) {
   itemForm.value.location = (val === NEW_OPTION || val == null) ? '' : val
+}
+
+// Un clic sur une tuile filtre le tableau ; un second clic retire le filtre.
+function toggleLocationFilter(location) {
+  const target = location === 'Non assigné' ? null : location
+  filterLocation.value = filterLocation.value === target ? null : target
 }
 
 // Options d'emplacement pour le déplacement (avec création d'un nouveau lieu)
@@ -499,3 +518,27 @@ async function confirmMove() {
 
 onMounted(load)
 </script>
+
+<style scoped>
+/* Tuiles d'emplacement : filet fin, mise en avant discrète du filtre actif. */
+.loc-card {
+  height: 100%;
+  transition: transform 0.2s cubic-bezier(0.22, 0.61, 0.36, 1),
+    border-color 0.2s ease;
+}
+
+@media (hover: hover) {
+  .loc-card:hover {
+    transform: translateY(-2px);
+  }
+}
+
+.loc-card--active {
+  border-color: #9A6B0F !important;
+  background-color: rgba(198, 138, 18, 0.06);
+}
+
+.min-width-0 {
+  min-width: 0;
+}
+</style>
