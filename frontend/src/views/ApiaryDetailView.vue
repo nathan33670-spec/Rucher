@@ -11,7 +11,7 @@
 
     <v-card class="mb-4" v-if="apiary">
       <v-card-text>
-        <p v-if="apiary.address" class="mb-1">📍 {{ apiary.address }}</p>
+        <p v-if="apiary.address" class="mb-1"><v-icon size="15" class="mr-1">mdi-map-marker</v-icon>{{ apiary.address }}</p>
         <p v-if="apiary.description" class="mb-0">{{ apiary.description }}</p>
         <div v-if="canEdit" class="d-flex flex-wrap align-center ga-2 mt-3">
           <v-file-input v-model="apiaryPhotoFile" accept="image/*" density="compact" hide-details
@@ -57,7 +57,7 @@
           {{ selectedHive.status }}
         </v-chip>
         <v-chip :color="selectedHive.ownership === 'private' ? 'orange' : 'blue'" size="x-small" class="ml-1">
-          {{ selectedHive.ownership === 'private' ? '🏠 Privé' : '🏛️ Asso' }}
+          {{ selectedHive.ownership === 'private' ? 'Privé' : 'Associative' }}
         </v-chip>
         <v-spacer />
         <v-btn size="small" variant="text" @click="selectedHive = null"><v-icon>mdi-close</v-icon></v-btn>
@@ -193,8 +193,8 @@
           <v-text-field v-model="hiveForm.name" label="Nom" />
           <v-text-field v-model="hiveForm.napi_number" label="N° NAPI" />
           <v-btn-toggle v-model="hiveForm.ownership" mandatory class="mb-3 d-flex">
-            <v-btn value="associative" color="info" class="flex-grow-1">🏛️ Associatif</v-btn>
-            <v-btn value="private" color="accent" class="flex-grow-1">🏠 Privé</v-btn>
+            <v-btn value="associative" color="info" class="flex-grow-1" prepend-icon="mdi-account-group">Associatif</v-btn>
+            <v-btn value="private" color="accent" class="flex-grow-1" prepend-icon="mdi-home">Privé</v-btn>
           </v-btn-toggle>
           <v-select v-model="hiveForm.status" :items="['active', 'inactive', 'dead']" label="Statut" />
           <v-select v-model="hiveForm.manager_ids" :items="allUsers" item-title="label" item-value="id" label="Responsables" multiple chips />
@@ -565,7 +565,7 @@ async function saveQuickVisit() {
       is_live_mode: false,
     })
     showVisitDialog.value = false
-    successMsg.value = '✅ Visite enregistrée'
+    successMsg.value = 'Visite enregistrée'
     successSnack.value = true
     // Recharger le détail de la ruche
     await selectHive(visitHive.value)

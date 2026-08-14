@@ -173,7 +173,7 @@
         <v-card-title>{{ mvtType === 'in' ? 'Entrée' : 'Sortie' }} de stock</v-card-title>
         <v-card-text>
           <p class="mb-2"><strong>{{ mvtItem?.name }}</strong></p>
-          <p v-if="mvtItem?.location" class="text-caption r-muted mb-2">📍 {{ mvtItem.location }}</p>
+          <p v-if="mvtItem?.location" class="text-caption r-muted mb-2"><v-icon size="13" class="mr-1">mdi-map-marker</v-icon>{{ mvtItem.location }}</p>
           <v-text-field v-model.number="mvtQty" label="Quantité" type="number" min="1" />
           <v-text-field v-model="mvtReason" label="Motif" />
         </v-card-text>

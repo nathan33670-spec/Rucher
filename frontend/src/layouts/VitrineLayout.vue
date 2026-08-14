@@ -20,7 +20,7 @@
       </v-list>
       <template v-slot:append>
         <div class="pa-2">
-          <v-btn block color="accent" class="text-none" :to="{ name: 'login' }" prepend-icon="mdi-login">
+          <v-btn block color="accent" :to="{ name: 'login' }" prepend-icon="mdi-login">
             Accéder à l'application
           </v-btn>
         </div>
@@ -36,7 +36,7 @@
         <span class="d-sm-none">Les abeilles</span>
       </v-app-bar-title>
       <v-spacer />
-      <v-btn variant="flat" color="primary" class="text-none" :to="{ name: 'login' }" prepend-icon="mdi-login">
+      <v-btn variant="flat" color="primary" :to="{ name: 'login' }" prepend-icon="mdi-login">
         <span class="d-none d-sm-inline">Accéder à l'application</span>
         <span class="d-sm-none">L'application</span>
       </v-btn>

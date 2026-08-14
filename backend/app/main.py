@@ -15,7 +15,7 @@ from app.config import get_settings
 from app.seed import seed_initial_accounts
 from app.ensure_schema import ensure_schema
 
-from app.routers import users, apiaries, visits, inventory, treasury, sanitary, audit, honey, docs, visit_plans, notifications, events
+from app.routers import users, apiaries, visits, inventory, treasury, sanitary, audit, honey, docs, visit_plans, notifications, events, settings as settings_router
 
 
 @asynccontextmanager
@@ -83,6 +83,7 @@ app.include_router(docs.router)
 app.include_router(visit_plans.router)
 app.include_router(notifications.router)
 app.include_router(events.router)
+app.include_router(settings_router.router)
 
 
 @app.get("/api/health")

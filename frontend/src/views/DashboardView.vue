@@ -45,7 +45,7 @@
         <v-icon class="mr-2" color="primary">mdi-calendar-star</v-icon>
         Prochains événements
         <v-spacer />
-        <v-btn size="small" variant="text" :to="{ name: 'events' }" class="text-none">Tout voir</v-btn>
+        <v-btn size="small" variant="text" :to="{ name: 'events' }">Tout voir</v-btn>
       </v-card-title>
       <v-list density="compact">
         <v-list-item v-for="ev in upcomingEvents" :key="ev.id" :to="{ name: 'events' }">
@@ -77,7 +77,7 @@
               color="primary"
               variant="tonal"
               size="large"
-              class="text-none"
+             
               prepend-icon="mdi-play-circle"
               :to="{ name: 'visit-live', params: { apiaryId: ap.id } }"
             >
@@ -254,7 +254,7 @@ onMounted(async () => {
     recentVisits.value = visits.slice(0, 10).map((v) => ({
       ...v,
       date: new Date(v.visited_at).toLocaleDateString('fr-FR'),
-      queen: v.queen_seen ? '✅' : v.queen_seen === false ? '❌' : '—',
+      queen: v.queen_seen ? 'Vue' : v.queen_seen === false ? 'Non vue' : '—',
     }))
 
     stockAlerts.value = alertsRes.data

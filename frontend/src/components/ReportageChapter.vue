@@ -75,7 +75,7 @@
         <p class="text-body-2 text-medium-emphasis mb-3">
           Membre de l'association ? Accédez à l'espace de gestion des ruchers.
         </p>
-        <v-btn color="accent" class="text-none" :to="{ name: 'login' }" prepend-icon="mdi-login">
+        <v-btn color="accent" :to="{ name: 'login' }" prepend-icon="mdi-login">
           Accéder à l'application
         </v-btn>
       </v-card>

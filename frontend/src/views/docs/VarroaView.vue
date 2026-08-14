@@ -81,7 +81,7 @@
     </ol>
 
     <div class="mt-6">
-      <v-btn color="primary" variant="flat" class="text-none" :to="{ name: 'docs-reglementation' }" prepend-icon="mdi-gavel">
+      <v-btn color="primary" variant="flat" :to="{ name: 'docs-reglementation' }" prepend-icon="mdi-gavel">
         Obligations & registre des traitements
       </v-btn>
     </div>

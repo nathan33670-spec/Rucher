@@ -10,8 +10,8 @@
     <!-- Filtre Associatif / Privé -->
     <v-tabs v-model="ownershipTab" class="mb-4" color="primary">
       <v-tab value="">Tout</v-tab>
-      <v-tab value="associative">🏛️ Associatif</v-tab>
-      <v-tab value="private">🏠 Privé</v-tab>
+      <v-tab value="associative" prepend-icon="mdi-account-group">Associatif</v-tab>
+      <v-tab value="private" prepend-icon="mdi-home">Privé</v-tab>
     </v-tabs>
 
     <!-- Filtre utilisateur (admins uniquement, onglet privé) -->
@@ -67,7 +67,7 @@
             <v-card variant="tonal" :color="js.ownership === 'associative' ? 'blue' : 'orange'" class="text-center pa-2">
               <div class="text-h6 font-weight-bold">{{ js.stock }}</div>
               <div class="text-caption">Pot {{ js.jar_weight_g }}g</div>
-              <div class="text-caption r-muted">{{ js.ownership === 'associative' ? '🏛️' : '🏠' }} · vendus: {{ js.sold }}</div>
+              <div class="text-caption r-muted">{{ js.ownership === 'associative' ? 'Associatif' : 'Privé' }} · vendus : {{ js.sold }}</div>
             </v-card>
           </v-col>
         </v-row>
@@ -131,8 +131,8 @@
         <v-card-title>{{ editId ? 'Modifier' : 'Nouvelle' }} récolte</v-card-title>
         <v-card-text>
           <v-btn-toggle v-model="form.ownership" mandatory class="mb-3 d-flex">
-            <v-btn value="associative" color="info" class="flex-grow-1" :disabled="!canManageAsso">🏛️ Associatif</v-btn>
-            <v-btn value="private" color="accent" class="flex-grow-1">🏠 Privé</v-btn>
+            <v-btn value="associative" color="info" class="flex-grow-1" :disabled="!canManageAsso" prepend-icon="mdi-account-group">Associatif</v-btn>
+            <v-btn value="private" color="accent" class="flex-grow-1" prepend-icon="mdi-home">Privé</v-btn>
           </v-btn-toggle>
           <v-select v-model="form.category_id" :items="categories" item-title="name" item-value="id" label="Catégorie de miel" clearable />
           <v-select v-model="form.apiary_id" :items="apiaries" item-title="name" item-value="id" label="Rucher" clearable />
@@ -158,8 +158,8 @@
         <v-card-text>
           <v-select v-model="jarForm.harvest_id" :items="harvests" :item-title="h => new Date(h.harvest_date).toLocaleDateString('fr-FR') + ' — ' + h.quantity_kg + 'kg ' + (h.category_name || '')" item-value="id" label="Récolte source" />
           <v-btn-toggle v-model="jarForm.ownership" mandatory class="mb-3 d-flex">
-            <v-btn value="associative" color="info" class="flex-grow-1" :disabled="!canManageAsso">🏛️ Asso</v-btn>
-            <v-btn value="private" color="accent" class="flex-grow-1">🏠 Privé</v-btn>
+            <v-btn value="associative" color="info" class="flex-grow-1" :disabled="!canManageAsso" prepend-icon="mdi-account-group">Asso</v-btn>
+            <v-btn value="private" color="accent" class="flex-grow-1" prepend-icon="mdi-home">Privé</v-btn>
           </v-btn-toggle>
           <v-select v-model="jarForm.jar_weight_g" :items="jarSizes" label="Format du pot" />
           <v-text-field v-model.number="jarForm.quantity" label="Nombre de pots" type="number" min="1" />

@@ -3,10 +3,10 @@
     <div class="d-flex flex-wrap align-center justify-space-between ga-2 mb-4">
       <h2>Suivi sanitaire</h2>
       <div class="d-flex flex-wrap ga-2">
-        <v-btn v-if="canEdit" color="green-darken-2" prepend-icon="mdi-needle" @click="openTreatment">
+        <v-btn v-if="canEdit" color="primary" prepend-icon="mdi-needle" @click="openTreatment">
           Traitement
         </v-btn>
-        <v-btn color="red-darken-2" prepend-icon="mdi-bug" @click="openVarroa">
+        <v-btn color="secondary" variant="tonal" prepend-icon="mdi-bug" @click="openVarroa">
           Comptage Varroa
         </v-btn>
       </div>
@@ -14,8 +14,8 @@
 
     <!-- Onglets -->
     <v-tabs v-model="activeTab" class="mb-4" color="primary">
-      <v-tab value="treatments">🩺 Traitements</v-tab>
-      <v-tab value="varroa">🐛 Comptages</v-tab>
+      <v-tab value="treatments" prepend-icon="mdi-needle">Traitements</v-tab>
+      <v-tab value="varroa" prepend-icon="mdi-bug-outline">Comptages</v-tab>
     </v-tabs>
 
     <!-- Tableau traitements -->
@@ -30,8 +30,8 @@
         <v-chip size="small" color="primary" variant="tonal">{{ item.hive_name || '#' + item.hive_id }}</v-chip>
       </template>
       <template v-slot:item.actions="{ item }">
-        <v-btn v-if="canEdit" icon size="small" @click="editRecord(item)"><v-icon>mdi-pencil</v-icon></v-btn>
-        <v-btn v-if="auth.isAdmin" icon size="small" @click="deleteRecord(item.id)"><v-icon color="error">mdi-delete</v-icon></v-btn>
+        <v-btn v-if="canEdit" icon size="small" variant="text" @click="editRecord(item)"><v-icon>mdi-pencil</v-icon></v-btn>
+        <v-btn v-if="auth.isAdmin" icon size="small" variant="text" @click="deleteRecord(item.id)"><v-icon color="error">mdi-delete</v-icon></v-btn>
       </template>
     </v-data-table>
 
@@ -49,8 +49,8 @@
         </v-chip>
       </template>
       <template v-slot:item.actions="{ item }">
-        <v-btn v-if="canEdit" icon size="small" @click="editRecord(item)"><v-icon>mdi-pencil</v-icon></v-btn>
-        <v-btn v-if="auth.isAdmin" icon size="small" @click="deleteRecord(item.id)"><v-icon color="error">mdi-delete</v-icon></v-btn>
+        <v-btn v-if="canEdit" icon size="small" variant="text" @click="editRecord(item)"><v-icon>mdi-pencil</v-icon></v-btn>
+        <v-btn v-if="auth.isAdmin" icon size="small" variant="text" @click="deleteRecord(item.id)"><v-icon color="error">mdi-delete</v-icon></v-btn>
       </template>
     </v-data-table>
 

@@ -45,6 +45,17 @@ COLUMN_MIGRATIONS = [
         "default_role",
         "ALTER TABLE users ADD COLUMN IF NOT EXISTS default_role VARCHAR(30)",
     ),
+    # Traitement saisi directement pendant une visite.
+    (
+        "visits",
+        "treatment_type",
+        "ALTER TABLE visits ADD COLUMN IF NOT EXISTS treatment_type VARCHAR(200)",
+    ),
+    (
+        "visits",
+        "treatment_product",
+        "ALTER TABLE visits ADD COLUMN IF NOT EXISTS treatment_product VARCHAR(200)",
+    ),
 ]
 
 

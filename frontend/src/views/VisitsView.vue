@@ -16,7 +16,9 @@
         {{ item.hive_name || ('Ruche #' + item.hive_id) }}
       </template>
       <template v-slot:item.queen_seen="{ item }">
-        {{ item.queen_seen === true ? '✅' : item.queen_seen === false ? '❌' : '—' }}
+        <v-icon v-if="item.queen_seen === true" color="success" size="18">mdi-check-circle</v-icon>
+        <v-icon v-else-if="item.queen_seen === false" color="error" size="18">mdi-close-circle</v-icon>
+        <span v-else class="r-muted">—</span>
       </template>
       <template v-slot:item.comment="{ item }">
         <span v-if="item.comment" class="comment-cell" :title="item.comment">{{ item.comment }}</span>

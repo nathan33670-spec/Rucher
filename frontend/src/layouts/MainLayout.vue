@@ -248,7 +248,7 @@ async function syncNow() {
   syncing.value = true
   try {
     const n = await syncPendingVisits(api)
-    if (n > 0) syncMsg.value = `✅ ${n} visite(s) synchronisée(s)`
+    if (n > 0) syncMsg.value = `${n} visite(s) synchronisée(s)`
   } finally {
     syncing.value = false
   }

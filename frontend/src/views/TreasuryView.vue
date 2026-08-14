@@ -72,7 +72,7 @@
           size="x-small" class="mr-1" variant="tonal" color="primary"
           @click="downloadInvoice(inv.id, inv.filename)"
         >
-          📎 {{ inv.filename }}
+          <v-icon start size="12">mdi-paperclip</v-icon>{{ inv.filename }}
         </v-chip>
         <v-btn icon size="x-small" variant="text" @click="uploadInvoice(item.id)" title="Joindre facture">
           <v-icon size="16">mdi-paperclip</v-icon>
