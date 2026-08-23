@@ -51,6 +51,12 @@ COLUMN_MIGRATIONS = [
         "treatment_type",
         "ALTER TABLE visits ADD COLUMN IF NOT EXISTS treatment_type VARCHAR(200)",
     ),
+    # Version de jeton : permet d'invalider les sessions d'un compte.
+    (
+        "users",
+        "token_version",
+        "ALTER TABLE users ADD COLUMN IF NOT EXISTS token_version INTEGER NOT NULL DEFAULT 0",
+    ),
     (
         "visits",
         "treatment_product",

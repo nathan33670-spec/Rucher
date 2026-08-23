@@ -1,13 +1,14 @@
 """Routes — Journal d'audit."""
 
-from fastapi import APIRouter, Depends, Query
+from fastapi import APIRouter, Depends, HTTPException, Query
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select, desc
 
 from app.database import get_db
 from app.models.audit import AuditLog
 from app.models.user import User, RoleEnum
-from app.utils.auth import get_current_user
+from app.utils.auth import get_current_user, get_user_roles
+from app.routers.settings import load_access
 
 router = APIRouter(prefix="/api/audit", tags=["audit"])
 
@@ -19,6 +20,14 @@ async def list_logs(
     db: AsyncSession = Depends(get_db),
     user: User = Depends(get_current_user),
 ):
+    # Le journal expose l'activité de tous les adhérents : réservé aux
+    # administrateurs, sauf ouverture explicite dans les réglages.
+    roles = get_user_roles(user)
+    if RoleEnum.ADMIN.value not in roles:
+        access = await load_access(db)
+        if not access.audit_read_all:
+            raise HTTPException(403, "Le journal d'activité est réservé aux administrateurs.")
+
     q = select(AuditLog).order_by(desc(AuditLog.created_at)).limit(limit)
     if entity_type:
         q = q.where(AuditLog.entity_type == entity_type)

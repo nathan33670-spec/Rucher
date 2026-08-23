@@ -79,15 +79,27 @@
             <v-icon size="13">mdi-weather-rainy</v-icon> {{ d.maxRain }}%
             <v-icon size="13" class="ml-2">mdi-weather-windy</v-icon> {{ d.maxWind }} km/h
           </div>
-          <v-btn
-            :color="planned.has(d.iso) ? 'primary' : undefined"
-            :variant="planned.has(d.iso) ? 'flat' : 'tonal'"
-            size="small"
-            :prepend-icon="planned.has(d.iso) ? 'mdi-calendar-check' : 'mdi-calendar-plus'"
-            @click="togglePlan(d.iso)"
-          >
-            {{ planned.has(d.iso) ? 'Planifiée' : 'Planifier' }}
-          </v-btn>
+          <div class="d-flex ga-2 flex-wrap">
+            <v-btn
+              :color="planned.has(d.iso) ? 'primary' : undefined"
+              :variant="planned.has(d.iso) ? 'flat' : 'tonal'"
+              size="small"
+              :prepend-icon="planned.has(d.iso) ? 'mdi-calendar-check' : 'mdi-calendar-plus'"
+              @click="togglePlan(d.iso)"
+            >
+              {{ planned.has(d.iso) ? 'Planifiée' : 'Planifier' }}
+            </v-btn>
+            <!-- Sortie collective : visible pour les responsables uniquement -->
+            <v-btn
+              v-if="canPlanEvent"
+              size="small" variant="tonal" color="secondary"
+              prepend-icon="mdi-account-group"
+              title="Créer une sortie pour toute l'association"
+              @click="openEvent(d)"
+            >
+              Sortie collective
+            </v-btn>
+          </div>
         </div>
 
         <!-- Heures idéales : toutes les plages de la journée, pas seulement la première -->
@@ -141,6 +153,57 @@
     <div v-else-if="loading" class="text-center pa-8">
       <v-progress-circular indeterminate color="primary" />
     </div>
+
+    <!-- Création d'une sortie collective depuis un créneau météo -->
+    <v-dialog v-model="showEvent" max-width="520">
+      <v-card>
+        <v-card-title class="d-flex align-center">
+          <v-icon class="mr-2" color="secondary">mdi-calendar-star</v-icon>
+          Nouvelle sortie collective
+        </v-card-title>
+        <v-card-text>
+          <p v-if="eventDay" class="text-body-2 r-muted mb-4">
+            <b class="text-capitalize">{{ eventDay.label }}</b> — journée classée
+            <b>{{ eventDay.verdict.toLowerCase() }}</b>.
+            <template v-if="eventDay.windows.length">
+              Créneaux idéaux :
+              <b>{{ eventDay.windows.map(w => w.label).join(', ') }}</b>.
+            </template>
+            <template v-else>Aucun créneau idéal ce jour-là.</template>
+          </p>
+
+          <v-text-field v-model="eventForm.title" label="Intitulé" density="compact" class="mb-1" />
+          <v-row dense>
+            <v-col cols="6">
+              <v-text-field v-model="eventForm.start" label="Début" type="time" density="compact" />
+            </v-col>
+            <v-col cols="6">
+              <v-text-field v-model="eventForm.end" label="Fin" type="time" density="compact" />
+            </v-col>
+          </v-row>
+          <v-select
+            v-if="apiaries.length"
+            v-model="eventForm.location"
+            :items="apiaryNames"
+            label="Lieu"
+            density="compact"
+            class="mb-1"
+          />
+          <v-text-field v-else v-model="eventForm.location" label="Lieu" density="compact" class="mb-1" />
+          <v-textarea v-model="eventForm.description" label="Description" rows="2" density="compact" />
+
+          <v-alert type="info" variant="tonal" density="compact" class="mt-1">
+            Les adhérents seront prévenus par notification et pourront indiquer
+            s'ils viennent.
+          </v-alert>
+        </v-card-text>
+        <v-card-actions>
+          <v-spacer />
+          <v-btn @click="showEvent = false">Annuler</v-btn>
+          <v-btn color="primary" :loading="savingEvent" @click="createEvent">Créer la sortie</v-btn>
+        </v-card-actions>
+      </v-card>
+    </v-dialog>
 
     <!-- Réglage des critères — administrateur uniquement -->
     <v-dialog v-model="showCriteria" max-width="560">
@@ -217,7 +280,7 @@
       </v-card>
     </v-dialog>
 
-    <v-snackbar v-model="showCriteriaMsg" color="success" timeout="2500">{{ criteriaMsg }}</v-snackbar>
+    <v-snackbar v-model="showCriteriaMsg" :color="msgIsError ? 'error' : 'success'" timeout="3500">{{ criteriaMsg }}</v-snackbar>
   </div>
 </template>
 
@@ -256,6 +319,8 @@ const showCriteria = ref(false)
 const criteriaForm = ref(clone(DEFAULT_CRITERIA))
 const savingCriteria = ref(false)
 const criteriaMsg = ref('')
+// Un même bandeau sert aux confirmations et aux échecs : la couleur suit.
+const msgIsError = ref(false)
 const showCriteriaMsg = computed({
   get: () => !!criteriaMsg.value,
   set: (v) => { if (!v) criteriaMsg.value = '' },
@@ -279,9 +344,9 @@ async function saveCriteria() {
     const { data } = await api.put('/settings/weather', criteriaForm.value)
     criteria.value = data
     showCriteria.value = false
-    criteriaMsg.value = 'Critères enregistrés'
+    msgIsError.value = false; criteriaMsg.value = 'Critères enregistrés'
   } catch (e) {
-    criteriaMsg.value = e.response?.data?.detail || "Impossible d'enregistrer les critères"
+    msgIsError.value = true; criteriaMsg.value = e.response?.data?.detail || "Impossible d'enregistrer les critères"
   } finally {
     savingCriteria.value = false
   }
@@ -293,8 +358,8 @@ async function resetCriteria() {
     const { data } = await api.delete('/settings/weather')
     criteria.value = data
     criteriaForm.value = clone(data)
-    criteriaMsg.value = 'Critères par défaut rétablis'
-  } catch { criteriaMsg.value = 'Échec de la réinitialisation' }
+    msgIsError.value = false; criteriaMsg.value = 'Critères par défaut rétablis'
+  } catch { msgIsError.value = true; criteriaMsg.value = 'Échec de la réinitialisation' }
   finally { savingCriteria.value = false }
 }
 
@@ -377,6 +442,65 @@ const days = computed(() => {
   return out.slice(0, 7)
 })
 
+// ─── Sortie collective (admin / responsable de rucher) ────────────
+const canPlanEvent = computed(() => auth.isAdmin || auth.hasRole('yard_manager'))
+const showEvent = ref(false)
+const savingEvent = ref(false)
+const eventDay = ref(null)
+const apiaries = ref([])
+const apiaryNames = computed(() => apiaries.value.map(a => a.name))
+const eventForm = ref({ title: '', start: '10:00', end: '12:00', location: '', description: '' })
+
+async function loadApiaries() {
+  try {
+    const { data } = await api.get('/apiaries/')
+    apiaries.value = data
+  } catch { /* champ lieu en saisie libre */ }
+}
+
+function openEvent(d) {
+  eventDay.value = d
+  // Pré-remplissage à partir du meilleur créneau de la journée.
+  const w = d.windows[0]
+  const pad = (n) => String(n).padStart(2, '0')
+  eventForm.value = {
+    title: 'Sortie au rucher',
+    start: w ? `${pad(w.start)}:00` : '10:00',
+    end: w ? `${pad(Math.min(w.end, 23))}:00` : '12:00',
+    location: apiaries.value[0]?.name || '',
+    description: d.windows.length
+      ? `Créneau favorable : ${d.windows.map(x => x.label).join(', ')}.`
+      : '',
+  }
+  showEvent.value = true
+}
+
+async function createEvent() {
+  if (!eventForm.value.title.trim()) {
+    msgIsError.value = true; criteriaMsg.value = 'Donnez un intitulé à la sortie'
+    return
+  }
+  savingEvent.value = true
+  try {
+    const iso = eventDay.value.iso
+    await api.post('/events/', {
+      title: eventForm.value.title.trim(),
+      description: eventForm.value.description || null,
+      location: eventForm.value.location || null,
+      start_at: `${iso}T${eventForm.value.start}:00`,
+      end_at: eventForm.value.end ? `${iso}T${eventForm.value.end}:00` : null,
+    })
+    // La sortie vaut aussi planification personnelle de la journée.
+    if (!planned.has(iso)) await togglePlan(iso)
+    showEvent.value = false
+    msgIsError.value = false; criteriaMsg.value = 'Sortie créée — les adhérents sont prévenus'
+  } catch (e) {
+    msgIsError.value = true; criteriaMsg.value = e.response?.data?.detail || 'Création de la sortie impossible'
+  } finally {
+    savingEvent.value = false
+  }
+}
+
 function formatDate(iso) {
   return new Date(iso).toLocaleDateString('fr-FR', { weekday: 'long', day: 'numeric', month: 'long' })
 }
@@ -435,7 +559,7 @@ async function saveNote(p) {
   await loadPlans()
 }
 
-onMounted(() => { load(); loadPlans(); loadCriteria() })
+onMounted(() => { load(); loadPlans(); loadCriteria(); loadApiaries() })
 </script>
 
 <style scoped>

@@ -86,7 +86,7 @@ async def list_events(
 async def create_event(
     body: EventCreate,
     db: AsyncSession = Depends(get_db),
-    user: User = Depends(require_roles(RoleEnum.ADMIN)),
+    user: User = Depends(require_roles(RoleEnum.ADMIN, RoleEnum.YARD_MANAGER)),
 ):
     ev = Event(
         title=body.title,
@@ -121,7 +121,7 @@ async def update_event(
     event_id: int,
     body: EventUpdate,
     db: AsyncSession = Depends(get_db),
-    user: User = Depends(require_roles(RoleEnum.ADMIN)),
+    user: User = Depends(require_roles(RoleEnum.ADMIN, RoleEnum.YARD_MANAGER)),
 ):
     ev = await db.get(Event, event_id)
     if not ev:
@@ -145,8 +145,17 @@ async def delete_event(
     ev = await db.get(Event, event_id)
     if not ev:
         raise HTTPException(404, "Événement introuvable")
+
+    # Mémoriser avant suppression : l'objet n'est plus lisible ensuite.
+    title = ev.title
+    when = ev.start_at.strftime("%d/%m à %Hh%M") if ev.start_at else ""
     await db.delete(ev)
     await log_action(db, user.id, "delete", "event", event_id)
+
+    # Prévenir les adhérents : un événement annulé doit être signalé, sinon
+    # certains se déplacent pour rien.
+    notify("events", "❌ Événement annulé",
+           f"{title}{' — ' + when if when else ''} a été annulé.", "/app/events")
 
 
 @router.post("/{event_id}/rsvp", response_model=EventOut)

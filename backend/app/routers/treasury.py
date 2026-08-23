@@ -11,8 +11,24 @@ from app.database import get_db
 from app.models.treasury import Transaction, Invoice, TransactionType
 from app.models.user import User, RoleEnum
 from app.schemas.treasury import TransactionCreate, TransactionUpdate, TransactionOut
-from app.utils.auth import get_current_user, require_roles
+from app.utils.auth import get_current_user, require_roles, get_user_roles
 from app.utils.audit import log_action
+from app.routers.settings import load_access
+
+
+async def _check_read_access(db, user) -> None:
+    """La trésorerie est réservée aux admins et trésoriers, sauf si un
+    administrateur a ouvert la lecture à tous les membres."""
+    roles = get_user_roles(user)
+    if RoleEnum.ADMIN.value in roles or RoleEnum.TREASURER.value in roles:
+        return
+    access = await load_access(db)
+    if not access.treasury_read_all:
+        raise HTTPException(
+            403,
+            "La trésorerie est réservée au bureau. Un administrateur peut "
+            "l'ouvrir en lecture à tous les membres dans les réglages.",
+        )
 from app.utils.push import notify
 from app.config import get_settings
 
@@ -24,6 +40,7 @@ async def list_transactions(
     db: AsyncSession = Depends(get_db),
     user: User = Depends(get_current_user),
 ):
+    await _check_read_access(db, user)
     result = await db.execute(select(Transaction).order_by(Transaction.date.desc()).limit(200))
     txs = result.scalars().all()
     return [_tx_out(t) for t in txs]
@@ -112,6 +129,7 @@ async def download_invoice(
     db: AsyncSession = Depends(get_db),
     user: User = Depends(get_current_user),
 ):
+    await _check_read_access(db, user)
     invoice = await db.get(Invoice, invoice_id)
     if not invoice:
         raise HTTPException(404, "Facture introuvable")
@@ -127,6 +145,7 @@ async def annual_summary(
     user: User = Depends(get_current_user),
 ):
     """Bilan annuel simplifié."""
+    await _check_read_access(db, user)
     from datetime import datetime
     y = year or datetime.utcnow().year
 
