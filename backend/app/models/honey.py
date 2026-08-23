@@ -68,7 +68,10 @@ class HoneyJar(Base):
     created_by = Column(Integer, ForeignKey("users.id"), nullable=True)
     created_at = Column(DateTime, default=datetime.utcnow)
 
-    harvest = relationship("HoneyHarvest", back_populates="jars")
+    # « selectin » : _jar_out lit la récolte pour composer la référence de
+    # lot ; sans chargement anticipé, l'accès paresseux échoue en
+    # contexte asynchrone.
+    harvest = relationship("HoneyHarvest", back_populates="jars", lazy="selectin")
     category = relationship("HoneyCategory", lazy="selectin")
 
 

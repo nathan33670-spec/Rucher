@@ -57,32 +57,92 @@
       </v-card-text>
     </v-card>
 
-    <!-- STOCK DE POTS -->
-    <v-card class="mb-4 pa-4" variant="outlined">
-      <v-card-title class="text-subtitle-1 d-flex align-center">
-        <v-icon class="mr-2">mdi-jar-outline</v-icon> Stock de pots
+    <!-- STOCK DE POTS — un bloc par lot (récolte + format) -->
+    <v-card class="mb-4" variant="outlined">
+      <v-card-title class="d-flex align-center flex-wrap ga-2">
+        <v-icon class="mr-2" color="primary">mdi-bottle-tonic-outline</v-icon>
+        <span>Stock de pots</span>
+        <v-chip v-if="jarStock.length" size="x-small" variant="tonal" class="ml-1">
+          {{ jarStock.length }} lot{{ jarStock.length > 1 ? 's' : '' }}
+        </v-chip>
         <v-spacer />
-        <div class="d-flex ga-2 flex-wrap">
-          <v-btn size="small" variant="tonal" color="primary" prepend-icon="mdi-plus" @click="openNewJar">
-            Mise en pot
-          </v-btn>
-          <v-btn size="small" color="success" prepend-icon="mdi-cash-plus"
-            :disabled="!availableJars.length" @click="openNewSale">
-            Nouvelle vente
-          </v-btn>
-        </div>
+        <v-btn size="small" variant="tonal" color="primary" prepend-icon="mdi-plus" @click="openNewJar">
+          Mise en pot
+        </v-btn>
+        <v-btn size="small" color="success" prepend-icon="mdi-cash-plus"
+          :disabled="!availableJars.length" @click="openNewSale">
+          Nouvelle vente
+        </v-btn>
       </v-card-title>
+
       <v-card-text>
+        <!-- Totaux : l'information la plus consultée, en tête -->
+        <v-row v-if="jarStock.length" dense class="mb-3">
+          <v-col cols="4">
+            <div class="totals-tile">
+              <div class="r-stat-value text-primary">{{ totalStock }}</div>
+              <div class="r-stat-label">pots en stock</div>
+            </div>
+          </v-col>
+          <v-col cols="4">
+            <div class="totals-tile">
+              <div class="r-stat-value text-success">{{ totalSold }}</div>
+              <div class="r-stat-label">pots vendus</div>
+            </div>
+          </v-col>
+          <v-col cols="4">
+            <div class="totals-tile">
+              <div class="r-stat-value">{{ totalKg.toFixed(1) }} kg</div>
+              <div class="r-stat-label">équivalent en stock</div>
+            </div>
+          </v-col>
+        </v-row>
+
         <v-row v-if="jarStock.length" dense>
-          <v-col v-for="js in jarStock" :key="js.jar_weight_g + js.ownership" cols="6" sm="3">
-            <v-card variant="tonal" :color="js.ownership === 'associative' ? 'info' : 'accent'" class="text-center pa-2">
-              <div class="text-h6 font-weight-bold">{{ js.stock }}</div>
-              <div class="text-caption">Pot {{ js.jar_weight_g }}g</div>
-              <div class="text-caption r-muted">{{ js.ownership === 'associative' ? 'Associatif' : 'Privé' }} · vendus : {{ js.sold }}</div>
+          <v-col v-for="js in jarStock" :key="js.lot + js.jar_weight_g + js.ownership" cols="12" sm="6" md="4">
+            <v-card class="lot-card pa-3" :class="{ 'lot-card--empty': js.stock === 0 }">
+              <!-- En-tête du lot : sa référence et son type -->
+              <div class="d-flex align-center ga-2 mb-2">
+                <v-chip size="x-small" variant="tonal" color="secondary" class="font-weight-bold">
+                  {{ js.lot }}
+                </v-chip>
+                <v-spacer />
+                <v-chip size="x-small" variant="tonal"
+                  :color="js.ownership === 'associative' ? 'info' : 'accent'">
+                  {{ js.ownership === 'associative' ? 'Associatif' : 'Privé' }}
+                </v-chip>
+              </div>
+
+              <!-- Chiffre principal : ce qu'il reste -->
+              <div class="d-flex align-end ga-2">
+                <div class="lot-stock">{{ js.stock }}</div>
+                <div class="pb-1">
+                  <div class="text-body-2 font-weight-bold">pot{{ js.stock > 1 ? 's' : '' }} de {{ js.jar_weight_g }}g</div>
+                  <div class="text-caption r-muted">{{ js.category }}</div>
+                </div>
+              </div>
+
+              <!-- Écoulement du lot -->
+              <v-progress-linear
+                :model-value="js.initial ? (js.sold / js.initial) * 100 : 0"
+                color="success" bg-color="surface-variant" height="6" rounded class="my-2"
+              />
+              <div class="d-flex align-center text-caption flex-wrap ga-1">
+                <span class="font-weight-bold text-success">{{ js.sold }} vendu{{ js.sold > 1 ? 's' : '' }}</span>
+                <span class="r-muted">sur {{ js.initial }} empoté{{ js.initial > 1 ? 's' : '' }}</span>
+                <v-spacer />
+                <span v-if="js.unit_price" class="font-weight-bold">{{ money(js.unit_price) }}</span>
+              </div>
+
+              <div class="text-caption r-muted mt-1">
+                <v-icon size="12">mdi-calendar</v-icon>
+                Récolte du {{ new Date(js.harvest_date).toLocaleDateString('fr-FR') }}
+                <template v-if="js.owner_name"> · {{ js.owner_name }}</template>
+              </div>
             </v-card>
           </v-col>
         </v-row>
-        <p v-else class="r-muted text-center">Aucun pot en stock</p>
+        <p v-else class="r-muted text-center py-4">Aucun pot en stock</p>
       </v-card-text>
     </v-card>
 
@@ -101,6 +161,9 @@
           <v-data-table v-if="sales.length" :headers="saleHeaders" :items="sales" density="compact">
             <template v-slot:item.sold_at="{ item }">{{ new Date(item.sold_at).toLocaleDateString('fr-FR') }}</template>
             <template v-slot:item.total_amount="{ item }"><v-chip color="success" size="small" variant="tonal">{{ money(item.total_amount) }}</v-chip></template>
+            <template v-slot:item.lot="{ item }">
+              <v-chip size="x-small" variant="tonal" color="secondary">{{ lotOf(item) }}</v-chip>
+            </template>
             <template v-slot:item.unit_price="{ item }">{{ money(item.unit_price) }}</template>
             <template v-slot:item.buyer="{ item }">{{ item.buyer || '—' }}</template>
             <template v-slot:item.ownership="{ item }">
@@ -196,7 +259,9 @@
       <v-card>
         <v-card-title>Mise en pot</v-card-title>
         <v-card-text>
-          <v-select v-model="jarForm.harvest_id" :items="harvests" :item-title="h => new Date(h.harvest_date).toLocaleDateString('fr-FR') + ' — ' + h.quantity_kg + 'kg ' + (h.category_name || '')" item-value="id" label="Récolte source" />
+          <v-select v-model="jarForm.harvest_id" :items="harvests" :item-title="harvestLabel" item-value="id" label="Récolte source (lot)"
+            hint="Chaque récolte constitue un lot distinct : les pots restent traçables jusqu'à la vente."
+            persistent-hint class="mb-2" />
           <v-btn-toggle v-model="jarForm.ownership" mandatory class="mb-3 d-flex">
             <v-btn value="associative" color="info" class="flex-grow-1" :disabled="!canManageAsso" prepend-icon="mdi-account-group">Associatif</v-btn>
             <v-btn value="private" color="accent" class="flex-grow-1" prepend-icon="mdi-home">Privé</v-btn>
@@ -222,7 +287,7 @@
           <v-select
             v-if="!saleEditId"
             v-model="saleForm.jar_id" :items="availableJars"
-            :item-title="j => j.jar_weight_g + 'g — stock: ' + j.quantity + ' (' + (j.ownership === 'associative' ? 'Associatif' : 'Privé') + ')'"
+            :item-title="jarLabel"
             item-value="id" label="Pot à vendre"
           />
           <v-alert v-else type="info" variant="tonal" density="compact" class="mb-4">
@@ -312,6 +377,7 @@ const headers = [
 const saleHeaders = [
   { title: 'Date', key: 'sold_at' },
   { title: 'Type', key: 'ownership' },
+  { title: 'Lot', key: 'lot', sortable: false },
   { title: 'Format', key: 'jar_weight_g' },
   { title: 'Qté', key: 'quantity' },
   { title: 'P.U.', key: 'unit_price' },
@@ -332,6 +398,12 @@ const monthlyData = computed(() => {
 })
 
 const availableJars = computed(() => jars.value.filter(j => j.quantity > 0))
+
+// Totaux mis en tête de la carte : ce sont les chiffres les plus consultés.
+const totalStock = computed(() => jarStock.value.reduce((n, j) => n + (j.stock || 0), 0))
+const totalSold = computed(() => jarStock.value.reduce((n, j) => n + (j.sold || 0), 0))
+const totalKg = computed(() =>
+  jarStock.value.reduce((n, j) => n + ((j.stock || 0) * j.jar_weight_g) / 1000, 0))
 
 const honeyByCategory = computed(() => {
   const map = {}
@@ -356,6 +428,26 @@ const honeyByCategory = computed(() => {
     over_potted: c.jarred_kg > c.total_kg + 0.001,
   }))
 })
+
+// Libellés des sélecteurs : la référence de lot doit être visible partout où
+// l'on choisit des pots, sinon on ignore quelle récolte on écoule.
+/** Référence du lot d'une vente, retrouvée via le pot vendu. */
+function lotOf(sale) {
+  return jars.value.find(j => j.id === sale.jar_id)?.lot || '—'
+}
+
+function jarLabel(j) {
+  const own = j.ownership === 'associative' ? 'Associatif' : 'Privé'
+  return `${j.lot || 'lot ?'} · ${j.jar_weight_g}g — ${j.quantity} en stock (${own})`
+}
+
+function harvestLabel(h) {
+  const d = new Date(h.harvest_date).toLocaleDateString('fr-FR')
+  const potted = (h.jars || []).reduce(
+    (n, j) => n + ((j.initial_quantity ?? j.quantity) * j.jar_weight_g) / 1000, 0)
+  const left = Math.max(0, (h.quantity_kg || 0) - potted)
+  return `${d} — ${h.quantity_kg} kg ${h.category_name || ''} · reste ${left.toFixed(1)} kg`
+}
 
 function showError(msg) { errorMsg.value = msg; errorSnack.value = true }
 function showSuccess(msg) { successMsg.value = msg; successSnack.value = true }
@@ -453,7 +545,9 @@ function openNewSale() {
 
 function editSale(sale) {
   saleEditId.value = sale.id
-  saleEditJar.value = `${sale.jar_weight_g}g` + (sale.category_name ? ` — ${sale.category_name}` : '')
+  const j = jars.value.find(x => x.id === sale.jar_id)
+  saleEditJar.value = (j?.lot ? `${j.lot} · ` : '') + `${sale.jar_weight_g}g`
+    + (sale.category_name ? ` — ${sale.category_name}` : '')
   saleForm.value = {
     jar_id: sale.jar_id,
     quantity: sale.quantity,
@@ -512,3 +606,33 @@ async function deleteCategory(id) {
 
 onMounted(load)
 </script>
+
+<style scoped>
+/* Totaux : lecture immédiate, sans concurrence visuelle avec les lots. */
+.totals-tile {
+  text-align: center;
+  padding: 10px 6px;
+  border-radius: 12px;
+  background: rgba(198, 138, 18, 0.07);
+}
+
+/* Un lot = une carte. Le liseré rappelle qu'il s'agit d'une unité traçable. */
+.lot-card {
+  height: 100%;
+  border-left: 3px solid #9A6B0F !important;
+}
+
+/* Lot écoulé : présent pour l'historique, mais visuellement en retrait. */
+.lot-card--empty {
+  opacity: 0.62;
+  border-left-color: rgba(93, 64, 55, 0.3) !important;
+}
+
+.lot-stock {
+  font-size: 2rem;
+  font-weight: 700;
+  letter-spacing: -0.03em;
+  line-height: 1;
+  color: #9A6B0F;
+}
+</style>

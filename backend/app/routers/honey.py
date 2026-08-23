@@ -353,6 +353,28 @@ async def create_jar(
     if ownership == 'associative' and not _is_manager(user):
         raise HTTPException(403, "Seuls les responsables peuvent gérer les pots associatifs")
 
+    # Un lot = une récolte + un format. Remettre en pot la même récolte au même
+    # format alimente la ligne existante plutôt que d'en créer une seconde :
+    # sans cela, le même lot apparaissait deux fois à la vente.
+    existing = (await db.execute(
+        select(HoneyJar).where(
+            HoneyJar.harvest_id == body.harvest_id,
+            HoneyJar.jar_weight_g == body.jar_weight_g,
+            HoneyJar.ownership == ownership,
+        ).limit(1)
+    )).scalar_one_or_none()
+
+    if existing:
+        existing.quantity += body.quantity
+        existing.initial_quantity += body.quantity
+        if body.unit_price is not None:
+            existing.unit_price = body.unit_price
+        await log_action(db, user.id, "update", "honey_jar", existing.id,
+                         details=f"+{body.quantity} pot(s) de {body.jar_weight_g}g")
+        await db.flush()
+        await db.refresh(existing)
+        return _jar_out(existing)
+
     jar = HoneyJar(
         harvest_id=body.harvest_id,
         category_id=body.category_id or harvest.category_id,
@@ -397,41 +419,79 @@ async def jar_stock_summary(
     db: AsyncSession = Depends(get_db),
     user: User = Depends(get_current_user),
 ):
-    """Résumé du stock de pots par poids et ownership (filtré par visibilité)."""
-    q = select(
-        HoneyJar.jar_weight_g,
-        HoneyJar.ownership,
-        func.sum(HoneyJar.quantity).label("stock"),
-        func.sum(HoneyJar.initial_quantity).label("initial"),
+    """Stock de pots détaillé **par lot**.
+
+    Un lot = une récolte + un format de pot. Les mises en pot successives
+    d'une même récolte au même format se cumulent, mais deux récoltes
+    différentes restent séparées : c'est ce qui permet de tracer l'origine
+    d'un pot vendu.
+    """
+    q = (
+        select(
+            HoneyJar.harvest_id,
+            HoneyJar.jar_weight_g,
+            HoneyJar.ownership,
+            func.sum(HoneyJar.quantity).label("stock"),
+            func.sum(HoneyJar.initial_quantity).label("initial"),
+            func.max(HoneyJar.unit_price).label("unit_price"),
+            HoneyHarvest.harvest_date,
+            HoneyHarvest.created_by,
+            func.coalesce(HoneyCategory.name, "Non catégorisé").label("category"),
+        )
+        .join(HoneyHarvest, HoneyJar.harvest_id == HoneyHarvest.id)
+        .outerjoin(HoneyCategory, HoneyJar.category_id == HoneyCategory.id)
     )
     if ownership:
         q = q.where(HoneyJar.ownership == ownership)
-    # ── Isolation privé ──
+
+    # ── Isolation privé : un adhérent ne voit que l'associatif et ses lots ──
     effective_user_id = user_id if (user_id and _is_manager(user)) else None
     if not _is_manager(user):
-        q = q.where(
-            or_(
-                HoneyJar.ownership == OwnershipFilter.ASSOCIATIVE,
-                HoneyJar.created_by == user.id,
-            )
-        )
+        q = q.where(or_(
+            HoneyJar.ownership == OwnershipFilter.ASSOCIATIVE,
+            HoneyJar.created_by == user.id,
+        ))
     elif effective_user_id:
-        q = q.where(
-            or_(
-                HoneyJar.ownership == OwnershipFilter.ASSOCIATIVE,
-                HoneyJar.created_by == effective_user_id,
-            )
-        )
-    q = q.group_by(HoneyJar.jar_weight_g, HoneyJar.ownership
-    ).order_by(HoneyJar.jar_weight_g.desc())
-    result = await db.execute(q)
-    return [
-        {"jar_weight_g": r.jar_weight_g,
-         "ownership": r.ownership.value if hasattr(r.ownership, 'value') else r.ownership,
-         "stock": r.stock or 0, "initial": r.initial or 0,
-         "sold": (r.initial or 0) - (r.stock or 0)}
-        for r in result.all()
-    ]
+        q = q.where(or_(
+            HoneyJar.ownership == OwnershipFilter.ASSOCIATIVE,
+            HoneyJar.created_by == effective_user_id,
+        ))
+
+    q = q.group_by(
+        HoneyJar.harvest_id, HoneyJar.jar_weight_g, HoneyJar.ownership,
+        HoneyHarvest.harvest_date, HoneyHarvest.created_by, HoneyCategory.name,
+    ).order_by(HoneyHarvest.harvest_date.desc(), HoneyJar.jar_weight_g.desc())
+
+    rows = (await db.execute(q)).all()
+
+    # Nom du propriétaire des lots privés, pour les responsables.
+    owner_names = {}
+    if _is_manager(user):
+        ids = {r.created_by for r in rows if r.created_by}
+        if ids:
+            res = await db.execute(select(User).where(User.id.in_(ids)))
+            owner_names = {u.id: f"{u.first_name} {u.last_name}".strip() for u in res.scalars().all()}
+
+    out = []
+    for r in rows:
+        own = r.ownership.value if hasattr(r.ownership, "value") else r.ownership
+        initial = r.initial or 0
+        stock = r.stock or 0
+        out.append({
+            "harvest_id": r.harvest_id,
+            # Référence de lot lisible : date de récolte + identifiant.
+            "lot": f"L{r.harvest_date:%y%m%d}-{r.harvest_id}" if r.harvest_date else f"L{r.harvest_id}",
+            "harvest_date": r.harvest_date,
+            "category": r.category,
+            "jar_weight_g": r.jar_weight_g,
+            "ownership": own,
+            "stock": stock,
+            "initial": initial,
+            "sold": initial - stock,
+            "unit_price": r.unit_price,
+            "owner_name": owner_names.get(r.created_by) if own == "private" else None,
+        })
+    return out
 
 
 # ─── Ventes ───────────────────────────────────────────────────────
@@ -661,8 +721,17 @@ def _jar_out(j: HoneyJar) -> JarOut:
         initial_quantity=j.initial_quantity,
         unit_price=j.unit_price,
         category_name=j.category.name if j.category else None,
+        lot=_lot_ref(j.harvest),
+        harvest_date=j.harvest.harvest_date if j.harvest else None,
         created_at=j.created_at,
     )
+
+
+def _lot_ref(h) -> str | None:
+    """Référence de lot lisible : date de récolte + identifiant de récolte."""
+    if not h:
+        return None
+    return f"L{h.harvest_date:%y%m%d}-{h.id}" if h.harvest_date else f"L{h.id}"
 
 
 def _sale_out(s: HoneySale) -> SaleOut:

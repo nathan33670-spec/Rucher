@@ -85,6 +85,9 @@ class JarOut(BaseModel):
     initial_quantity: int
     unit_price: Optional[float] = None
     category_name: Optional[str] = None
+    # Traçabilité : à quel lot (récolte) appartient ce pot.
+    lot: Optional[str] = None
+    harvest_date: Optional[datetime] = None
     created_at: datetime
     class Config:
         from_attributes = True
