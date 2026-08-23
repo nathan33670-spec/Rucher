@@ -52,6 +52,19 @@ services:
       SECRET_KEY: ${SECRET_KEY:-change-me-in-production}
       FIRST_ADMIN_EMAIL: ${FIRST_ADMIN_EMAIL:-admin@rucher.local}
       FIRST_ADMIN_PASSWORD: ${FIRST_ADMIN_PASSWORD:-admin1234}
+      # Récapitulatif hebdomadaire par e-mail (voir .env.example)
+      SMTP_HOST: ${SMTP_HOST:-}
+      SMTP_PORT: ${SMTP_PORT:-587}
+      SMTP_USER: ${SMTP_USER:-}
+      SMTP_PASSWORD: ${SMTP_PASSWORD:-}
+      SMTP_FROM: ${SMTP_FROM:-}
+      SMTP_TLS: ${SMTP_TLS:-starttls}
+      DIGEST_ENABLED: ${DIGEST_ENABLED:-true}
+      DIGEST_RECIPIENTS: ${DIGEST_RECIPIENTS:-}
+      DIGEST_WEEKDAY: ${DIGEST_WEEKDAY:-0}
+      DIGEST_HOUR: ${DIGEST_HOUR:-8}
+      APP_BASE_URL: ${APP_BASE_URL:-}
+      TZ: ${TZ:-Europe/Paris}
     volumes:
       - upload_data:/app/uploads
     networks: [edge, data]
@@ -113,6 +126,45 @@ services:
             echo "[backup] $$ts ÉCHEC"; rm -f /backups/rucher_$$ts.sql.gz;
           fi;
           sleep "$${BACKUP_INTERVAL}";
+        done
+
+  # ─── Sauvegarde hebdomadaire (rétention longue) ───────────────────
+  # Complète la sauvegarde quotidienne : un instantané par semaine conservé
+  # plusieurs mois, dans ./backups/weekly. Utile lorsqu'une erreur n'est
+  # découverte qu'après plusieurs jours — les dumps quotidiens ont alors
+  # déjà tourné.
+  backup-weekly:
+    image: postgres:16-alpine
+    restart: unless-stopped
+    environment:
+      PGPASSWORD: ${POSTGRES_PASSWORD:-rucher_secret_2026}
+      WEEKLY_KEEP: ${WEEKLY_BACKUP_KEEP:-12}
+    volumes:
+      - ./backups:/backups
+    networks: [backupnet]
+    depends_on:
+      postgres:
+        condition: service_healthy
+    entrypoint:
+      - /bin/sh
+      - -c
+      - |
+        mkdir -p /backups/weekly;
+        echo "[backup-weekly] démarré — rétention $${WEEKLY_KEEP} semaines";
+        while true; do
+          week=$$(date +%G-W%V);
+          target=/backups/weekly/rucher_$$week.sql.gz;
+          if [ -f "$$target" ]; then
+            sleep 3600; continue;
+          fi;
+          sleep 60;
+          if pg_dump -h postgres -U rucher -d rucher | gzip > "$$target"; then
+            echo "[backup-weekly] $$week OK";
+            ls -1t /backups/weekly/rucher_*.sql.gz | tail -n +$$(($${WEEKLY_KEEP}+1)) | xargs -r rm -f;
+          else
+            echo "[backup-weekly] $$week ÉCHEC"; rm -f "$$target";
+          fi;
+          sleep 3600;
         done
 
 volumes:

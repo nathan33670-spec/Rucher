@@ -2,6 +2,7 @@
 Rucher Manager — Point d'entrée FastAPI.
 """
 
+import asyncio
 from contextlib import asynccontextmanager
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
@@ -15,7 +16,8 @@ from app.config import get_settings
 from app.seed import seed_initial_accounts
 from app.ensure_schema import ensure_schema
 
-from app.routers import users, apiaries, visits, inventory, treasury, sanitary, audit, honey, docs, visit_plans, notifications, events, settings as settings_router
+from app.routers import users, apiaries, visits, inventory, treasury, sanitary, audit, honey, docs, visit_plans, notifications, events, settings as settings_router, reports
+from app.scheduler import weekly_digest_loop
 
 
 @asynccontextmanager
@@ -50,7 +52,17 @@ async def lifespan(app: FastAPI):
         except Exception as e:  # ne jamais empêcher le démarrage à cause du seed
             print(f"⚠️  Seed des comptes ignoré : {e}")
 
-    yield
+    # Récapitulatif hebdomadaire : tâche de fond, arrêtée à l'extinction.
+    digest_task = asyncio.create_task(weekly_digest_loop())
+
+    try:
+        yield
+    finally:
+        digest_task.cancel()
+        try:
+            await digest_task
+        except asyncio.CancelledError:
+            pass
 
 
 app = FastAPI(
@@ -84,6 +96,7 @@ app.include_router(visit_plans.router)
 app.include_router(notifications.router)
 app.include_router(events.router)
 app.include_router(settings_router.router)
+app.include_router(reports.router)
 
 
 @app.get("/api/health")
