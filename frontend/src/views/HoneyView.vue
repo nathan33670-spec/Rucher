@@ -62,12 +62,20 @@
       <v-card-title class="text-subtitle-1 d-flex align-center">
         <v-icon class="mr-2">mdi-jar-outline</v-icon> Stock de pots
         <v-spacer />
-        <v-btn size="small" color="primary" prepend-icon="mdi-plus" @click="openNewJar">Mise en pot</v-btn>
+        <div class="d-flex ga-2 flex-wrap">
+          <v-btn size="small" variant="tonal" color="primary" prepend-icon="mdi-plus" @click="openNewJar">
+            Mise en pot
+          </v-btn>
+          <v-btn size="small" color="success" prepend-icon="mdi-cash-plus"
+            :disabled="!availableJars.length" @click="openNewSale">
+            Nouvelle vente
+          </v-btn>
+        </div>
       </v-card-title>
       <v-card-text>
         <v-row v-if="jarStock.length" dense>
           <v-col v-for="js in jarStock" :key="js.jar_weight_g + js.ownership" cols="6" sm="3">
-            <v-card variant="tonal" :color="js.ownership === 'associative' ? 'blue' : 'orange'" class="text-center pa-2">
+            <v-card variant="tonal" :color="js.ownership === 'associative' ? 'info' : 'accent'" class="text-center pa-2">
               <div class="text-h6 font-weight-bold">{{ js.stock }}</div>
               <div class="text-caption">Pot {{ js.jar_weight_g }}g</div>
               <div class="text-caption r-muted">{{ js.ownership === 'associative' ? 'Associatif' : 'Privé' }} · vendus : {{ js.sold }}</div>
@@ -78,26 +86,43 @@
       </v-card-text>
     </v-card>
 
-    <!-- VENTES -->
-    <v-card class="mb-4 pa-4" variant="outlined">
-      <v-card-title class="text-subtitle-1 d-flex align-center">
-        <v-icon class="mr-2">mdi-cash-register</v-icon> Ventes de miel
-        <v-spacer />
-        <v-btn size="small" color="success" prepend-icon="mdi-plus" @click="openNewSale">Nouvelle vente</v-btn>
-      </v-card-title>
-      <v-data-table v-if="sales.length" :headers="saleHeaders" :items="sales" density="compact">
-        <template v-slot:item.sold_at="{ item }">{{ new Date(item.sold_at).toLocaleDateString('fr-FR') }}</template>
-        <template v-slot:item.total_amount="{ item }"><v-chip color="success" size="small">{{ money(item.total_amount) }}</v-chip></template>
-        <template v-slot:item.ownership="{ item }">
-          <v-chip :color="item.ownership === 'associative' ? 'info' : 'accent'" size="x-small" variant="tonal">{{ item.ownership === 'associative' ? 'Asso' : 'Privé' }}</v-chip>
-        </template>
-      </v-data-table>
-      <v-card-text v-else><p class="r-muted text-center">Aucune vente enregistrée</p></v-card-text>
-    </v-card>
+    <!-- HISTORIQUES — repliés par défaut : ces tableaux sont longs et ne
+         servent qu'à la consultation ponctuelle. -->
+    <v-expansion-panels v-model="openPanels" multiple class="mb-4">
 
-    <!-- Tableau des récoltes -->
-    <v-card class="mb-4 pa-4">
-      <v-card-title class="text-subtitle-1">Récoltes</v-card-title>
+      <!-- Historique des ventes -->
+      <v-expansion-panel value="sales" rounded="lg">
+        <v-expansion-panel-title>
+          <v-icon class="mr-2" color="primary">mdi-cash-register</v-icon>
+          <span class="font-weight-bold">Historique des ventes</span>
+          <v-chip size="x-small" variant="tonal" class="ml-2">{{ sales.length }}</v-chip>
+        </v-expansion-panel-title>
+        <v-expansion-panel-text>
+          <v-data-table v-if="sales.length" :headers="saleHeaders" :items="sales" density="compact">
+            <template v-slot:item.sold_at="{ item }">{{ new Date(item.sold_at).toLocaleDateString('fr-FR') }}</template>
+            <template v-slot:item.total_amount="{ item }"><v-chip color="success" size="small" variant="tonal">{{ money(item.total_amount) }}</v-chip></template>
+            <template v-slot:item.unit_price="{ item }">{{ money(item.unit_price) }}</template>
+            <template v-slot:item.buyer="{ item }">{{ item.buyer || '—' }}</template>
+            <template v-slot:item.ownership="{ item }">
+              <v-chip :color="item.ownership === 'associative' ? 'info' : 'accent'" size="x-small" variant="tonal">{{ item.ownership === 'associative' ? 'Asso' : 'Privé' }}</v-chip>
+            </template>
+            <template v-slot:item.actions="{ item }">
+              <v-btn icon size="small" variant="text" title="Modifier" @click="editSale(item)"><v-icon>mdi-pencil</v-icon></v-btn>
+              <v-btn icon size="small" variant="text" title="Annuler la vente" @click="deleteSale(item)"><v-icon color="error">mdi-delete</v-icon></v-btn>
+            </template>
+          </v-data-table>
+          <p v-else class="r-muted text-center py-4">Aucune vente enregistrée</p>
+        </v-expansion-panel-text>
+      </v-expansion-panel>
+
+      <!-- Historique des récoltes -->
+      <v-expansion-panel value="harvests" rounded="lg">
+        <v-expansion-panel-title>
+          <v-icon class="mr-2" color="primary">mdi-beehive-outline</v-icon>
+          <span class="font-weight-bold">Historique des récoltes</span>
+          <v-chip size="x-small" variant="tonal" class="ml-2">{{ harvests.length }}</v-chip>
+        </v-expansion-panel-title>
+        <v-expansion-panel-text>
       <v-data-table :headers="headers" :items="harvests" density="compact">
         <template v-slot:item.harvest_date="{ item }">{{ new Date(item.harvest_date).toLocaleDateString('fr-FR') }}</template>
         <template v-slot:item.quantity_kg="{ item }"><v-chip color="primary" size="small" variant="tonal">{{ item.quantity_kg }} kg</v-chip></template>
@@ -123,7 +148,10 @@
           <v-btn v-if="auth.isAdmin" icon size="small" variant="text" @click="deleteHarvest(item.id)"><v-icon color="error">mdi-delete</v-icon></v-btn>
         </template>
       </v-data-table>
-    </v-card>
+        </v-expansion-panel-text>
+      </v-expansion-panel>
+
+    </v-expansion-panels>
 
     <!-- Admin catégories -->
     <v-card v-if="auth.isAdmin" class="mt-4 pa-4" variant="outlined">
@@ -187,9 +215,20 @@
     <!-- Dialog vente -->
     <v-dialog v-model="showSaleForm" max-width="450">
       <v-card>
-        <v-card-title>Vente de miel</v-card-title>
+        <v-card-title>{{ saleEditId ? 'Modifier la vente' : 'Vente de miel' }}</v-card-title>
         <v-card-text>
-          <v-select v-model="saleForm.jar_id" :items="availableJars" :item-title="j => j.jar_weight_g + 'g — stock: ' + j.quantity + ' (' + (j.ownership === 'associative' ? 'Asso' : 'Privé') + ')'" item-value="id" label="Pot à vendre" />
+          <!-- Le pot n'est pas modifiable après coup : changer de pot
+               reviendrait à annuler la vente et à en saisir une autre. -->
+          <v-select
+            v-if="!saleEditId"
+            v-model="saleForm.jar_id" :items="availableJars"
+            :item-title="j => j.jar_weight_g + 'g — stock: ' + j.quantity + ' (' + (j.ownership === 'associative' ? 'Asso' : 'Privé') + ')'"
+            item-value="id" label="Pot à vendre"
+          />
+          <v-alert v-else type="info" variant="tonal" density="compact" class="mb-4">
+            Pot de {{ saleEditJar }}. Pour changer de pot, annulez cette vente
+            et saisissez-en une nouvelle.
+          </v-alert>
           <v-text-field v-model.number="saleForm.quantity" label="Quantité" type="number" min="1" />
           <v-text-field v-model.number="saleForm.unit_price" label="Prix unitaire (€)" type="number" step="0.5" />
           <v-text-field v-model="saleForm.buyer" label="Acheteur (optionnel)" />
@@ -234,6 +273,10 @@ const privateUserOptions = computed(() => [
 const showForm = ref(false)
 const showJarForm = ref(false)
 const showSaleForm = ref(false)
+const saleEditId = ref(null)
+const saleEditJar = ref('')
+// Historiques repliés à l'ouverture de la page.
+const openPanels = ref([])
 const editId = ref(null)
 const saving = ref(false)
 const errorSnack = ref(false)
@@ -274,6 +317,7 @@ const saleHeaders = [
   { title: 'P.U.', key: 'unit_price' },
   { title: 'Total', key: 'total_amount' },
   { title: 'Acheteur', key: 'buyer' },
+  { title: 'Actions', key: 'actions', sortable: false },
 ]
 
 const monthLabels = ['Jan','Fév','Mar','Avr','Mai','Juin','Juil','Aoû','Sep','Oct','Nov','Déc']
@@ -401,20 +445,57 @@ async function saveJar() {
 }
 
 function openNewSale() {
+  saleEditId.value = null
+  saleEditJar.value = ''
   saleForm.value = { jar_id: null, quantity: 1, unit_price: null, buyer: '' }
   showSaleForm.value = true
 }
 
+function editSale(sale) {
+  saleEditId.value = sale.id
+  saleEditJar.value = `${sale.jar_weight_g}g` + (sale.category_name ? ` — ${sale.category_name}` : '')
+  saleForm.value = {
+    jar_id: sale.jar_id,
+    quantity: sale.quantity,
+    unit_price: sale.unit_price,
+    buyer: sale.buyer || '',
+  }
+  showSaleForm.value = true
+}
+
 async function saveSale() {
-  if (!saleForm.value.jar_id || saleForm.value.quantity < 1) { showError('Pot et quantité requis'); return }
+  if (!saleEditId.value && !saleForm.value.jar_id) { showError('Pot requis'); return }
+  if (saleForm.value.quantity < 1) { showError('Quantité requise'); return }
   saving.value = true
   try {
-    await api.post('/honey/sales', saleForm.value)
+    if (saleEditId.value) {
+      await api.put(`/honey/sales/${saleEditId.value}`, {
+        quantity: saleForm.value.quantity,
+        unit_price: saleForm.value.unit_price,
+        buyer: saleForm.value.buyer,
+      })
+      showSuccess('Vente modifiée (stock et compta mis à jour)')
+    } else {
+      await api.post('/honey/sales', saleForm.value)
+      showSuccess('Vente enregistrée (compta mise à jour)')
+    }
     showSaleForm.value = false
-    showSuccess('Vente enregistrée (compta mise à jour)')
     await load()
   } catch (e) { showError(e.response?.data?.detail || 'Erreur') }
   finally { saving.value = false }
+}
+
+async function deleteSale(sale) {
+  const ok = await confirmAction(
+    `Annuler cette vente de ${sale.quantity} pot(s) ? Les pots retournent en stock` +
+    (sale.ownership === 'associative' ? " et l'écriture comptable est supprimée." : '.')
+  )
+  if (!ok) return
+  try {
+    await api.delete(`/honey/sales/${sale.id}`)
+    showSuccess('Vente annulée, pots remis en stock')
+    await load()
+  } catch (e) { showError(e.response?.data?.detail || 'Erreur') }
 }
 
 async function addCategory() {

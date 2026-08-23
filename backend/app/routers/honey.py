@@ -16,6 +16,7 @@ from app.models.honey import HoneyHarvest, HoneyCategory, HoneyJar, HoneySale, O
 from app.models.treasury import Transaction, TransactionType, TransactionCategory
 from app.models.user import User, RoleEnum
 from app.schemas.honey import (
+    SaleUpdate,
     HoneyCategoryCreate, HoneyCategoryOut,
     HoneyHarvestCreate, HoneyHarvestUpdate, HoneyHarvestOut,
     JarCreate, JarUpdate, JarOut,
@@ -531,6 +532,96 @@ async def create_sale(
                      details=f"[{own}] {body.quantity}x {jar.jar_weight_g}g = {total}€")
     await db.refresh(sale)
     return _sale_out(sale)
+
+
+async def _check_sale_access(db, sale: HoneySale, user: User) -> tuple[HoneyJar, str]:
+    """Vérifie que l'utilisateur peut toucher à cette vente. Renvoie (pot, ownership)."""
+    jar = await db.get(HoneyJar, sale.jar_id)
+    if not jar:
+        raise HTTPException(404, "Pot introuvable")
+    own = jar.ownership.value if hasattr(jar.ownership, 'value') else jar.ownership
+    if own == 'private':
+        # Privé : le vendeur, le propriétaire du pot, ou un responsable.
+        if sale.sold_by != user.id and jar.created_by != user.id and not _is_manager(user):
+            raise HTTPException(403, "Cette vente ne vous appartient pas")
+    else:
+        roles = get_user_roles(user)
+        if not any(r in roles for r in (RoleEnum.ADMIN.value, RoleEnum.TREASURER.value,
+                                        RoleEnum.YARD_MANAGER.value)):
+            raise HTTPException(403, "Seuls les responsables peuvent modifier les ventes associatives")
+    return jar, own
+
+
+@router.put("/sales/{sale_id}", response_model=SaleOut)
+async def update_sale(
+    sale_id: int, body: SaleUpdate,
+    db: AsyncSession = Depends(get_db),
+    user: User = Depends(get_current_user),
+):
+    """Corrige une vente : le stock du pot et l'écriture comptable liée suivent."""
+    sale = await db.get(HoneySale, sale_id)
+    if not sale:
+        raise HTTPException(404, "Vente introuvable")
+    jar, own = await _check_sale_access(db, sale, user)
+
+    new_qty = sale.quantity if body.quantity is None else body.quantity
+    if new_qty <= 0:
+        raise HTTPException(400, "La quantité vendue doit être positive")
+
+    # Le stock doit absorber l'écart : rendre les pots repris, retirer les
+    # pots supplémentaires — sans jamais passer sous zéro.
+    delta = new_qty - sale.quantity
+    if delta > 0 and jar.quantity < delta:
+        raise HTTPException(400, f"Stock insuffisant ({jar.quantity} disponible(s) en plus)")
+    jar.quantity -= delta
+
+    price = sale.unit_price if body.unit_price is None else body.unit_price
+    if not price or price <= 0:
+        raise HTTPException(400, "Prix unitaire requis")
+
+    sale.quantity = new_qty
+    sale.unit_price = price
+    sale.total_amount = round(price * new_qty, 2)
+    if body.buyer is not None:
+        sale.buyer = body.buyer or None
+
+    # Répercuter sur l'écriture comptable (ventes associatives uniquement).
+    if sale.transaction_id:
+        tx = await db.get(Transaction, sale.transaction_id)
+        if tx:
+            tx.amount = sale.total_amount
+            tx.description = (f"Vente asso {sale.quantity}x pot {jar.jar_weight_g}g"
+                              + (f" — {sale.buyer}" if sale.buyer else ""))
+            tx.supplier = sale.buyer
+
+    await log_action(db, user.id, "update", "honey_sale", sale.id,
+                     details=f"[{own}] {sale.quantity}x {jar.jar_weight_g}g = {sale.total_amount}€")
+    await db.flush()
+    return _sale_out(sale)
+
+
+@router.delete("/sales/{sale_id}", status_code=204)
+async def delete_sale(
+    sale_id: int,
+    db: AsyncSession = Depends(get_db),
+    user: User = Depends(get_current_user),
+):
+    """Annule une vente : les pots retournent en stock et l'écriture est supprimée."""
+    sale = await db.get(HoneySale, sale_id)
+    if not sale:
+        raise HTTPException(404, "Vente introuvable")
+    jar, own = await _check_sale_access(db, sale, user)
+
+    jar.quantity += sale.quantity
+    if sale.transaction_id:
+        tx = await db.get(Transaction, sale.transaction_id)
+        if tx:
+            await db.delete(tx)
+
+    qty, weight = sale.quantity, jar.jar_weight_g
+    await db.delete(sale)
+    await log_action(db, user.id, "delete", "honey_sale", sale_id,
+                     details=f"[{own}] {qty}x {weight}g remis en stock")
 
 
 # ─── Helpers ──────────────────────────────────────────────────────

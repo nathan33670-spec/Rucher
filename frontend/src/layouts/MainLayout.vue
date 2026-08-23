@@ -338,7 +338,8 @@ const navGroups = computed(() => {
       items: [
         { to: { name: 'dashboard' }, icon: 'mdi-view-dashboard-outline', title: 'Tableau de bord' },
         { to: { name: 'apiaries' }, icon: 'mdi-hexagon-multiple', title: 'Ruchers' },
-        { to: { name: 'visits' }, icon: 'mdi-clipboard-text-outline', title: 'Visites' },
+        { to: { name: 'visit-live-mine' }, icon: 'mdi-bee', title: 'Visite rapide' },
+        { to: { name: 'visits' }, icon: 'mdi-clipboard-text-outline', title: 'Historique des visites' },
         { to: { name: 'weather' }, icon: 'mdi-weather-partly-cloudy', title: 'Météo' },
         { to: { name: 'events' }, icon: 'mdi-calendar-star', title: 'Événements' },
       ],
@@ -350,9 +351,9 @@ const navGroups = computed(() => {
 
 const mobileNav = [
   { to: { name: 'dashboard' }, icon: 'mdi-home', title: 'Accueil' },
-  { to: { name: 'visit-live-mine' }, icon: 'mdi-bee', title: 'Visite' },
+  { to: { name: 'visit-live-mine' }, icon: 'mdi-bee', title: 'Visite rapide' },
   { to: { name: 'apiaries' }, icon: 'mdi-hexagon-multiple', title: 'Ruchers' },
-  { to: { name: 'visits' }, icon: 'mdi-clipboard-text', title: 'Historique' },
+  { to: { name: 'visits' }, icon: 'mdi-clipboard-text', title: 'Historique visites' },
   { to: { name: 'weather' }, icon: 'mdi-weather-partly-cloudy', title: 'Météo' },
 ]
 
@@ -360,7 +361,7 @@ const pageTitle = computed(() => {
   const titles = {
     dashboard: 'Tableau de bord',
     apiaries: 'Ruchers',
-    visits: 'Visites',
+    visits: 'Historique des visites',
     'visit-live-mine': 'Visite rapide',
     weather: 'Météo',
     events: 'Événements',
@@ -464,11 +465,28 @@ function logout() {
   backdrop-filter: saturate(140%) blur(10px);
 }
 
-/* Libellés de la barre mobile : compacts, sans majuscules. */
+/* Libellés de la barre mobile : compacts, sans majuscules, sur deux lignes
+   si nécessaire — « Visite rapide » et « Historique visites » doivent rester
+   lisibles en entier, l'abréviation recréerait l'ambiguïté. */
 .rucher-bottom-nav :deep(.v-btn) {
   text-transform: none;
-  letter-spacing: -0.003em;
+  letter-spacing: -0.01em;
   font-weight: 500;
+  min-width: 0;
+  padding-inline: 2px;
+}
+
+.rucher-bottom-nav :deep(.v-btn__content) {
+  flex-direction: column;
+  row-gap: 1px;
+}
+
+.rucher-bottom-nav :deep(.v-btn__content > .text-caption) {
+  font-size: 0.625rem;
+  line-height: 1.15;
+  white-space: normal;
+  text-align: center;
+  max-width: 100%;
 }
 
 /* Alerte non lue : liseré miel à gauche plutôt qu'un aplat jaune. */
