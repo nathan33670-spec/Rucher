@@ -142,7 +142,7 @@
         <v-row dense>
           <v-col cols="6">
             <v-text-field v-model.number="form.honey_harvest_kg" label="Miel (kg)" type="number" min="0" step="0.1"
-              variant="outlined" density="comfortable" hide-details prepend-inner-icon="mdi-jar" />
+              variant="outlined" density="comfortable" hide-details prepend-inner-icon="mdi-bottle-tonic-outline" />
           </v-col>
           <v-col cols="6">
             <v-text-field v-model.number="form.pollen_harvest_kg" label="Pollen (kg)" type="number" min="0" step="0.1"

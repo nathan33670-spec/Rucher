@@ -385,7 +385,7 @@ export const chapters = [
   {
     slug: 'produits-de-la-ruche',
     nav: 'Produits de la ruche',
-    icon: 'mdi-jar',
+    icon: 'mdi-bottle-tonic-outline',
     eyebrow: 'Trésors',
     title: 'Les autres trésors de la ruche',
     lead: "Le miel n'est que le plus connu. La ruche produit une pharmacie entière : cire, propolis, pollen, gelée royale.",
