@@ -201,6 +201,7 @@
 <script setup>
 import { ref, computed, onMounted } from 'vue'
 import api from '../services/api'
+import { toastError, apiError } from '../services/toast'
 
 const stats = ref([])
 const apiaries = ref([])
@@ -267,7 +268,7 @@ onMounted(async () => {
       { title: 'Alertes', value: activeAlerts.value.length, icon: 'mdi-alert', color: 'error', to: { name: 'visits' } },
     ]
   } catch (e) {
-    console.error('Dashboard load error:', e)
+    toastError(apiError(e, "Chargement du tableau de bord incomplet"))
   }
 
   // Prochains événements (chargement séparé — ne bloque pas le reste du tableau de bord)

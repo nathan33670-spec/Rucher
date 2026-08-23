@@ -139,6 +139,9 @@ async def sync_visits(
         )
         db.add(visit)
         await db.flush()
+        # Tracée comme une saisie directe : sans cela, les visites remontées
+        # depuis le mode hors-ligne n'apparaissaient pas au journal.
+        await log_action(db, user.id, "create", "visit", visit.id, details="sync hors-ligne")
         _record_treatment(db, visit, user)
         out.append(_visit_out(visit, user, hive))
     if out:

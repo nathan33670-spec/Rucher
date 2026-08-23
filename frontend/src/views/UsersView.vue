@@ -90,6 +90,7 @@
 <script setup>
 import { ref, onMounted } from 'vue'
 import api from '../services/api'
+import { toastError, toastSuccess, apiError } from '../services/toast'
 import { useAuthStore } from '../stores/auth'
 
 const auth = useAuthStore()
@@ -135,7 +136,7 @@ async function load() {
     const { data } = await api.get('/users/')
     users.value = data
   } catch (e) {
-    console.error('Users load error:', e)
+    toastError(apiError(e, 'Chargement des utilisateurs impossible'))
   }
 }
 
@@ -146,17 +147,26 @@ function editUser(u) {
 }
 
 async function saveUser() {
+  if (!form.value.email?.trim()) { toastError("L'identifiant est obligatoire"); return }
+  if (!form.value.first_name?.trim() || !form.value.last_name?.trim()) {
+    toastError('Prénom et nom sont obligatoires'); return
+  }
+  if (!formEditId.value && (form.value.password || '').length < 6) {
+    toastError('Le mot de passe doit faire au moins 6 caractères'); return
+  }
   try {
     if (formEditId.value) {
       await api.put(`/users/${formEditId.value}`, form.value)
     } else {
       await api.post('/users/', form.value)
     }
+    const wasEdit = !!formEditId.value
     showForm.value = false
     formEditId.value = null
     await load()
+    toastSuccess(wasEdit ? 'Utilisateur modifié' : 'Utilisateur créé')
   } catch (e) {
-    alert(e.response?.data?.detail || 'Erreur lors de l\'enregistrement')
+    toastError(apiError(e, "Erreur lors de l'enregistrement"))
   }
 }
 
@@ -168,14 +178,16 @@ function resetPw(u) {
 
 async function confirmResetPw() {
   if (!newPassword.value || newPassword.value.length < 6) {
-    alert('Le mot de passe doit faire au moins 6 caractères')
+    toastError('Le mot de passe doit faire au moins 6 caractères')
     return
   }
   try {
     await api.put(`/users/${pwUser.value.id}/password`, { new_password: newPassword.value })
     showPwDialog.value = false
+    // Le compte visé est déconnecté de tous ses appareils : il faut le dire.
+    toastSuccess(`Mot de passe de ${pwUser.value.first_name} modifié — ce compte a été déconnecté de tous ses appareils`)
   } catch (e) {
-    alert(e.response?.data?.detail || 'Erreur lors du changement de mot de passe')
+    toastError(apiError(e, 'Erreur lors du changement de mot de passe'))
   }
 }
 
@@ -192,6 +204,7 @@ async function confirmDelete() {
     await api.delete(`/users/${delUser.value.id}`)
     showDelete.value = false
     await load()
+    toastSuccess('Utilisateur supprimé')
   } catch (e) {
     delError.value = e.response?.data?.detail || 'Erreur lors de la suppression'
   } finally {

@@ -104,7 +104,7 @@
             <template v-slot:item.unit_price="{ item }">{{ money(item.unit_price) }}</template>
             <template v-slot:item.buyer="{ item }">{{ item.buyer || '—' }}</template>
             <template v-slot:item.ownership="{ item }">
-              <v-chip :color="item.ownership === 'associative' ? 'info' : 'accent'" size="x-small" variant="tonal">{{ item.ownership === 'associative' ? 'Asso' : 'Privé' }}</v-chip>
+              <v-chip :color="item.ownership === 'associative' ? 'info' : 'accent'" size="x-small" variant="tonal">{{ item.ownership === 'associative' ? 'Associatif' : 'Privé' }}</v-chip>
             </template>
             <template v-slot:item.actions="{ item }">
               <v-btn icon size="small" variant="text" title="Modifier" @click="editSale(item)"><v-icon>mdi-pencil</v-icon></v-btn>
@@ -127,7 +127,7 @@
         <template v-slot:item.harvest_date="{ item }">{{ new Date(item.harvest_date).toLocaleDateString('fr-FR') }}</template>
         <template v-slot:item.quantity_kg="{ item }"><v-chip color="primary" size="small" variant="tonal">{{ item.quantity_kg }} kg</v-chip></template>
         <template v-slot:item.ownership="{ item }">
-          <v-chip :color="item.ownership === 'associative' ? 'info' : 'accent'" size="x-small" variant="tonal">{{ item.ownership === 'associative' ? 'Asso' : 'Privé' }}</v-chip>
+          <v-chip :color="item.ownership === 'associative' ? 'info' : 'accent'" size="x-small" variant="tonal">{{ item.ownership === 'associative' ? 'Associatif' : 'Privé' }}</v-chip>
         </template>
         <template v-slot:item.category_name="{ item }">{{ item.category_name || '—' }}</template>
         <template v-slot:item.jars="{ item }">
@@ -198,7 +198,7 @@
         <v-card-text>
           <v-select v-model="jarForm.harvest_id" :items="harvests" :item-title="h => new Date(h.harvest_date).toLocaleDateString('fr-FR') + ' — ' + h.quantity_kg + 'kg ' + (h.category_name || '')" item-value="id" label="Récolte source" />
           <v-btn-toggle v-model="jarForm.ownership" mandatory class="mb-3 d-flex">
-            <v-btn value="associative" color="info" class="flex-grow-1" :disabled="!canManageAsso" prepend-icon="mdi-account-group">Asso</v-btn>
+            <v-btn value="associative" color="info" class="flex-grow-1" :disabled="!canManageAsso" prepend-icon="mdi-account-group">Associatif</v-btn>
             <v-btn value="private" color="accent" class="flex-grow-1" prepend-icon="mdi-home">Privé</v-btn>
           </v-btn-toggle>
           <v-select v-model="jarForm.jar_weight_g" :items="jarSizes" label="Format du pot" />
@@ -222,7 +222,7 @@
           <v-select
             v-if="!saleEditId"
             v-model="saleForm.jar_id" :items="availableJars"
-            :item-title="j => j.jar_weight_g + 'g — stock: ' + j.quantity + ' (' + (j.ownership === 'associative' ? 'Asso' : 'Privé') + ')'"
+            :item-title="j => j.jar_weight_g + 'g — stock: ' + j.quantity + ' (' + (j.ownership === 'associative' ? 'Associatif' : 'Privé') + ')'"
             item-value="id" label="Pot à vendre"
           />
           <v-alert v-else type="info" variant="tonal" density="compact" class="mb-4">

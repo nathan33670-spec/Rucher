@@ -3,10 +3,11 @@
 from pydantic import BaseModel
 from datetime import datetime
 from typing import Optional
+from app.schemas.common import NonEmptyStr
 
 
 class DocPageCreate(BaseModel):
-    title: str
+    title: NonEmptyStr
     category: str = "Divers"
     content: str = ""
     is_published: bool = True

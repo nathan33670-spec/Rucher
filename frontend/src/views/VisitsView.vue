@@ -15,6 +15,13 @@
       <template v-slot:item.hive_name="{ item }">
         {{ item.hive_name || ('Ruche #' + item.hive_id) }}
       </template>
+      <template v-slot:item.treatment_type="{ item }">
+        <v-chip v-if="item.treatment_type" size="x-small" variant="tonal" color="info"
+          :title="item.treatment_product || ''">
+          <v-icon start size="11">mdi-medical-bag</v-icon>{{ item.treatment_type }}
+        </v-chip>
+        <span v-else class="r-muted">—</span>
+      </template>
       <template v-slot:item.queen_seen="{ item }">
         <v-icon v-if="item.queen_seen === true" color="success" size="18">mdi-check-circle</v-icon>
         <v-icon v-else-if="item.queen_seen === false" color="error" size="18">mdi-close-circle</v-icon>
@@ -57,16 +64,27 @@
           <!-- Section Corps -->
           <v-card variant="outlined" class="mb-4 pa-3">
             <div class="text-subtitle-2 font-weight-bold mb-2">
-              <v-icon class="mr-1" color="deep-orange">mdi-hexagon-multiple</v-icon> Corps
+              <v-icon class="mr-1" color="accent">mdi-hexagon-multiple</v-icon> Corps
             </div>
             <v-switch v-model="form.queen_seen" label="Reine vue" color="success" />
             <v-slider v-model="form.brood_score" :min="0" :max="9" :step="1" label="Couvain" thumb-label />
             <v-slider v-model="form.reserves_score" :min="0" :max="9" :step="1" label="Réserves" thumb-label />
             <v-text-field v-model="form.feeding" label="Nourrissement" density="compact" />
+            <!-- Traitement : saisi sur le terrain, il doit être consultable
+                 et corrigeable depuis l'historique. -->
+            <v-select
+              v-model="form.treatment_type" :items="treatmentTypes"
+              label="Type de traitement" placeholder="Aucun" clearable density="compact"
+            />
+            <v-combobox
+              v-if="form.treatment_type"
+              v-model="form.treatment_product" :items="productSuggestions"
+              label="Produit utilisé" density="compact"
+            />
           </v-card>
 
           <v-textarea v-model="form.comment" label="Commentaires" rows="2" />
-          <v-switch v-model="form.is_alert" label="🚨 Alerte" color="error" />
+          <v-switch v-model="form.is_alert" label="Alerte" color="error" />
           <v-text-field v-if="form.is_alert" v-model="form.alert_message" label="Message d'alerte" />
         </v-card-text>
         <v-card-actions>
@@ -82,6 +100,7 @@
 <script setup>
 import { ref, computed, onMounted } from 'vue'
 import api from '../services/api'
+import { toastError, toastSuccess, apiError } from '../services/toast'
 import { confirmAction } from '../services/confirm'
 import { useAuthStore } from '../stores/auth'
 
@@ -95,6 +114,17 @@ const form = ref({
   supers_delta: 0, feeding: '', comment: '', is_alert: false, alert_message: '', honey_harvest_kg: null, pollen_harvest_kg: null,
 })
 
+// Mêmes listes que la saisie terrain, pour que les libellés concordent.
+const treatmentTypes = [
+  'Varroa', 'Loque américaine', 'Loque européenne',
+  'Nosémose', 'Teigne', 'Frelon asiatique', 'Autre',
+]
+const productSuggestions = [
+  'Apivar', 'Apiguard', 'Apilife Var', 'VarroMed',
+  'Acide oxalique (dégouttement)', 'Acide oxalique (sublimation)',
+  'Acide formique (MAQS)', 'Thymol',
+]
+
 const headers = computed(() => {
   const h = [
     { title: 'Date', key: 'visited_at' },
@@ -104,6 +134,7 @@ const headers = computed(() => {
     { title: 'Couvain', key: 'brood_score' },
     { title: 'Réserves', key: 'reserves_score' },
     { title: 'Hausses', key: 'supers_delta' },
+    { title: 'Traitement', key: 'treatment_type' },
     { title: 'Commentaire', key: 'comment', sortable: false },
     { title: 'Alerte', key: 'is_alert' },
   ]
@@ -116,7 +147,7 @@ async function load() {
     const { data } = await api.get('/visits/?limit=100')
     visits.value = data
   } catch (e) {
-    console.error('Visits load error:', e)
+    toastError(apiError(e, 'Chargement des visites impossible'))
   }
 }
 
@@ -133,6 +164,8 @@ function editVisit(v) {
     alert_message: v.alert_message || '',
     honey_harvest_kg: v.honey_harvest_kg,
     pollen_harvest_kg: v.pollen_harvest_kg,
+    treatment_type: v.treatment_type || null,
+    treatment_product: v.treatment_product || null,
   }
   showForm.value = true
 }
@@ -143,9 +176,9 @@ async function saveVisit() {
     showForm.value = false
     formEditId.value = null
     await load()
+    toastSuccess('Visite modifiée')
   } catch (e) {
-    console.error('Save visit error:', e)
-    alert(e.response?.data?.detail || 'Erreur lors de l\'enregistrement')
+    toastError(apiError(e, "Erreur lors de l'enregistrement"))
   }
 }
 
@@ -154,8 +187,9 @@ async function deleteVisit(id) {
   try {
     await api.delete(`/visits/${id}`)
     await load()
+    toastSuccess('Visite supprimée')
   } catch (e) {
-    alert(e.response?.data?.detail || 'Erreur lors de la suppression')
+    toastError(apiError(e, 'Erreur lors de la suppression'))
   }
 }
 

@@ -85,6 +85,8 @@ async def _dispatch(subs, title, body, url):
     vapid = Vapid02.from_pem(priv.encode())
     to_delete = []
     sent = 0
+    failed = 0
+    last_error = None
     for s in subs:
         try:
             await asyncio.to_thread(_send_one, s, payload, vapid, subject)
@@ -93,8 +95,14 @@ async def _dispatch(subs, title, body, url):
             code = getattr(getattr(e, "response", None), "status_code", None)
             if code in (404, 410):
                 to_delete.append(s.id)
-        except Exception:
-            pass
+        except Exception as e:
+            # Ne jamais interrompre l'envoi aux autres appareils, mais laisser
+            # une trace : un échec silencieux avait déjà masqué une clé VAPID
+            # invalide, sans aucun signe côté serveur.
+            failed += 1
+            last_error = e
+    if failed:
+        print(f"⚠️  Push : {failed} envoi(s) en échec sur {len(subs)} — dernier : {last_error}")
     if to_delete:
         async with async_session() as db:
             await db.execute(delete(PushSubscription).where(PushSubscription.id.in_(to_delete)))

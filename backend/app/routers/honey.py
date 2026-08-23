@@ -386,6 +386,7 @@ async def update_jar(
         raise HTTPException(403, "Seuls les responsables peuvent modifier les pots associatifs")
     for k, v in body.model_dump(exclude_unset=True).items():
         setattr(jar, k, v)
+    await log_action(db, user.id, "update", "honey_jar", jar.id)
     return _jar_out(jar)
 
 
