@@ -3,13 +3,14 @@
 from datetime import datetime
 from typing import Optional, Literal
 from pydantic import BaseModel, field_validator
+from app.schemas.common import NonEmptyStr
 
 
 RSVPResponse = Literal["yes", "maybe", "no"]
 
 
 class EventBase(BaseModel):
-    title: str
+    title: NonEmptyStr
     description: Optional[str] = None
     location: Optional[str] = None
     start_at: datetime

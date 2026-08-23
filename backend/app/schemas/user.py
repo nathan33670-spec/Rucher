@@ -4,13 +4,14 @@ from pydantic import BaseModel, Field, AliasChoices
 from datetime import datetime
 from typing import Optional
 from app.models.user import RoleEnum
+from app.schemas.common import NonEmptyStr
 
 
 class UserCreate(BaseModel):
-    email: str
+    email: NonEmptyStr
     password: str
-    first_name: str
-    last_name: str
+    first_name: NonEmptyStr
+    last_name: NonEmptyStr
     phone: Optional[str] = None
     roles: list[RoleEnum] = [RoleEnum.USER]
 

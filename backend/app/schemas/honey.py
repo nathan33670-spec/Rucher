@@ -3,10 +3,11 @@
 from pydantic import BaseModel
 from datetime import datetime
 from typing import Optional
+from app.schemas.common import NonEmptyStr
 
 
 class HoneyCategoryCreate(BaseModel):
-    name: str
+    name: NonEmptyStr
     color: Optional[str] = None
     description: Optional[str] = None
 

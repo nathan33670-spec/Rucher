@@ -120,6 +120,8 @@ async def upload_invoice(
     )
     db.add(invoice)
     await db.flush()
+    await log_action(db, user.id, "upload", "invoice", tx_id,
+                     details=file.filename)
     return {"id": invoice.id, "filename": invoice.filename}
 
 

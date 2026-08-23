@@ -57,7 +57,7 @@
           {{ selectedHive.status }}
         </v-chip>
         <v-chip :color="selectedHive.ownership === 'private' ? 'orange' : 'blue'" size="x-small" class="ml-1">
-          {{ selectedHive.ownership === 'private' ? 'Privé' : 'Associative' }}
+          {{ selectedHive.ownership === 'private' ? 'Privée' : 'Associative' }}
         </v-chip>
         <v-spacer />
         <v-btn size="small" variant="text" @click="selectedHive = null"><v-icon>mdi-close</v-icon></v-btn>
@@ -171,7 +171,7 @@
     <!-- Liste des ruches -->
     <v-data-table :headers="hiveHeaders" :items="hives" density="compact" @click:row="(_, { item }) => selectHive(item)">
       <template v-slot:item.ownership="{ item }">
-        <v-chip :color="item.ownership === 'private' ? 'orange' : 'blue'" size="small">{{ item.ownership === 'private' ? 'Privée' : 'Asso' }}</v-chip>
+        <v-chip :color="item.ownership === 'private' ? 'accent' : 'info'" size="small" variant="tonal">{{ item.ownership === 'private' ? 'Privée' : 'Associative' }}</v-chip>
       </template>
       <template v-slot:item.status="{ item }">
         <v-chip :color="item.status === 'active' ? 'success' : 'error'" size="small">{{ item.status }}</v-chip>
@@ -230,7 +230,7 @@
           <!-- Corps -->
           <v-card variant="outlined" class="mb-3 pa-3">
             <div class="text-subtitle-2 font-weight-bold mb-2">
-              <v-icon class="mr-1" color="deep-orange">mdi-hexagon-multiple</v-icon> Corps
+              <v-icon class="mr-1" color="accent">mdi-hexagon-multiple</v-icon> Corps
             </div>
             <v-switch v-model="visitBodyOpened" label="Corps ouvert" color="primary" hide-details density="compact" class="mb-2" />
             <div class="mb-2">
@@ -242,7 +242,7 @@
             </div>
             <template v-if="visitBodyOpened">
               <v-slider v-model="visitForm.brood_score" :min="0" :max="9" :step="1" label="Couvain" thumb-label color="primary" class="mb-1" />
-              <v-slider v-model="visitForm.reserves_score" :min="0" :max="9" :step="1" label="Réserves" thumb-label color="deep-orange" />
+              <v-slider v-model="visitForm.reserves_score" :min="0" :max="9" :step="1" label="Réserves" thumb-label color="accent" />
             </template>
             <v-chip v-else color="grey" variant="tonal" class="mt-1">N/A — corps non ouvert</v-chip>
           </v-card>

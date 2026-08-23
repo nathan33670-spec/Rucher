@@ -4,10 +4,11 @@ from pydantic import BaseModel
 from datetime import datetime
 from typing import Optional
 from app.models.inventory import MovementType
+from app.schemas.common import NonEmptyStr
 
 
 class ItemCreate(BaseModel):
-    name: str
+    name: NonEmptyStr
     category: Optional[str] = None
     description: Optional[str] = None
     location: Optional[str] = None

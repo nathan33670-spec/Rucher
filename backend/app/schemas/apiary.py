@@ -3,10 +3,11 @@
 from pydantic import BaseModel
 from datetime import datetime
 from typing import Optional
+from app.schemas.common import NonEmptyStr
 
 
 class ApiaryCreate(BaseModel):
-    name: str
+    name: NonEmptyStr
     address: Optional[str] = None
     latitude: Optional[float] = None
     longitude: Optional[float] = None

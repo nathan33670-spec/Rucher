@@ -126,10 +126,20 @@ async def update_event(
     ev = await db.get(Event, event_id)
     if not ev:
         raise HTTPException(404, "Événement introuvable")
-    for k, v in body.model_dump(exclude_unset=True).items():
+    changed = body.model_dump(exclude_unset=True)
+    # Un changement de date ou de lieu doit être signalé : sinon des adhérents
+    # se déplacent sur l'ancienne information.
+    notable = any(k in changed for k in ("start_at", "end_at", "location", "title"))
+    for k, v in changed.items():
         setattr(ev, k, v)
     await db.flush()
     await log_action(db, user.id, "update", "event", ev.id)
+
+    if notable:
+        when = ev.start_at.strftime("%d/%m à %Hh%M") if ev.start_at else ""
+        notify("events", "📅 Événement modifié",
+               f"{ev.title}{' — ' + when if when else ''}"
+               + (f" · {ev.location}" if ev.location else ""), "/app/events")
 
     counts = (await _counts_map(db, [ev.id]))[ev.id]
     mine = (await _my_responses(db, [ev.id], user.id)).get(ev.id)

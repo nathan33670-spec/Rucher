@@ -76,6 +76,7 @@
 <script setup>
 import { ref, onMounted } from 'vue'
 import api from '../services/api'
+import { toastError, toastSuccess, apiError } from '../services/toast'
 import { confirmAction } from '../services/confirm'
 import { useAuthStore } from '../stores/auth'
 
@@ -91,13 +92,14 @@ async function load() {
     const { data } = await api.get('/apiaries/')
     apiaries.value = data
   } catch (e) {
-    console.error('Apiaries load error:', e)
+    toastError(apiError(e, 'Chargement des ruchers impossible'))
   } finally {
     loaded.value = true
   }
 }
 
 async function saveApiary() {
+  if (!form.value.name?.trim()) { toastError('Le nom du rucher est obligatoire'); return }
   try {
     if (editId.value) {
       await api.put(`/apiaries/${editId.value}`, form.value)
@@ -105,11 +107,13 @@ async function saveApiary() {
       await api.post('/apiaries/', form.value)
     }
     showForm.value = false
+    const wasEdit = !!editId.value
     form.value = { name: '', address: '', latitude: null, longitude: null, description: '' }
     editId.value = null
     await load()
+    toastSuccess(wasEdit ? 'Rucher modifié' : 'Rucher créé')
   } catch (e) {
-    alert(e.response?.data?.detail || 'Erreur lors de l\'enregistrement')
+    toastError(apiError(e, "Erreur lors de l'enregistrement"))
   }
 }
 
@@ -118,8 +122,9 @@ async function deleteApiary(id) {
   try {
     await api.delete(`/apiaries/${id}`)
     await load()
+    toastSuccess('Rucher supprimé')
   } catch (e) {
-    alert(e.response?.data?.detail || 'Erreur lors de la suppression')
+    toastError(apiError(e, 'Erreur lors de la suppression'))
   }
 }
 
