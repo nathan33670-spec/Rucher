@@ -41,7 +41,8 @@ async def login(body: LoginRequest, db: AsyncSession = Depends(get_db)):
     # « Rester connecté » → jeton quasi-permanent (10 ans) ; sinon durée par défaut.
     expires = timedelta(days=3650) if body.remember else None
     token = create_access_token(
-        {"sub": user.id, "username": user.email, "active_role": active},
+        {"sub": user.id, "username": user.email, "active_role": active,
+         "tv": user.token_version or 0},
         expires_delta=expires,
     )
     return {"access_token": token, "token_type": "bearer"}
@@ -64,7 +65,8 @@ async def switch_role(
     role = body.role
     if role is not None and role not in authorized:
         raise HTTPException(403, "Rôle non autorisé")
-    token = create_access_token({"sub": user.id, "username": user.email, "active_role": role})
+    token = create_access_token({"sub": user.id, "username": user.email, "active_role": role,
+                                 "tv": user.token_version or 0})
     return {"access_token": token, "token_type": "bearer"}
 
 
@@ -96,8 +98,17 @@ async def change_my_password(
     if len(body.new_password or "") < 6:
         raise HTTPException(status_code=400, detail="Le nouveau mot de passe doit faire au moins 6 caractères")
     user.hashed_password = hash_password(body.new_password)
+    # Périme tous les jetons existants (y compris ceux des autres appareils).
+    user.token_version = (user.token_version or 0) + 1
     await log_action(db, user.id, "password_change", "user", user.id)
-    return {"detail": "Mot de passe modifié"}
+    await db.flush()
+    # Nouveau jeton pour l'appareil courant : l'utilisateur reste connecté ici.
+    token = create_access_token({
+        "sub": user.id, "username": user.email,
+        "active_role": getattr(user, "active_role", None),
+        "tv": user.token_version,
+    })
+    return {"detail": "Mot de passe modifié", "access_token": token, "token_type": "bearer"}
 
 
 @router.get("/", response_model=list[UserOut])
@@ -183,8 +194,10 @@ async def reset_password(
     if not user:
         raise HTTPException(status_code=404, detail="Utilisateur introuvable")
     user.hashed_password = hash_password(body.new_password)
+    # Déconnecte le compte concerné de tous ses appareils.
+    user.token_version = (user.token_version or 0) + 1
     await log_action(db, current.id, "password_reset", "user", user.id)
-    return {"detail": "Mot de passe modifié"}
+    return {"detail": "Mot de passe modifié — le compte a été déconnecté de tous ses appareils"}
 
 
 @router.delete("/{user_id}")

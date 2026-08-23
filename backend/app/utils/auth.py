@@ -5,7 +5,7 @@ from typing import Optional
 import jwt
 from argon2 import PasswordHasher
 from argon2.exceptions import VerifyMismatchError
-from fastapi import Depends, HTTPException, status
+from fastapi import Depends, HTTPException, Request, status
 from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select
@@ -37,7 +37,23 @@ def create_access_token(data: dict, expires_delta: Optional[timedelta] = None) -
     return jwt.encode(to_encode, settings.secret_key, algorithm=settings.algorithm)
 
 
+# Écritures tolérées pour un compte en lecture seule : elles ne concernent que
+# son propre compte et son propre appareil, jamais les données de l'association.
+READONLY_ALLOWED_PATHS = (
+    "/api/users/me/password",
+    "/api/users/me/default-role",
+    "/api/users/switch-role",
+    "/api/notifications/subscribe",
+    "/api/notifications/unsubscribe",
+    "/api/notifications/preferences",
+    "/api/notifications/test",
+)
+
+SAFE_METHODS = ("GET", "HEAD", "OPTIONS")
+
+
 async def get_current_user(
+    request: Request,
     credentials: HTTPAuthorizationCredentials = Depends(security),
     db: AsyncSession = Depends(get_db),
 ) -> User:
@@ -55,9 +71,40 @@ async def get_current_user(
     user = result.scalar_one_or_none()
     if user is None or not user.is_active:
         raise HTTPException(status_code=401, detail="Utilisateur introuvable ou inactif")
+    # Version de jeton : un changement de mot de passe incrémente le compteur
+    # en base, ce qui périme instantanément les jetons émis auparavant.
+    # Les jetons antérieurs à cette fonctionnalité n'ont pas la revendication ;
+    # ils restent valables jusqu'au prochain changement de mot de passe.
+    tv = payload.get("tv")
+    if tv is not None and int(tv) != int(user.token_version or 0):
+        raise HTTPException(
+            status_code=401,
+            detail="Session expirée (mot de passe modifié). Reconnectez-vous.",
+        )
+
     # Rôle « actif » transporté par le jeton (commutation de rôle à la volée).
     user.active_role = payload.get("active_role")
+
+    # Lecture seule : aucune écriture sur les données de l'association.
+    if request.method not in SAFE_METHODS and _is_readonly(user):
+        if request.url.path not in READONLY_ALLOWED_PATHS:
+            raise HTTPException(
+                status_code=403,
+                detail="Votre compte est en lecture seule : modification impossible.",
+            )
+
     return user
+
+
+def _is_readonly(user: User) -> bool:
+    """Vrai si les droits EFFECTIFS se limitent au rôle « lecture seule ».
+
+    Un compte cumulant « readonly » et un autre rôle garde les droits de
+    l'autre rôle — sauf s'il a explicitement sélectionné « lecture seule »
+    comme rôle actif, auquel cas la restriction s'applique.
+    """
+    roles = get_user_roles(user)
+    return bool(roles) and all(r == RoleEnum.READONLY.value for r in roles)
 
 
 def get_authorized_roles(user: User) -> list[str]:

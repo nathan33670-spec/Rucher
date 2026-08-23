@@ -11,6 +11,7 @@ from app.utils.auth import require_roles
 from app.utils.audit import log_action
 from app.utils import digest as digest_mod
 from app.utils.mailer import send_mail, mail_enabled, recipients, MailNotConfigured
+from app.routers.settings import load_mail
 
 router = APIRouter(prefix="/api/reports", tags=["reports"])
 
@@ -21,17 +22,20 @@ def _window(days: int) -> tuple[datetime, datetime]:
 
 
 @router.get("/weekly/status")
-async def weekly_status(user: User = Depends(require_roles(RoleEnum.ADMIN))):
+async def weekly_status(
+    db: AsyncSession = Depends(get_db),
+    user: User = Depends(require_roles(RoleEnum.ADMIN)),
+):
     """Indique si l'envoi est configuré (diagnostic pour l'administrateur)."""
-    from app.config import get_settings
-    s = get_settings()
+    cfg = await load_mail(db)
     return {
-        "mail_configured": mail_enabled(),
-        "smtp_host": s.smtp_host or None,
-        "recipients": recipients(),
-        "enabled": s.digest_enabled,
-        "weekday": s.digest_weekday,
-        "hour": s.digest_hour,
+        "mail_configured": mail_enabled(cfg),
+        "smtp_host": cfg.get("smtp_host") or None,
+        "recipients": recipients(cfg),
+        "enabled": bool(cfg.get("digest_enabled", True)),
+        "weekday": int(cfg.get("digest_weekday") or 0),
+        "hour": int(cfg.get("digest_hour") or 8),
+        "source": cfg.get("source", "env"),
     }
 
 
@@ -44,8 +48,8 @@ async def weekly_preview(
     """Aperçu du récapitulatif, sans rien envoyer."""
     since, until = _window(days)
     data = await digest_mod.collect(db, since, until)
-    from app.config import get_settings
-    _, html, _ = digest_mod.render(data, get_settings().app_base_url)
+    cfg = await load_mail(db)
+    _, html, _ = digest_mod.render(data, cfg.get("app_base_url") or "")
     return HTMLResponse(html)
 
 
@@ -58,10 +62,10 @@ async def weekly_send(
     """Envoie immédiatement le récapitulatif (test ou rattrapage)."""
     since, until = _window(days)
     data = await digest_mod.collect(db, since, until)
-    from app.config import get_settings
-    subject, html, text = digest_mod.render(data, get_settings().app_base_url)
+    cfg = await load_mail(db)
+    subject, html, text = digest_mod.render(data, cfg.get("app_base_url") or "")
     try:
-        sent_to = await send_mail(subject, html, text)
+        sent_to = await send_mail(subject, html, text, cfg=cfg)
     except MailNotConfigured as e:
         raise HTTPException(400, str(e))
     except Exception as e:

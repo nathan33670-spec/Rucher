@@ -44,10 +44,17 @@ export const useAuthStore = defineStore('auth', {
       localStorage.setItem('user', JSON.stringify(data))
     },
     async changeMyPassword(currentPassword, newPassword) {
-      await api.put('/users/me/password', {
+      const { data } = await api.put('/users/me/password', {
         current_password: currentPassword,
         new_password: newPassword,
       })
+      // Changer son mot de passe périme les jetons émis auparavant (y compris
+      // sur les autres appareils). Le serveur en renvoie un neuf pour cet
+      // appareil-ci : sans cela, l'utilisateur se déconnecterait lui-même.
+      if (data?.access_token) {
+        this.token = data.access_token
+        localStorage.setItem('token', data.access_token)
+      }
     },
     async fetchUser() {
       const { data } = await api.get('/users/me')

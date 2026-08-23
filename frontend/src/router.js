@@ -50,6 +50,7 @@ const routes = [
       { path: 'notifications', name: 'notifications', component: () => import('./views/NotificationsView.vue') },
       { path: 'users', name: 'users', component: () => import('./views/UsersView.vue') },
       { path: 'logs', name: 'logs', component: () => import('./views/LogsView.vue') },
+      { path: 'reglages', name: 'admin-settings', component: () => import('./views/AdminSettingsView.vue') },
     ],
   },
 ]

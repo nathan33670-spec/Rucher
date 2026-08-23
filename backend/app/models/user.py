@@ -34,6 +34,9 @@ class User(Base):
     is_active = Column(Boolean, default=True)
     # Rôle actif par défaut (parmi les rôles autorisés) ; NULL = tous ses rôles.
     default_role = Column(String(30), nullable=True)
+    # Incrémenté à chaque changement de mot de passe : invalide immédiatement
+    # tous les jetons déjà émis pour ce compte.
+    token_version = Column(Integer, default=0, nullable=False)
     created_at = Column(DateTime, default=datetime.utcnow)
     updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
 

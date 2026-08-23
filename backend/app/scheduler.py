@@ -9,7 +9,7 @@ conteneur redémarre plusieurs fois dans la journée.
 import asyncio
 from datetime import datetime, timedelta
 
-from app.config import get_settings
+from app.routers.settings import load_mail
 from app.database import async_session
 from app.models.notification import AppSetting
 from app.utils import digest as digest_mod
@@ -39,13 +39,16 @@ async def _mark_sent(session, week: str) -> None:
 
 
 async def _run_once() -> None:
-    s = get_settings()
-    if not s.digest_enabled or not mail_enabled() or not recipients():
+    # La configuration réglée dans l'application prime sur le .env.
+    async with async_session() as session:
+        cfg = await load_mail(session)
+
+    if not cfg.get("digest_enabled", True) or not mail_enabled(cfg) or not recipients(cfg):
         return
 
     now = datetime.now()
     # Créneau : le bon jour, à partir de l'heure prévue.
-    if now.weekday() != s.digest_weekday or now.hour < s.digest_hour:
+    if now.weekday() != int(cfg.get("digest_weekday") or 0) or now.hour < int(cfg.get("digest_hour") or 8):
         return
 
     week = _week_id(now)
@@ -59,10 +62,10 @@ async def _run_once() -> None:
         until = datetime.utcnow()
         since = until - timedelta(days=7)
         data = await digest_mod.collect(session, since, until)
-        subject, html, text = digest_mod.render(data, s.app_base_url)
+        subject, html, text = digest_mod.render(data, cfg.get("app_base_url") or "")
 
     try:
-        sent = await send_mail(subject, html, text)
+        sent = await send_mail(subject, html, text, cfg=cfg)
         print(f"✅ Récapitulatif hebdomadaire envoyé à {len(sent)} destinataire(s)")
     except Exception as e:
         print(f"⚠️  Envoi du récapitulatif hebdomadaire échoué : {e}")

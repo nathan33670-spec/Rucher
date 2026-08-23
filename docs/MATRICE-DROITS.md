@@ -12,7 +12,7 @@
 | Trésorier | `treasurer` | Comptabilité, factures, ventes |
 | Responsable de rucher | `yard_manager` | Conduite technique des ruchers et du cheptel |
 | Usager | `user` | Adhérent qui suit ses propres ruches |
-| Lecture seule | `readonly` | Consultation (⚠️ voir §5 — non appliqué) |
+| Lecture seule | `readonly` | Consultation stricte — aucune écriture possible |
 
 **Cumul** : un compte peut porter plusieurs rôles. `admin` court-circuite tous les
 contrôles (`require_roles` renvoie immédiatement si `admin` est présent).
@@ -106,14 +106,14 @@ doivent être **gestionnaires de la ruche** concernée.
 
 | Action | admin | treasurer | yard_manager | user | readonly |
 |---|:--:|:--:|:--:|:--:|:--:|
-| Consulter les écritures et le bilan | ✅ | ✅ | ✅ | ✅ | ✅ |
+| Consulter les écritures et le bilan | ✅ | ✅ | 🔶 ¹ | 🔶 ¹ | 🔶 ¹ |
 | Créer / modifier / supprimer une écriture | ✅ | ✅ | ⛔ | ⛔ | ⛔ |
 | Joindre une facture | ✅ | ✅ | ⛔ | ⛔ | ⛔ |
-| Télécharger une facture | ✅ | ✅ | ✅ | ✅ | ✅ |
+| Télécharger une facture | ✅ | ✅ | 🔶 ¹ | 🔶 ¹ | 🔶 ¹ |
 
-> ⚠️ La **lecture** de la trésorerie est ouverte à tout compte connecté, y
-> compris le téléchargement des factures. L'onglet est masqué dans le menu pour
-> les non-trésoriers, mais l'API reste accessible. Voir §5.
+¹ Refusé par défaut. Un administrateur peut ouvrir la trésorerie **en lecture
+seule** à tous les membres depuis *Réglages → Configuration → Cloisonnement des
+accès*. La saisie reste réservée aux administrateurs et trésoriers.
 
 ### Événements
 
@@ -147,9 +147,9 @@ Toute autre valeur est refusée (403), y compris en forgeant la requête.
 
 | Action | admin | treasurer | yard_manager | user | readonly |
 |---|:--:|:--:|:--:|:--:|:--:|
-| Consulter le journal complet | ✅ | ✅ | ✅ | ✅ | ✅ |
+| Consulter le journal complet | ✅ | 🔶 ¹ | 🔶 ¹ | 🔶 ¹ | 🔶 ¹ |
 
-> ⚠️ Ouvert à tout compte connecté. Voir §5.
+¹ Refusé par défaut ; ouvrable à tous depuis *Réglages → Configuration*.
 
 ---
 
@@ -170,9 +170,19 @@ Toute autre valeur est refusée (403), y compris en forgeant la requête.
 | Connexion simple | 30 jours |
 | « Rester connecté sur cet appareil » | 10 ans |
 
-Les jetons sont **auto-portés** : révoquer un accès suppose de désactiver le
-compte (`is_active = false`), ce qui invalide le jeton au prochain appel.
-Changer le mot de passe n'invalide **pas** les jetons déjà émis.
+**Révocation.** Chaque compte porte un compteur `token_version` inscrit dans le
+jeton. Il est incrémenté à chaque changement de mot de passe — par l'utilisateur
+comme par un administrateur — ce qui **périme immédiatement tous les jetons
+émis auparavant**, sur tous les appareils.
+
+- L'appareil depuis lequel l'utilisateur change son mot de passe reçoit un
+  jeton neuf : il reste connecté.
+- Une réinitialisation par un administrateur déconnecte le compte **partout**.
+- Désactiver un compte (`is_active = false`) invalide aussi l'accès au
+  prochain appel.
+- Les jetons émis avant cette fonctionnalité restent valables jusqu'au
+  prochain changement de mot de passe (pas de déconnexion générale au
+  déploiement).
 
 ---
 
@@ -181,13 +191,48 @@ Changer le mot de passe n'invalide **pas** les jetons déjà émis.
 Ces points sont des **choix actuels du code**, pas des bugs de mise en œuvre.
 Ils sont listés pour décision.
 
-| # | Constat | Portée | Correctif possible |
+| # | Constat | Portée | Statut |
 |---|---|---|---|
-| 1 | Le rôle `readonly` **n'est contrôlé nulle part**. Un compte `readonly` a exactement les droits d'un `user` : il peut saisir des visites sur ses ruches, créer des récoltes privées, compter les varroas. | Moyenne | Ajouter un refus explicite en écriture pour ce rôle |
-| 2 | La **trésorerie est lisible par tous** les comptes connectés (écritures, bilan, téléchargement des factures). Le menu est masqué, l'API ne l'est pas. | Moyenne | Restreindre `GET /api/treasury/**` à admin + trésorier |
-| 3 | Le **journal d'activité est lisible par tous**. Il expose qui a fait quoi sur l'ensemble de l'association. | Faible à moyenne | Restreindre `GET /api/audit/` aux administrateurs |
-| 4 | Un jeton « rester connecté » vit **10 ans** et survit à un changement de mot de passe. | Moyenne | Ajouter un identifiant de session invalidable, ou réduire la durée |
-| 5 | La **propriété d'un article d'inventaire ne protège pas** l'article : tout gestionnaire peut le modifier. | Faible (voulu) | Documenter, ou restreindre si souhaité |
+| 1 | Le rôle `readonly` n'était contrôlé nulle part. | Moyenne | ✅ **Corrigé** — toute écriture est refusée (403), voir §6 |
+| 2 | La trésorerie était lisible par tous les comptes connectés. | Moyenne | ✅ **Corrigé** — réservée au bureau, ouverture en lecture optionnelle |
+| 3 | Le journal d'activité était lisible par tous. | Faible à moyenne | ✅ **Corrigé** — réservé aux administrateurs, ouverture optionnelle |
+| 4 | Un jeton survivait à un changement de mot de passe. | Moyenne | ✅ **Corrigé** — voir §4 |
+| 5 | La propriété d'un article d'inventaire ne protège pas l'article : tout gestionnaire peut le modifier. | Faible (voulu) | Choix assumé — champ descriptif, pas un droit |
 
-> Aucun de ces points n'expose les données **hors** de l'association : toutes ces
-> routes exigent un compte valide. Il s'agit de cloisonnement **entre adhérents**.
+> Aucun de ces points n'exposait les données **hors** de l'association : toutes
+> ces routes exigent un compte valide. Il s'agissait de cloisonnement **entre
+> adhérents**.
+
+---
+
+## 6. Le rôle « lecture seule » en détail
+
+Un compte dont les droits **effectifs** se limitent à `readonly` se voit refuser
+toute requête d'écriture (`POST`, `PUT`, `PATCH`, `DELETE`) sur l'ensemble de
+l'API, avec le message :
+
+> *Votre compte est en lecture seule : modification impossible.*
+
+Le contrôle est fait à un point unique (`get_current_user`), il couvre donc
+**toutes** les routes, y compris celles ajoutées plus tard.
+
+**Exceptions — strictement personnelles :**
+
+| Route | Pourquoi |
+|---|---|
+| `PUT /api/users/me/password` | Doit pouvoir changer son propre mot de passe |
+| `POST /api/users/switch-role` | Changer de rôle actif |
+| `PUT /api/users/me/default-role` | Choisir son rôle par défaut |
+| `POST /api/notifications/subscribe` / `unsubscribe` | Gérer les notifications de son appareil |
+| `PUT /api/notifications/preferences` | Régler ses propres notifications |
+| `POST /api/notifications/test` | Tester ses notifications |
+
+**Conséquence à connaître :** un compte en lecture seule **ne peut pas répondre
+à un événement** (présent / absent), ni planifier une visite. Si cela s'avère
+trop restrictif, dites-le : ces deux routes peuvent être ajoutées aux
+exceptions.
+
+**Cumul de rôles.** Un compte portant `readonly` **et** un autre rôle conserve
+les droits de l'autre rôle. La restriction ne s'applique que si l'utilisateur
+sélectionne explicitement « Lecture seule » comme rôle actif — ce qui en fait
+un mode « consultation » utilisable volontairement.

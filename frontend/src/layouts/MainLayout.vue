@@ -297,10 +297,20 @@ onMounted(async () => {
   resyncSubscription().catch(() => {})
   // Proposition d'activation des notifications au 1er lancement (installé).
   maybeAskNotifications()
+  loadAccess()
 })
 onUnmounted(() => window.removeEventListener('online', onOnline))
 
 const unreadAlerts = computed(() => notif.alerts.filter((a) => !a.read).length)
+
+// La trésorerie peut être ouverte en lecture à tous les membres (réglages admin).
+const treasuryOpen = ref(false)
+async function loadAccess() {
+  try {
+    const { data } = await api.get('/settings/access')
+    treasuryOpen.value = !!data.treasury_read_all
+  } catch { /* onglet simplement masqué */ }
+}
 
 const navGroups = computed(() => {
   const gestion = [
@@ -308,7 +318,7 @@ const navGroups = computed(() => {
     { to: { name: 'honey' }, icon: 'mdi-bee-flower', title: 'Miellée' },
     { to: { name: 'sanitary' }, icon: 'mdi-medical-bag', title: 'Sanitaire' },
   ]
-  if (auth.hasRole('treasurer') || auth.isAdmin) {
+  if (auth.hasRole('treasurer') || auth.isAdmin || treasuryOpen.value) {
     gestion.push({ to: { name: 'treasury' }, icon: 'mdi-cash-register', title: 'Trésorerie' })
   }
 
@@ -319,6 +329,7 @@ const navGroups = computed(() => {
   ]
   if (auth.isAdmin) {
     reglages.splice(2, 0, { to: { name: 'users' }, icon: 'mdi-account-cog', title: 'Utilisateurs' })
+    reglages.push({ to: { name: 'admin-settings' }, icon: 'mdi-cog-outline', title: 'Configuration' })
   }
 
   return [
@@ -360,6 +371,7 @@ const pageTitle = computed(() => {
     sanitary: 'Sanitaire',
     users: 'Utilisateurs',
     logs: 'Journal',
+    'admin-settings': 'Configuration',
   }
   return titles[route.name] || 'Rucher Manager'
 })
@@ -395,8 +407,8 @@ async function doSetDefaultRole(r) {
   } catch { syncMsg.value = 'Impossible d\'enregistrer le rôle par défaut' }
 }
 function isRouteAllowed(name) {
-  if (name === 'treasury') return auth.hasRole('treasurer') || auth.isAdmin
-  if (name === 'users') return auth.isAdmin
+  if (name === 'treasury') return auth.hasRole('treasurer') || auth.isAdmin || treasuryOpen.value
+  if (name === 'users' || name === 'admin-settings') return auth.isAdmin
   return true
 }
 
