@@ -102,6 +102,24 @@ doivent être **gestionnaires de la ruche** concernée.
 ¹ admin / yard_manager voient tout ; les autres voient l'associatif + leur privé.
 ² Le créateur, ou un responsable (admin / yard_manager).
 
+### Cloisonnement du miel privé — vérifié
+
+Le privé est isolé **par personne**, pas seulement « privé vs associatif » :
+
+- Marion ne voit ni les récoltes, ni les pots, ni les statistiques de Thomas,
+  et réciproquement. Chacun voit l'associatif **plus** son propre privé.
+- Le total affiché sur le tableau de bord est filtré de la même façon : il
+  n'additionne jamais le privé d'autrui.
+- Un membre ne peut pas vendre ni modifier un pot qui ne lui appartient pas.
+- Le paramètre `user_id` est **ignoré** pour un non-responsable : impossible de
+  s'en servir pour consulter les données d'un autre adhérent.
+- La liste des propriétaires de miel privé (`/honey/private-users`) est
+  refusée (403) aux non-responsables.
+
+Les administrateurs et responsables de rucher voient l'ensemble, et disposent
+dans l'onglet **Privé** d'un sélecteur « Voir les données privées de… » pour
+n'afficher qu'une personne à la fois.
+
 ### Trésorerie
 
 | Action | admin | treasurer | yard_manager | user | readonly |
