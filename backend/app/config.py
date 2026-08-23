@@ -15,6 +15,25 @@ class Settings(BaseSettings):
     first_admin_password: str = "admin1234"
     upload_dir: str = "/app/uploads"
 
+    # ─── Envoi d'e-mails (récapitulatif hebdomadaire) ──────────────
+    # Laisser smtp_host vide désactive complètement l'envoi.
+    smtp_host: str = ""
+    smtp_port: int = 587
+    smtp_user: str = ""
+    smtp_password: str = ""
+    smtp_from: str = ""              # expéditeur ; par défaut = smtp_user
+    smtp_tls: str = "starttls"       # "starttls" | "ssl" | "none"
+
+    # ─── Récapitulatif hebdomadaire ────────────────────────────────
+    digest_enabled: bool = True
+    # Destinataires séparés par des virgules. Les identifiants de connexion
+    # ne sont PAS des adresses e-mail : la liste doit être renseignée ici.
+    digest_recipients: str = ""
+    digest_weekday: int = 0          # 0 = lundi … 6 = dimanche
+    digest_hour: int = 8             # heure locale du serveur (0-23)
+    # Adresse publique de l'application, pour le bouton du récapitulatif.
+    app_base_url: str = ""
+
     class Config:
         env_file = ".env"
 
