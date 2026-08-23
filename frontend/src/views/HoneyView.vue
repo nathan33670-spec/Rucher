@@ -45,7 +45,10 @@
               <div class="text-caption font-weight-medium">{{ hc.category }}</div>
               <div class="text-caption r-muted">mis en pot : {{ hc.jarred_kg.toFixed(1) }} kg</div>
               <div class="text-caption" :class="hc.remaining_kg > 0 ? 'text-success' : 'r-muted'">
-                reste : {{ hc.remaining_kg.toFixed(1) }} kg
+                reste à empoter : {{ hc.remaining_kg.toFixed(1) }} kg
+              </div>
+              <div v-if="hc.over_potted" class="text-caption text-error" title="La quantité empotée dépasse la récolte : vérifiez vos saisies.">
+                <v-icon size="12">mdi-alert</v-icon> empoté &gt; récolté
               </div>
             </v-card>
           </v-col>
@@ -86,7 +89,7 @@
         <template v-slot:item.sold_at="{ item }">{{ new Date(item.sold_at).toLocaleDateString('fr-FR') }}</template>
         <template v-slot:item.total_amount="{ item }"><v-chip color="success" size="small">{{ money(item.total_amount) }}</v-chip></template>
         <template v-slot:item.ownership="{ item }">
-          <v-chip :color="item.ownership === 'associative' ? 'blue' : 'orange'" size="x-small">{{ item.ownership === 'associative' ? 'Asso' : 'Privé' }}</v-chip>
+          <v-chip :color="item.ownership === 'associative' ? 'info' : 'accent'" size="x-small" variant="tonal">{{ item.ownership === 'associative' ? 'Asso' : 'Privé' }}</v-chip>
         </template>
       </v-data-table>
       <v-card-text v-else><p class="r-muted text-center">Aucune vente enregistrée</p></v-card-text>
@@ -99,16 +102,25 @@
         <template v-slot:item.harvest_date="{ item }">{{ new Date(item.harvest_date).toLocaleDateString('fr-FR') }}</template>
         <template v-slot:item.quantity_kg="{ item }"><v-chip color="primary" size="small" variant="tonal">{{ item.quantity_kg }} kg</v-chip></template>
         <template v-slot:item.ownership="{ item }">
-          <v-chip :color="item.ownership === 'associative' ? 'blue' : 'orange'" size="x-small">{{ item.ownership === 'associative' ? 'Asso' : 'Privé' }}</v-chip>
+          <v-chip :color="item.ownership === 'associative' ? 'info' : 'accent'" size="x-small" variant="tonal">{{ item.ownership === 'associative' ? 'Asso' : 'Privé' }}</v-chip>
         </template>
         <template v-slot:item.category_name="{ item }">{{ item.category_name || '—' }}</template>
         <template v-slot:item.jars="{ item }">
-          <span v-if="item.jars?.length">{{ item.jars.map(j => j.quantity + 'x' + j.jar_weight_g + 'g').join(', ') }}</span>
+          <template v-if="item.jars?.length">
+            <v-chip
+              v-for="j in item.jars" :key="j.id"
+              size="x-small" variant="tonal" class="mr-1"
+              :color="j.quantity > 0 ? 'primary' : 'secondary'"
+              :title="`${j.initial_quantity ?? j.quantity} pot(s) de ${j.jar_weight_g}g empotés, ${j.quantity} encore en stock`"
+            >
+              {{ j.quantity }}/{{ j.initial_quantity ?? j.quantity }} × {{ j.jar_weight_g }}g
+            </v-chip>
+          </template>
           <span v-else class="r-muted">—</span>
         </template>
         <template v-slot:item.actions="{ item }">
           <v-btn icon size="small" variant="text" @click="editHarvest(item)"><v-icon>mdi-pencil</v-icon></v-btn>
-          <v-btn v-if="auth.isAdmin" icon size="small" @click="deleteHarvest(item.id)"><v-icon color="error">mdi-delete</v-icon></v-btn>
+          <v-btn v-if="auth.isAdmin" icon size="small" variant="text" @click="deleteHarvest(item.id)"><v-icon color="error">mdi-delete</v-icon></v-btn>
         </template>
       </v-data-table>
     </v-card>
@@ -215,7 +227,7 @@ const privateUserFilter = ref(null)
 const privateUsers = ref([])
 
 const privateUserOptions = computed(() => [
-  { id: null, name: '👥 Tous les utilisateurs' },
+  { id: null, name: 'Tous les utilisateurs' },
   ...privateUsers.value,
 ])
 
@@ -283,14 +295,22 @@ const honeyByCategory = computed(() => {
     const cat = h.category_name || 'Non catégorisé'
     if (!map[cat]) map[cat] = { category: cat, total_kg: 0, jarred_kg: 0 }
     map[cat].total_kg += h.quantity_kg || 0
-    // Calculer le poids mis en pot depuis les jars de cette récolte
+    // Poids mis en pot : on compte la quantité INITIALEMENT empotée, pas le
+    // stock restant. Vendre un pot ne remet pas le miel dans la récolte —
+    // utiliser « quantity » faisait remonter le « reste » à chaque vente.
     if (h.jars) {
       for (const j of h.jars) {
-        map[cat].jarred_kg += (j.quantity * j.jar_weight_g) / 1000
+        map[cat].jarred_kg += ((j.initial_quantity ?? j.quantity) * j.jar_weight_g) / 1000
       }
     }
   }
-  return Object.values(map).map(c => ({ ...c, remaining_kg: c.total_kg - c.jarred_kg }))
+  return Object.values(map).map(c => ({
+    ...c,
+    // Le reste ne peut pas être négatif : au-delà du volume récolté, c'est une
+    // saisie à corriger, pas un stock.
+    remaining_kg: Math.max(0, c.total_kg - c.jarred_kg),
+    over_potted: c.jarred_kg > c.total_kg + 0.001,
+  }))
 })
 
 function showError(msg) { errorMsg.value = msg; errorSnack.value = true }
