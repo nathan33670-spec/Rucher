@@ -96,6 +96,12 @@ class SaleCreate(BaseModel):
     unit_price: Optional[float] = None  # si non fourni, prend le prix du pot
     buyer: Optional[str] = None
 
+class SaleUpdate(BaseModel):
+    quantity: Optional[int] = None
+    unit_price: Optional[float] = None
+    buyer: Optional[str] = None
+
+
 class SaleOut(BaseModel):
     id: int
     jar_id: int
