@@ -32,6 +32,7 @@ class UserOut(BaseModel):
     phone: Optional[str] = None
     is_active: bool
     roles: list[str] = []            # rôles autorisés (attribués par l'admin)
+    selectable_roles: list[str] = []   # rôles utilisables (attribués + impliqués)
     active_role: Optional[str] = None  # rôle actif courant (None = tous)
     default_role: Optional[str] = None # rôle actif par défaut
     created_at: datetime

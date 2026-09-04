@@ -112,14 +112,54 @@ def get_authorized_roles(user: User) -> list[str]:
     return [r.role.value if hasattr(r.role, 'value') else r.role for r in user.roles]
 
 
+# Hiérarchie des rôles : un rôle « contient » les rôles moins puissants.
+# Elle ne sert qu'à DESCENDRE en droits — se restreindre volontairement est
+# toujours sûr. On ne remonte jamais au-dessus des rôles attribués par l'admin.
+ROLE_IMPLIES: dict[str, tuple[str, ...]] = {
+    RoleEnum.ADMIN.value: (
+        RoleEnum.TREASURER.value,
+        RoleEnum.YARD_MANAGER.value,
+        RoleEnum.USER.value,
+        RoleEnum.READONLY.value,
+    ),
+    RoleEnum.TREASURER.value: (RoleEnum.USER.value, RoleEnum.READONLY.value),
+    RoleEnum.YARD_MANAGER.value: (RoleEnum.USER.value, RoleEnum.READONLY.value),
+    RoleEnum.USER.value: (RoleEnum.READONLY.value,),
+    RoleEnum.READONLY.value: (),
+}
+
+# Ordre d'affichage, du plus étendu au plus restreint.
+ROLE_ORDER = (
+    RoleEnum.ADMIN.value,
+    RoleEnum.TREASURER.value,
+    RoleEnum.YARD_MANAGER.value,
+    RoleEnum.USER.value,
+    RoleEnum.READONLY.value,
+)
+
+
+def get_selectable_roles(user: User) -> list[str]:
+    """Rôles que l'utilisateur peut choisir comme rôle actif.
+
+    C'est-à-dire ses rôles attribués, plus tous ceux qu'ils impliquent : un
+    administrateur peut ainsi travailler « en usager » pour éviter les fausses
+    manœuvres, sans qu'on lui ait attribué explicitement le rôle usager.
+    """
+    assigned = set(get_authorized_roles(user))
+    selectable = set(assigned)
+    for r in assigned:
+        selectable.update(ROLE_IMPLIES.get(r, ()))
+    return [r for r in ROLE_ORDER if r in selectable]
+
+
 def get_user_roles(user: User) -> list[str]:
     """Rôles EFFECTIFS pour les permissions : si un rôle actif est sélectionné
-    (et autorisé), les droits sont limités à ce seul rôle ; sinon tous les rôles."""
-    roles = get_authorized_roles(user)
+    (et sélectionnable), les droits sont limités à ce seul rôle ; sinon tous
+    les rôles attribués."""
     active = getattr(user, "active_role", None)
-    if active and active in roles:
+    if active and active in get_selectable_roles(user):
         return [active]
-    return roles
+    return get_authorized_roles(user)
 
 
 def require_roles(*required: RoleEnum):

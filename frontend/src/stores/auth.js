@@ -8,15 +8,23 @@ export const useAuthStore = defineStore('auth', {
   }),
   getters: {
     isAuthenticated: (s) => !!s.token,
-    // Tous les rôles attribués par l'admin (options du sélecteur).
+    // Rôles attribués par l'admin.
     authorizedRoles: (s) => s.user?.roles || [],
+    // Rôles utilisables : les rôles attribués + ceux, moins étendus, qu'ils
+    // impliquent (un admin peut travailler « en usager »). Ce sont les options
+    // du sélecteur de rôle. Repli sur les rôles attribués si le serveur ne
+    // renvoie pas encore le champ (jeton/cache antérieur à la fonctionnalité).
+    selectableRoles: (s) => (s.user?.selectable_roles?.length
+      ? s.user.selectable_roles
+      : (s.user?.roles || [])),
     activeRole: (s) => s.user?.active_role || null,
     defaultRole: (s) => s.user?.default_role || null,
     // Rôles EFFECTIFS : limités au rôle actif s'il est sélectionné.
     roles(s) {
-      const all = s.user?.roles || []
       const active = s.user?.active_role
-      return active && all.includes(active) ? [active] : all
+      return active && this.selectableRoles.includes(active)
+        ? [active]
+        : (s.user?.roles || [])
     },
     isAdmin() { return this.roles.includes('admin') },
     isYardManager() { return this.roles.includes('yard_manager') },

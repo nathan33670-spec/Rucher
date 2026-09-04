@@ -17,10 +17,29 @@
 **Cumul** : un compte peut porter plusieurs rôles. `admin` court-circuite tous les
 contrôles (`require_roles` renvoie immédiatement si `admin` est présent).
 
-**Rôle actif** : un utilisateur multi-rôles peut restreindre ses droits à un seul
-rôle, à la volée ou par défaut. Le rôle actif est porté par le jeton JWT et
-`get_user_roles()` ne renvoie alors que celui-ci — la restriction est donc
-**réellement appliquée côté serveur**, pas seulement affichée.
+**Rôle actif** : un utilisateur peut restreindre ses droits à un seul rôle, à la
+volée (puce en haut à droite) ou par défaut (menu profil). Le rôle actif est
+porté par le jeton JWT et `get_user_roles()` ne renvoie alors que celui-ci — la
+restriction est donc **réellement appliquée côté serveur**, pas seulement
+affichée.
+
+**Hiérarchie des rôles** : on peut toujours *descendre* en droits, jamais monter.
+Chaque rôle « contient » les rôles moins étendus, qui deviennent donc
+sélectionnables sans avoir été attribués :
+
+| Rôle attribué | Rôles sélectionnables |
+|---|---|
+| `admin` | admin, treasurer, yard_manager, user, readonly |
+| `treasurer` | treasurer, user, readonly |
+| `yard_manager` | yard_manager, user, readonly |
+| `user` | user, readonly |
+| `readonly` | readonly |
+
+Un administrateur peut ainsi travailler « en usager » au quotidien pour éviter
+les fausses manœuvres, et reprendre ses droits en deux clics. L'inverse est
+impossible : demander un rôle hors de cette liste renvoie 403, même en forgeant
+la requête. La liste est calculée par `get_selectable_roles()` et exposée dans
+`GET /api/users/me` (champ `selectable_roles`).
 
 ---
 
@@ -158,8 +177,9 @@ accès*. La saisie reste réservée aux administrateurs et trésoriers.
 | Documentation : écrire / supprimer | ✅ | ⛔ | ⛔ | ⛔ | ⛔ |
 | Notifications : s'abonner, régler ses préférences | ✅ | ✅ | ✅ | ✅ | ✅ |
 
-¹ Uniquement parmi les rôles **déjà attribués** par un administrateur.
-Toute autre valeur est refusée (403), y compris en forgeant la requête.
+¹ Uniquement parmi ses rôles **sélectionnables** (rôles attribués + rôles moins
+étendus qu'ils impliquent, cf. § 1). Toute autre valeur est refusée (403), y
+compris en forgeant la requête.
 
 ### Journal d'activité
 
