@@ -1,29 +1,54 @@
 <template>
   <div class="ap-plan">
     <div class="ap-toolbar">
-      <v-btn icon size="x-small" variant="tonal" @click="zoomBy(1.3)" title="Zoomer"><v-icon>mdi-magnify-plus</v-icon></v-btn>
-      <v-btn icon size="x-small" variant="tonal" @click="zoomBy(0.77)" title="Dézoomer"><v-icon>mdi-magnify-minus</v-icon></v-btn>
-      <v-btn icon size="x-small" variant="tonal" @click="fit" title="Voir toute la photo"><v-icon>mdi-fit-to-screen</v-icon></v-btn>
-      <span class="text-caption text-medium-emphasis ml-1">{{ Math.round(zoom * 100) }}%</span>
+      <!-- Le zoom reste accessible à tous, mais par action explicite : la
+           molette est laissée à la page (voir onWheel). -->
+      <v-btn icon size="x-small" variant="tonal" @click="zoomBy(1.3)" title="Zoomer" :disabled="!photoUrl">
+        <v-icon>mdi-magnify-plus</v-icon>
+      </v-btn>
+      <v-btn icon size="x-small" variant="tonal" @click="zoomBy(0.77)" title="Dézoomer" :disabled="!photoUrl || zoom <= 1">
+        <v-icon>mdi-magnify-minus</v-icon>
+      </v-btn>
+      <v-btn icon size="x-small" variant="tonal" @click="fit" title="Voir toute la photo" :disabled="!photoUrl || zoom === 1">
+        <v-icon>mdi-fit-to-screen</v-icon>
+      </v-btn>
+      <span class="text-caption r-muted ml-1">{{ Math.round(zoom * 100) }}%</span>
+
       <v-spacer />
-      <span v-if="canEdit" class="text-caption text-medium-emphasis d-none d-sm-inline">Glissez une ruche pour la placer</span>
+
+      <!-- Mode édition : hors de ce mode, ni la photo ni les ruches ne bougent. -->
+      <v-btn
+        v-if="canEdit"
+        size="x-small"
+        :variant="editing ? 'flat' : 'tonal'"
+        :color="editing ? 'primary' : undefined"
+        :prepend-icon="editing ? 'mdi-check' : 'mdi-cursor-move'"
+        @click="editing = !editing"
+      >
+        {{ editing ? 'Terminer' : 'Déplacer les ruches' }}
+      </v-btn>
     </div>
+
+    <v-alert v-if="editing" type="info" variant="tonal" density="compact" class="mb-2">
+      Mode édition : glissez une ruche pour la placer, ou faites glisser la photo
+      pour la cadrer. Touchez « Terminer » pour verrouiller le plan.
+    </v-alert>
 
     <div
       ref="vp"
       class="ap-viewport"
-      :class="{ grabbing: panning }"
-      :style="{ aspectRatio: String(aspect) }"
+      :class="{ grabbing: panning, 'ap-viewport--locked': !interactive }"
+      :style="viewportStyle"
       @pointerdown="onDown"
       @pointermove="onMove"
       @pointerup="onUp"
       @pointercancel="onUp"
-      @wheel.prevent="onWheel"
+      @wheel="onWheel"
     >
       <div class="ap-stage" :style="stageStyle">
         <img v-if="photoUrl" :src="photoUrl" class="ap-photo" draggable="false" @load="onImgLoad" @dragstart.prevent />
         <div v-else class="ap-empty">
-          <v-icon size="40" color="grey">mdi-image-off</v-icon>
+          <v-icon size="40" color="grey-lighten-1">mdi-image-off</v-icon>
           <div class="text-caption mt-1">Aucune photo aérienne</div>
         </div>
 
@@ -31,6 +56,7 @@
           v-for="(h, i) in hives"
           :key="h.id"
           class="ap-marker"
+          :class="{ 'ap-marker--draggable': editing }"
           :style="markerStyle(h, i)"
           @pointerdown="onMarkerDown($event, h)"
           @click.stop="$emit('select', h)"
@@ -46,7 +72,7 @@
 </template>
 
 <script setup>
-import { ref, reactive, computed, onMounted, onUnmounted, nextTick } from 'vue'
+import { ref, reactive, computed, watch, onMounted, onUnmounted, nextTick } from 'vue'
 
 const props = defineProps({
   photoUrl: { type: String, default: null },
@@ -59,13 +85,31 @@ const emit = defineEmits(['select', 'move'])
 const vp = ref(null)
 const zoom = ref(1)
 const pan = reactive({ x: 0, y: 0 })
-const base = reactive({ w: 0, h: 0 }) // taille de la zone (= viewport, au format de la photo)
-const aspect = ref(3 / 2)             // format de la zone = format de la photo
+const base = reactive({ w: 0, h: 0 })
+const aspect = ref(3 / 2)
+
+// Mode édition : seul état dans lequel la photo et les ruches peuvent bouger.
+const editing = ref(false)
+
+// Le plan ne capte le geste que s'il y a quelque chose à déplacer : en mode
+// édition, ou lorsqu'on a volontairement zoomé (sinon le zoom serait inutile).
+const interactive = computed(() => editing.value || zoom.value > 1)
 
 const stageStyle = computed(() => ({
   width: base.w + 'px',
   height: base.h + 'px',
   transform: `translate(${pan.x}px, ${pan.y}px) scale(${zoom.value})`,
+}))
+
+// Hauteur bornée : sur grand écran, la photo occupait toute la page au
+// détriment du reste. On borne la LARGEUR à partir de la hauteur maximale et
+// du format de la photo : la zone reste proportionnée, sans rognage, et se
+// centre quand elle est plus étroite que la carte.
+const MAX_H = 440
+const viewportStyle = computed(() => ({
+  aspectRatio: String(aspect.value),
+  maxWidth: Math.round(MAX_H * aspect.value) + 'px',
+  margin: '0 auto',
 }))
 
 function measure() {
@@ -75,7 +119,7 @@ function measure() {
   clampPan()
 }
 
-// Contrainte : l'image couvre toujours la zone → impossible de « sortir » de la photo.
+// L'image couvre toujours la zone : impossible de « sortir » de la photo.
 function clampPan() {
   const iw = base.w * zoom.value, ih = base.h * zoom.value
   pan.x = Math.min(0, Math.max(base.w - iw, pan.x))
@@ -85,8 +129,6 @@ function clampPan() {
 function onImgLoad(e) {
   const nw = e.target.naturalWidth, nh = e.target.naturalHeight
   if (nw && nh) aspect.value = nw / nh
-  // Nouvelle image → on repart de la vue complète (le zoom n'est réinitialisé
-  // QUE lorsque la photo change réellement, pas pendant l'usage).
   zoom.value = 1; pan.x = 0; pan.y = 0
   nextTick(measure)
 }
@@ -94,7 +136,7 @@ function fit() { zoom.value = 1; pan.x = 0; pan.y = 0; measure() }
 
 function zoomBy(f, cx, cy) {
   cx = cx ?? base.w / 2; cy = cy ?? base.h / 2
-  const nz = Math.min(6, Math.max(1, zoom.value * f))   // zoom minimum = 1 (jamais plus petit que la zone)
+  const nz = Math.min(6, Math.max(1, zoom.value * f))
   const sx = (cx - pan.x) / zoom.value
   const sy = (cy - pan.y) / zoom.value
   pan.x = cx - sx * nz
@@ -102,10 +144,19 @@ function zoomBy(f, cx, cy) {
   zoom.value = nz
   clampPan()
 }
+
+// La molette appartient à la page. Zoomer à la molette rendait le défilement
+// impossible dès que le curseur passait sur le plan. Ctrl+molette reste
+// disponible, c'est la convention des cartes.
 function onWheel(e) {
+  if (!e.ctrlKey) return
+  e.preventDefault()
   const r = vp.value.getBoundingClientRect()
   zoomBy(e.deltaY < 0 ? 1.12 : 0.89, e.clientX - r.left, e.clientY - r.top)
 }
+
+// Quitter le mode édition remet le plan tel qu'il sera vu par les autres.
+watch(editing, (on) => { if (!on) fit() })
 
 // ─── Déplacement (pan) / glisser d'un marqueur ────────────
 const panning = ref(false)
@@ -113,7 +164,8 @@ let dragHive = null
 let last = { x: 0, y: 0 }
 
 function onDown(e) {
-  if (dragHive) return
+  // Hors interaction, on laisse passer le geste : la page défile normalement.
+  if (!interactive.value || dragHive) return
   panning.value = true
   last = { x: e.clientX, y: e.clientY }
   vp.value.setPointerCapture?.(e.pointerId)
@@ -150,7 +202,9 @@ function toPercent(clientX, clientY) {
 }
 
 function onMarkerDown(e, h) {
-  if (!props.canEdit) return
+  // Une ruche ne se déplace qu'en mode édition : ailleurs, le geste doit
+  // rester un simple appui qui sélectionne la ruche.
+  if (!props.canEdit || !editing.value) return
   e.stopPropagation()
   dragHive = h
   vp.value.setPointerCapture?.(e.pointerId)
@@ -189,18 +243,33 @@ onUnmounted(() => window.removeEventListener('resize', onResize))
 
 <style scoped>
 .ap-plan { width: 100%; }
-.ap-toolbar { display: flex; align-items: center; gap: 4px; margin-bottom: 6px; }
+.ap-toolbar { display: flex; align-items: center; gap: 4px; margin-bottom: 6px; flex-wrap: wrap; }
+
 .ap-viewport {
   position: relative;
   width: 100%;
   overflow: hidden;
   border-radius: 10px;
-  border: 1px solid rgba(0,0,0,0.12);
+  border: 1px solid var(--r-hairline);
   background: #222;
+  /* Le geste tactile revient à la page tant qu'il n'y a rien à déplacer :
+     sinon le plan bloquait le défilement sur téléphone. */
+  touch-action: auto;
+  cursor: default;
+  /* Un glisser sur le plan ne doit pas sélectionner les étiquettes. */
+  user-select: none;
+  -webkit-user-select: none;
+}
+
+/* Plan verrouillé : aucun curseur de déplacement, on ne promet rien. */
+.ap-viewport--locked { cursor: default; }
+
+.ap-viewport:not(.ap-viewport--locked) {
   touch-action: none;
   cursor: grab;
 }
 .ap-viewport.grabbing { cursor: grabbing; }
+
 .ap-stage { position: absolute; top: 0; left: 0; transform-origin: 0 0; }
 .ap-photo { display: block; width: 100%; height: 100%; object-fit: cover; -webkit-user-drag: none; user-select: none; }
 .ap-empty {
@@ -209,7 +278,8 @@ onUnmounted(() => window.removeEventListener('resize', onResize))
   background: linear-gradient(135deg, #f5f0e1, #e8dcc8);
 }
 
-.ap-marker { position: absolute; transform: translate(-50%, -50%); cursor: v-bind("props.canEdit ? 'grab' : 'pointer'"); }
+.ap-marker { position: absolute; transform: translate(-50%, -50%); cursor: pointer; }
+.ap-marker--draggable { cursor: grab; }
 .ap-inner { transform-origin: center; text-align: center; }
 .ap-diamond {
   width: 34px; height: 34px; transform: rotate(45deg);
@@ -221,7 +291,7 @@ onUnmounted(() => window.removeEventListener('resize', onResize))
 .ap-diamond.status-dead { background: #bdbdbd; }
 .ap-diamond.ownership-associative { background: linear-gradient(180deg, #81d4fa, #29b6f6); }
 .ap-diamond.ownership-private { background: linear-gradient(180deg, #ffd54f, #ffb300); }
-.ap-diamond.selected { box-shadow: 0 0 0 3px #1976d2, 0 2px 6px rgba(0,0,0,0.3); }
+.ap-diamond.selected { box-shadow: 0 0 0 3px #9A6B0F, 0 2px 6px rgba(0,0,0,0.3); }
 .ap-name {
   margin-top: 6px; background: rgba(255,255,255,0.95); padding: 1px 6px;
   border-radius: 6px; font-size: 0.72rem; max-width: 96px; white-space: nowrap;
