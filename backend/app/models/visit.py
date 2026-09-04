@@ -16,6 +16,7 @@ class Visit(Base):
     brood_score = Column(Integer)       # 0-9
     reserves_score = Column(Integer)    # 0-9, null = N/A (corps non ouvert)
     supers_count = Column(Integer)      # nombre de hausses actuel
+    frames_count = Column(Integer)      # nombre de cadres de corps
     supers_delta = Column(Integer, default=0)  # +1/-1 (legacy)
     feeding = Column(String(200))
     comment = Column(Text)

@@ -206,7 +206,7 @@ async function confirmDelete() {
     await load()
     toastSuccess('Utilisateur supprimé')
   } catch (e) {
-    delError.value = e.response?.data?.detail || 'Erreur lors de la suppression'
+    delError.value = apiError(e, 'Erreur lors de la suppression')
   } finally {
     deleting.value = false
   }

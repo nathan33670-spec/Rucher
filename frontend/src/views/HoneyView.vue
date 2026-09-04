@@ -312,6 +312,7 @@
 
 <script setup>
 import { ref, computed, watch, onMounted } from 'vue'
+import { apiError } from '../services/toast'
 import api from '../services/api'
 import { money } from '../services/format'
 import { confirmAction } from '../services/confirm'
@@ -480,7 +481,7 @@ async function load() {
     sales.value = results[6].data
     if (results[7]) privateUsers.value = results[7].data
   } catch (e) {
-    showError('Erreur de chargement')
+    showError(apiError(e, 'Chargement de la miellée impossible'))
     console.error(e)
   }
 }
@@ -512,14 +513,14 @@ async function save() {
     showForm.value = false
     showSuccess('Récolte enregistrée')
     await load()
-  } catch (e) { showError(e.response?.data?.detail || 'Erreur') }
+  } catch (e) { showError(apiError(e, 'Erreur')) }
   finally { saving.value = false }
 }
 
 async function deleteHarvest(id) {
   if (!(await confirmAction('Supprimer cette récolte ?'))) return
   try { await api.delete('/honey/' + id); showSuccess('Supprimée'); await load() }
-  catch (e) { showError(e.response?.data?.detail || 'Erreur') }
+  catch (e) { showError(apiError(e, 'Erreur')) }
 }
 
 function openNewJar() { jarForm.value = { harvest_id: null, ownership: 'associative', jar_weight_g: 500, quantity: 1, unit_price: null }; showJarForm.value = true }
@@ -532,7 +533,7 @@ async function saveJar() {
     showJarForm.value = false
     showSuccess('Pots enregistrés')
     await load()
-  } catch (e) { showError(e.response?.data?.detail || 'Erreur') }
+  } catch (e) { showError(apiError(e, 'Erreur')) }
   finally { saving.value = false }
 }
 
@@ -575,7 +576,7 @@ async function saveSale() {
     }
     showSaleForm.value = false
     await load()
-  } catch (e) { showError(e.response?.data?.detail || 'Erreur') }
+  } catch (e) { showError(apiError(e, 'Erreur')) }
   finally { saving.value = false }
 }
 
@@ -589,19 +590,19 @@ async function deleteSale(sale) {
     await api.delete(`/honey/sales/${sale.id}`)
     showSuccess('Vente annulée, pots remis en stock')
     await load()
-  } catch (e) { showError(e.response?.data?.detail || 'Erreur') }
+  } catch (e) { showError(apiError(e, 'Erreur')) }
 }
 
 async function addCategory() {
   if (!newCatName.value) return
   try { await api.post('/honey/categories', { name: newCatName.value }); newCatName.value = ''; showSuccess('Catégorie ajoutée'); await load() }
-  catch (e) { showError(e.response?.data?.detail || 'Erreur') }
+  catch (e) { showError(apiError(e, 'Erreur')) }
 }
 
 async function deleteCategory(id) {
   if (!(await confirmAction('Supprimer ?'))) return
   try { await api.delete('/honey/categories/' + id); await load() }
-  catch (e) { showError(e.response?.data?.detail || 'Erreur') }
+  catch (e) { showError(apiError(e, 'Erreur')) }
 }
 
 onMounted(load)

@@ -3,15 +3,17 @@
 from pydantic import BaseModel
 from datetime import datetime
 from typing import Optional
+from app.schemas.common import NaiveDateTime, NonEmptyStr
 
 
 class VisitCreate(BaseModel):
     hive_id: int
-    visited_at: Optional[datetime] = None
+    visited_at: Optional[NaiveDateTime] = None
     queen_seen: Optional[bool] = None
     brood_score: Optional[int] = None       # null = N/A (corps non ouvert)
     reserves_score: Optional[int] = None    # null = N/A
     supers_count: Optional[int] = None
+    frames_count: Optional[int] = None
     supers_delta: int = 0
     feeding: Optional[str] = None
     comment: Optional[str] = None
@@ -23,11 +25,18 @@ class VisitCreate(BaseModel):
     treatment_product: Optional[str] = None
     is_live_mode: bool = False
 
+class HiveAlertIn(BaseModel):
+    """Signalement d'un problème sur une ruche (menu « Signaler un problème »)."""
+    hive_id: int
+    message: NonEmptyStr
+
+
 class VisitUpdate(BaseModel):
     queen_seen: Optional[bool] = None
     brood_score: Optional[int] = None
     reserves_score: Optional[int] = None
     supers_count: Optional[int] = None
+    frames_count: Optional[int] = None
     supers_delta: Optional[int] = None
     feeding: Optional[str] = None
     comment: Optional[str] = None
@@ -47,6 +56,7 @@ class VisitOut(BaseModel):
     brood_score: Optional[int] = None
     reserves_score: Optional[int] = None
     supers_count: Optional[int] = None
+    frames_count: Optional[int] = None
     supers_delta: int
     feeding: Optional[str] = None
     comment: Optional[str] = None

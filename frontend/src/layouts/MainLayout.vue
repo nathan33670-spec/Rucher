@@ -34,6 +34,18 @@
             @click="drawer = false"
           />
         </template>
+
+        <v-divider class="my-2" />
+        <!-- Signalement : une action, pas une page. Accessible à tout adhérent
+             pour prévenir immédiatement les responsables d'une ruche. -->
+        <v-list-item
+          prepend-icon="mdi-alert-outline"
+          title="Signaler un problème"
+          subtitle="Prévenir les responsables d'une ruche"
+          base-color="error"
+          rounded="lg"
+          @click="openAlertDialog"
+        />
       </v-list>
       <template v-slot:append>
         <div v-if="canInstall" class="pa-2">
@@ -71,6 +83,12 @@
       </v-btn>
 
       <!-- Alertes -->
+      <!-- Signaler un problème : accessible en un geste depuis n'importe quel
+           écran, y compris sur le terrain. -->
+      <v-btn icon title="Signaler un problème sur une ruche" @click="openAlertDialog">
+        <v-icon color="error">mdi-alert-outline</v-icon>
+      </v-btn>
+
       <v-badge :content="unreadAlerts" :model-value="unreadAlerts > 0" color="error" overlap>
         <v-btn icon @click="showAlerts = true">
           <v-icon>mdi-bell</v-icon>
@@ -213,6 +231,8 @@
         </v-card-text>
       </v-card>
     </v-dialog>
+
+    <HiveAlertDialog v-model="showHiveAlert" />
   </v-layout>
 </template>
 
@@ -227,6 +247,7 @@ import { pendingCount, refreshPendingCount, syncPendingVisits } from '../service
 import { resyncSubscription, pushSupported, isStandalone, getPushState, enablePush } from '../services/push'
 import { canInstall } from '../services/pwa'
 import InstallButton from '../components/InstallButton.vue'
+import HiveAlertDialog from '../components/HiveAlertDialog.vue'
 import ChangePasswordDialog from '../components/ChangePasswordDialog.vue'
 
 const auth = useAuthStore()
@@ -307,6 +328,13 @@ onMounted(async () => {
 onUnmounted(() => window.removeEventListener('online', onOnline))
 
 const unreadAlerts = computed(() => notif.alerts.filter((a) => !a.read).length)
+
+// Signalement d'un problème sur une ruche (menu latéral et barre supérieure).
+const showHiveAlert = ref(false)
+function openAlertDialog() {
+  drawer.value = false
+  showHiveAlert.value = true
+}
 
 // La trésorerie peut être ouverte en lecture à tous les membres (réglages admin).
 const treasuryOpen = ref(false)

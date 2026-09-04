@@ -147,7 +147,8 @@ async def create_record(
     if created:
         kind = "Comptage varroa" if body.record_type == "varroa_count" else "Traitement"
         notify("sanitary", "🩺 Sanitaire",
-               f"{kind} enregistré sur {len(hive_ids)} ruche(s).", "/app/sanitary")
+               f"{kind} enregistré sur {len(hive_ids)} ruche(s).", "/app/sanitary",
+               exclude_user_id=user.id)
     return created
 
 

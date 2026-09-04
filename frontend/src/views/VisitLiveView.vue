@@ -92,6 +92,24 @@
           />
         </div>
 
+        <!-- CADRES DE CORPS — même compteur que les hausses -->
+        <div class="mb-3">
+          <p class="text-overline">Cadres de corps : {{ form.frames_count }}</p>
+          <div class="d-flex align-center justify-center ga-3">
+            <v-btn icon color="error" size="x-large" min-height="56" min-width="56"
+              aria-label="Retirer un cadre de corps"
+              @click="form.frames_count = Math.max(0, form.frames_count - 1)" :disabled="form.frames_count <= 0">
+              <v-icon size="32">mdi-minus-thick</v-icon>
+            </v-btn>
+            <div class="text-h3 font-weight-bold mx-4" style="min-width:60px;">{{ form.frames_count }}</div>
+            <v-btn icon color="success" size="x-large" min-height="56" min-width="56"
+              aria-label="Ajouter un cadre de corps"
+              @click="form.frames_count++">
+              <v-icon size="32">mdi-plus-thick</v-icon>
+            </v-btn>
+          </div>
+        </div>
+
         <!-- REINE — gros toggle -->
         <div class="mb-3">
           <p class="text-overline">Reine</p>
@@ -132,52 +150,6 @@
           />
           <v-chip v-else color="secondary" variant="tonal" size="large" class="px-6">N/A — corps non ouvert</v-chip>
         </div>
-      </v-card>
-
-      <!-- ═══ SECTION RÉCOLTE (miel + pollen) ═══ -->
-      <v-card variant="outlined" class="mb-4 pa-3">
-        <div class="text-subtitle-2 font-weight-bold mb-3">
-          <v-icon class="mr-1" color="accent">mdi-bee-flower</v-icon> Récolte
-        </div>
-        <v-row dense>
-          <v-col cols="6">
-            <v-text-field v-model.number="form.honey_harvest_kg" label="Miel (kg)" type="number" min="0" step="0.1"
-              variant="outlined" density="comfortable" hide-details prepend-inner-icon="mdi-bottle-tonic-outline" />
-          </v-col>
-          <v-col cols="6">
-            <v-text-field v-model.number="form.pollen_harvest_kg" label="Pollen (kg)" type="number" min="0" step="0.1"
-              variant="outlined" density="comfortable" hide-details prepend-inner-icon="mdi-flower-pollen" />
-          </v-col>
-        </v-row>
-      </v-card>
-
-      <!-- ═══ SECTION TRAITEMENT ═══ -->
-      <v-card variant="outlined" class="mb-4 pa-3">
-        <div class="text-subtitle-2 font-weight-bold mb-3">
-          <v-icon class="mr-1" color="info">mdi-medical-bag</v-icon> Traitement
-        </div>
-        <v-select
-          v-model="form.treatment_type"
-          :items="treatmentTypes"
-          label="Type de traitement"
-          placeholder="Aucun traitement appliqué"
-          clearable
-          hide-details
-          class="mb-3"
-        />
-        <v-combobox
-          v-if="form.treatment_type"
-          v-model="form.treatment_product"
-          :items="productSuggestions"
-          label="Produit utilisé"
-          placeholder="Choisir ou saisir un produit"
-          hide-details
-          class="mb-2"
-        />
-        <p v-if="form.treatment_type" class="text-caption r-muted mb-0 text-left">
-          <v-icon size="13">mdi-information-outline</v-icon>
-          Ce traitement sera aussi ajouté au registre sanitaire de la ruche.
-        </p>
       </v-card>
 
       <!-- NOURRISSEMENT rapide -->
@@ -323,6 +295,7 @@
                 <v-chip v-if="v.brood_score != null" size="x-small" variant="tonal">Couvain {{ v.brood_score }}</v-chip>
                 <v-chip v-if="v.reserves_score != null" size="x-small" variant="tonal">Réserves {{ v.reserves_score }}</v-chip>
                 <v-chip v-if="v.supers_count != null" size="x-small" variant="tonal">{{ v.supers_count }} hausse(s)</v-chip>
+                <v-chip v-if="v.frames_count != null" size="x-small" variant="tonal">{{ v.frames_count }} cadre(s)</v-chip>
                 <v-chip v-if="v.honey_harvest_kg" size="x-small" variant="tonal" color="primary">{{ v.honey_harvest_kg }} kg miel</v-chip>
                 <v-chip v-if="v.pollen_harvest_kg" size="x-small" variant="tonal" color="accent">{{ v.pollen_harvest_kg }} kg pollen</v-chip>
                 <v-chip v-if="v.feeding" size="x-small" variant="tonal">{{ v.feeding }}</v-chip>
@@ -353,6 +326,7 @@
 
 <script setup>
 import { ref, computed, onMounted, onUnmounted } from 'vue'
+import { apiError } from '../services/toast'
 import { useRoute, useRouter } from 'vue-router'
 import api from '../services/api'
 import { savePendingVisit, syncPendingVisits } from '../services/offline'
@@ -386,22 +360,12 @@ let recognition = null
 
 const feedingOptions = ['Aucun', 'Sirop 50/50', 'Sirop 70/30', 'Candi', 'Pâte protéinée']
 
-// Types de traitement et produits courants (le champ produit reste libre).
-const treatmentTypes = [
-  'Varroa', 'Loque américaine', 'Loque européenne',
-  'Nosémose', 'Teigne', 'Frelon asiatique', 'Autre',
-]
-const productSuggestions = [
-  'Apivar', 'Apiguard', 'Apilife Var', 'VarroMed',
-  'Acide oxalique (dégouttement)', 'Acide oxalique (sublimation)',
-  'Acide formique (MAQS)', 'Thymol',
-]
-
+// La visite rapide se concentre sur l'observation de la colonie. La récolte se
+// saisit dans « Miellée » (elle y devient un lot traçable) et le traitement
+// dans le « Suivi sanitaire », qui tient le registre réglementaire.
 const EMPTY_FORM = {
   queen_seen: null, brood_score: 5, reserves_score: 5,
-  supers_count: 0, feeding: 'Aucun', comment: '', is_alert: false,
-  honey_harvest_kg: null, pollen_harvest_kg: null,
-  treatment_type: null, treatment_product: null,
+  supers_count: 0, frames_count: 0, feeding: 'Aucun', comment: '', is_alert: false,
 }
 
 const form = ref({ ...EMPTY_FORM })
@@ -577,15 +541,12 @@ async function saveAndNext() {
     brood_score: bodyOpened.value ? form.value.brood_score : null,
     reserves_score: bodyOpened.value ? form.value.reserves_score : null,
     supers_count: form.value.supers_count,
+    frames_count: form.value.frames_count,
     supers_delta: 0,
     feeding: form.value.feeding === 'Aucun' ? null : form.value.feeding,
     comment: form.value.comment || null,
     is_alert: form.value.is_alert,
     alert_message: form.value.is_alert ? (form.value.comment || 'Alerte terrain') : null,
-    honey_harvest_kg: form.value.honey_harvest_kg,
-    pollen_harvest_kg: form.value.pollen_harvest_kg,
-    treatment_type: form.value.treatment_type || null,
-    treatment_product: form.value.treatment_type ? (form.value.treatment_product || null) : null,
     is_live_mode: true,
   }
 
@@ -615,9 +576,11 @@ async function saveAndNext() {
     }
   } catch (e) {
     console.error('Save visit error:', e)
-    const detail = e.response?.data?.detail
-    if (detail) {
-      saveError.value = 'Erreur : ' + detail
+    // Le serveur a répondu (saisie refusée, droits manquants…) : le message est
+    // affiché tel quel. Sans réponse du tout, on bascule en file d'attente
+    // hors-ligne — c'est le cas d'usage terrain, pas une erreur à afficher.
+    if (e?.response) {
+      saveError.value = apiError(e, "Impossible d'enregistrer la visite")
     } else {
       try {
         await savePendingVisit(visitData)

@@ -39,7 +39,8 @@ async def list_logs(
         out.append({
             "id": log.id,
             "user_id": log.user_id,
-            "user_name": f"{author.first_name} {author.last_name}" if author else None,
+            "user_name": (f"{author.first_name or ''} {author.last_name or ''}".strip()
+                          if author else None),
             "action": log.action,
             "entity_type": log.entity_type,
             "entity_id": log.entity_id,

@@ -95,6 +95,7 @@
 
 <script setup>
 import { ref, computed, onMounted } from 'vue'
+import { apiError } from '../services/toast'
 import api from '../services/api'
 import { confirmAction } from '../services/confirm'
 import { useAuthStore } from '../stores/auth'
@@ -149,7 +150,7 @@ async function load() {
     const { data } = await api.get('/events/')
     events.value = data
   } catch (e) {
-    flash('Erreur de chargement des événements', 'error')
+    flash(apiError(e, 'Chargement des événements impossible'), 'error')
   } finally {
     loading.value = false
   }
@@ -163,7 +164,7 @@ async function doRsvp(ev, response) {
     if (i !== -1) events.value[i] = { ...events.value[i], my_response: data.my_response, counts: data.counts }
     flash('Réponse enregistrée')
   } catch (e) {
-    flash(e.response?.data?.detail || 'Erreur', 'error')
+    flash(apiError(e, 'Erreur'), 'error')
   } finally {
     busyId.value = null
   }
@@ -210,7 +211,7 @@ async function save() {
     showForm.value = false
     await load()
   } catch (e) {
-    flash(e.response?.data?.detail || 'Erreur lors de l\'enregistrement', 'error')
+    flash(apiError(e, 'Erreur lors de l\'enregistrement'), 'error')
   } finally {
     saving.value = false
   }
@@ -223,7 +224,7 @@ async function removeEvent(ev) {
     events.value = events.value.filter(e => e.id !== ev.id)
     flash('Événement supprimé')
   } catch (e) {
-    flash(e.response?.data?.detail || 'Erreur', 'error')
+    flash(apiError(e, 'Erreur'), 'error')
   }
 }
 
@@ -234,7 +235,7 @@ async function openParticipants(ev) {
     const { data } = await api.get(`/events/${ev.id}/participants`)
     participants.value = data
   } catch (e) {
-    flash('Impossible de charger les participants', 'error')
+    flash(apiError(e, 'Impossible de charger les participants'), 'error')
   }
 }
 

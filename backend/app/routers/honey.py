@@ -140,7 +140,8 @@ async def list_private_users(
         .order_by(User.last_name)
     )
     result = await db.execute(q)
-    return [{"id": r.id, "name": f"{r.first_name} {r.last_name}"} for r in result.all()]
+    return [{"id": r.id, "name": f"{r.first_name or ''} {r.last_name or ''}".strip()}
+            for r in result.all()]
 
 
 @router.get("/", response_model=list[HoneyHarvestOut])

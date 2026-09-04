@@ -92,18 +92,33 @@ doivent être **gestionnaires de la ruche** concernée.
 
 ### Inventaire
 
+L'inventaire distingue le matériel **de l'association** (propriété non
+renseignée) du matériel **personnel** d'un adhérent.
+
 | Action | admin | treasurer | yard_manager | user | readonly |
 |---|:--:|:--:|:--:|:--:|:--:|
-| Consulter le stock et les alertes | ✅ | ✅ | ✅ | ✅ | ✅ |
-| Créer / modifier un article | ✅ | ✅ | ✅ | ⛔ | ⛔ |
-| Entrée / sortie de stock | ✅ | ✅ | ✅ | ⛔ | ⛔ |
-| Déplacer un article | ✅ | ⛔ | ✅ | ⛔ | ⛔ |
-| Supprimer un article | ✅ | ⛔ | ⛔ | ⛔ | ⛔ |
-| Définir la **propriété** d'un article | ✅ | ✅ | ✅ | ⛔ | ⛔ |
+| Consulter le stock de l'association | ✅ | ✅ | ✅ | ✅ | ✅ |
+| Consulter le matériel personnel d'un tiers | ✅ | ⛔ ¹ | ✅ | ⛔ | ⛔ |
+| Créer / modifier un article **de l'association** | ✅ | ✅ | ✅ | ⛔ | ⛔ |
+| Créer / modifier **son propre** matériel | ✅ | ✅ | ✅ | ✅ | ⛔ ² |
+| Modifier le matériel personnel d'un tiers | ✅ | ✅ | ✅ | ⛔ | ⛔ |
+| Entrée / sortie sur un article de l'association | ✅ | ✅ | ✅ | ⛔ | ⛔ |
+| Entrée / sortie sur **son propre** matériel | ✅ | ✅ | ✅ | ✅ | ⛔ ² |
+| Déplacer un article de l'association | ✅ | ✅ | ✅ | ⛔ | ⛔ |
+| Supprimer un article de l'association | ✅ | ⛔ | ⛔ | ⛔ | ⛔ |
+| Supprimer **son propre** matériel | ✅ | ✅ | ✅ | ✅ | ⛔ ² |
+| Attribuer la **propriété** à un tiers | ✅ | ✅ | ✅ | ⛔ | ⛔ |
 
-> La « propriété » est une donnée descriptive (association ou utilisateur).
-> Elle **ne confère aucun droit** : elle n'empêche pas un gestionnaire de
-> modifier un article appartenant à quelqu'un d'autre.
+¹ Le trésorier gère le stock de l'association mais n'est pas « responsable de
+cheptel » : la lecture du matériel personnel suit la même règle que le miel
+privé (propriétaire + admin + responsable de rucher).
+
+² Le compte en lecture seule n'écrit rien, y compris sur ses propres données.
+
+> Le matériel personnel d'un adhérent n'est **pas** visible des autres
+> adhérents — ni dans la liste, ni dans les alertes de stock, ni dans le résumé
+> par emplacement. Un adhérent ne peut ni le céder à l'association, ni
+> l'attribuer à quelqu'un d'autre.
 
 ### Miellée
 
@@ -173,9 +188,16 @@ accès*. La saisie reste réservée aux administrateurs et trésoriers.
 | Changer **son** rôle actif / par défaut | 🔶 ¹ | 🔶 ¹ | 🔶 ¹ | 🔶 ¹ | 🔶 ¹ |
 | Import CSV de comptes | ✅ | ⛔ | ⛔ | ⛔ | ⛔ |
 | Lire les critères météo | ✅ | ✅ | ✅ | ✅ | ✅ |
-| **Régler** les critères météo | ✅ | ⛔ | ⛔ | ⛔ | ⛔ |
+| Régler **ses propres** critères météo | ✅ | ✅ | ✅ | ✅ | ✅ ³ |
+| Régler les critères **de l'association** | ✅ | ⛔ | ⛔ | ⛔ | ⛔ |
+| Signaler un problème sur une ruche | ✅ | ✅ | ✅ | ✅ | ⛔ |
+| Diagnostic des notifications | ✅ | ⛔ | ⛔ | ⛔ | ⛔ |
 | Documentation : écrire / supprimer | ✅ | ⛔ | ⛔ | ⛔ | ⛔ |
 | Notifications : s'abonner, régler ses préférences | ✅ | ✅ | ✅ | ✅ | ✅ |
+
+³ Les critères météo personnels ne modifient que l'affichage de son propre
+écran : ils font partie des rares écritures autorisées à un compte en lecture
+seule, au même titre que son mot de passe.
 
 ¹ Uniquement parmi ses rôles **sélectionnables** (rôles attribués + rôles moins
 étendus qu'ils impliquent, cf. § 1). Toute autre valeur est refusée (403), y

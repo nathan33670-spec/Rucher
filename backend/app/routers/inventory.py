@@ -2,17 +2,51 @@
 
 from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.ext.asyncio import AsyncSession
-from sqlalchemy import select, func
+from sqlalchemy import select, func, or_
 
 from app.database import get_db
 from app.models.inventory import InventoryItem, InventoryMovement, MovementType
 from app.models.user import User, RoleEnum
 from app.schemas.inventory import ItemCreate, ItemUpdate, ItemOut, ItemMove, MovementCreate, MovementOut
-from app.utils.auth import get_current_user, require_roles
+from app.utils.auth import get_current_user, require_roles, get_user_roles
 from app.utils.audit import log_action
 from app.utils.push import notify
 
 router = APIRouter(prefix="/api/inventory", tags=["inventory"])
+
+
+def _is_stock_manager(user: User) -> bool:
+    """Gère le matériel de l'association (admin, responsable rucher, trésorier)."""
+    roles = get_user_roles(user)
+    return any(r in roles for r in (
+        RoleEnum.ADMIN.value, RoleEnum.YARD_MANAGER.value, RoleEnum.TREASURER.value,
+    ))
+
+
+def _visible_filter(q, user: User):
+    """Le matériel personnel d'un adhérent n'appartient qu'à lui.
+
+    Le matériel de l'association (``owner_user_id`` nul) reste visible de tous ;
+    celui d'un adhérent n'est visible que par lui-même et par les responsables —
+    même règle que pour le miel privé.
+    """
+    if _is_stock_manager(user):
+        return q
+    return q.where(
+        or_(InventoryItem.owner_user_id.is_(None),
+            InventoryItem.owner_user_id == user.id)
+    )
+
+
+def _check_can_edit(user: User, item: InventoryItem) -> None:
+    """Un adhérent gère son propre matériel ; l'association, ses responsables."""
+    if _is_stock_manager(user):
+        return
+    if item.owner_user_id and item.owner_user_id == user.id:
+        return
+    if item.owner_user_id is None:
+        raise HTTPException(403, "Le matériel de l'association est géré par les responsables")
+    raise HTTPException(403, "Cet article appartient à un autre adhérent")
 
 
 async def _owner_names(db: AsyncSession, items) -> dict:
@@ -31,7 +65,7 @@ def _item_out(item: InventoryItem, names: dict) -> ItemOut:
 
 @router.get("/", response_model=list[ItemOut])
 async def list_items(db: AsyncSession = Depends(get_db), user: User = Depends(get_current_user)):
-    result = await db.execute(select(InventoryItem).order_by(InventoryItem.name))
+    result = await db.execute(_visible_filter(select(InventoryItem), user).order_by(InventoryItem.name))
     items = list(result.scalars().all())
     names = await _owner_names(db, items)
     return [_item_out(i, names) for i in items]
@@ -41,9 +75,18 @@ async def list_items(db: AsyncSession = Depends(get_db), user: User = Depends(ge
 async def create_item(
     body: ItemCreate,
     db: AsyncSession = Depends(get_db),
-    user: User = Depends(require_roles(RoleEnum.ADMIN, RoleEnum.YARD_MANAGER, RoleEnum.TREASURER)),
+    user: User = Depends(get_current_user),
 ):
-    item = InventoryItem(**body.model_dump())
+    """Chacun peut déclarer son propre matériel ; celui de l'association reste
+    réservé aux responsables."""
+    data = body.model_dump()
+    if not _is_stock_manager(user):
+        # Un adhérent ne peut créer que du matériel lui appartenant : ni celui
+        # de l'association, ni celui d'un autre adhérent.
+        if data.get("owner_user_id") not in (None, user.id):
+            raise HTTPException(403, "Vous ne pouvez déclarer que votre propre matériel")
+        data["owner_user_id"] = user.id
+    item = InventoryItem(**data)
     db.add(item)
     await db.flush()
     await log_action(db, user.id, "create", "inventory_item", item.id)
@@ -54,12 +97,19 @@ async def create_item(
 async def update_item(
     item_id: int, body: ItemUpdate,
     db: AsyncSession = Depends(get_db),
-    user: User = Depends(require_roles(RoleEnum.ADMIN, RoleEnum.YARD_MANAGER, RoleEnum.TREASURER)),
+    user: User = Depends(get_current_user),
 ):
     item = await db.get(InventoryItem, item_id)
     if not item:
         raise HTTPException(404, "Article introuvable")
-    for k, v in body.model_dump(exclude_unset=True).items():
+    _check_can_edit(user, item)
+    changes = body.model_dump(exclude_unset=True)
+    if not _is_stock_manager(user) and "owner_user_id" in changes:
+        # Sinon un adhérent pourrait « donner » son matériel à l'association
+        # ou à quelqu'un d'autre, et en perdre la maîtrise.
+        if changes["owner_user_id"] != user.id:
+            raise HTTPException(403, "Vous ne pouvez pas changer le propriétaire de cet article")
+    for k, v in changes.items():
         setattr(item, k, v)
     await log_action(db, user.id, "update", "inventory_item", item.id)
     await db.flush()
@@ -70,11 +120,18 @@ async def update_item(
 async def delete_item(
     item_id: int,
     db: AsyncSession = Depends(get_db),
-    user: User = Depends(require_roles(RoleEnum.ADMIN)),
+    user: User = Depends(get_current_user),
 ):
     item = await db.get(InventoryItem, item_id)
     if not item:
         raise HTTPException(404, "Article introuvable")
+    # Le matériel de l'association reste supprimable par le seul administrateur ;
+    # chacun dispose en revanche du sien.
+    if item.owner_user_id is None:
+        if RoleEnum.ADMIN.value not in get_user_roles(user):
+            raise HTTPException(403, "Seul l'administrateur peut supprimer du matériel de l'association")
+    else:
+        _check_can_edit(user, item)
     await db.delete(item)
     await log_action(db, user.id, "delete", "inventory_item", item_id)
 
@@ -83,11 +140,14 @@ async def delete_item(
 async def create_movement(
     body: MovementCreate,
     db: AsyncSession = Depends(get_db),
-    user: User = Depends(require_roles(RoleEnum.ADMIN, RoleEnum.YARD_MANAGER, RoleEnum.TREASURER)),
+    user: User = Depends(get_current_user),
 ):
     item = await db.get(InventoryItem, body.item_id)
     if not item:
         raise HTTPException(404, "Article introuvable")
+    _check_can_edit(user, item)
+    if body.quantity <= 0:
+        raise HTTPException(400, "La quantité d'un mouvement doit être positive")
 
     if body.movement_type == MovementType.IN:
         item.quantity += body.quantity
@@ -110,8 +170,12 @@ async def create_movement(
     await log_action(db, user.id, "create", "inventory_movement", mvt.id)
 
     verb = "Entrée" if body.movement_type == MovementType.IN else "Sortie"
-    notify("inventory", "📦 Mouvement de matériel",
-           f"{verb} : {body.quantity} {item.unit} — {item.name}", "/app/inventory")
+    # Le matériel personnel ne concerne que son propriétaire : inutile d'alerter
+    # toute l'association à chaque mouvement.
+    if item.owner_user_id is None:
+        notify("inventory", "📦 Mouvement de matériel",
+               f"{verb} : {body.quantity} {item.unit} — {item.name}",
+               "/app/inventory", exclude_user_id=user.id)
     return mvt
 
 
@@ -124,6 +188,9 @@ async def list_movements(
     q = select(InventoryMovement).order_by(InventoryMovement.performed_at.desc()).limit(100)
     if item_id:
         q = q.where(InventoryMovement.item_id == item_id)
+    if not _is_stock_manager(user):
+        visible = _visible_filter(select(InventoryItem.id), user)
+        q = q.where(InventoryMovement.item_id.in_(visible))
     result = await db.execute(q)
     return result.scalars().all()
 
@@ -132,9 +199,12 @@ async def list_movements(
 async def stock_alerts(db: AsyncSession = Depends(get_db), user: User = Depends(get_current_user)):
     """Retourne les articles dont le stock est sous le seuil d'alerte."""
     result = await db.execute(
-        select(InventoryItem).where(
-            InventoryItem.alert_threshold.isnot(None),
-            InventoryItem.quantity <= InventoryItem.alert_threshold,
+        _visible_filter(
+            select(InventoryItem).where(
+                InventoryItem.alert_threshold.isnot(None),
+                InventoryItem.quantity <= InventoryItem.alert_threshold,
+            ),
+            user,
         )
     )
     items = result.scalars().all()
@@ -146,7 +216,7 @@ async def move_item(
     item_id: int,
     body: ItemMove,
     db: AsyncSession = Depends(get_db),
-    user: User = Depends(require_roles(RoleEnum.ADMIN, RoleEnum.YARD_MANAGER)),
+    user: User = Depends(get_current_user),
 ):
     """Déplace tout ou partie d'un article vers un autre point de stockage.
 
@@ -157,6 +227,7 @@ async def move_item(
     item = await db.get(InventoryItem, item_id)
     if not item:
         raise HTTPException(404, "Article introuvable")
+    _check_can_edit(user, item)
 
     new_location = (body.new_location or "").strip() or None
     old_location = item.location
@@ -178,6 +249,9 @@ async def move_item(
             InventoryItem.unit == item.unit,
             func.coalesce(InventoryItem.category, "") == (item.category or ""),
             func.coalesce(InventoryItem.location, "") == (new_location or ""),
+            # Un article personnel ne doit jamais fusionner avec celui d'un
+            # autre adhérent, ni avec le stock de l'association.
+            func.coalesce(InventoryItem.owner_user_id, 0) == (item.owner_user_id or 0),
         )
     )
     dest = result.scalars().first()
@@ -199,7 +273,8 @@ async def move_item(
         await log_action(db, user.id, "move", "inventory_item", source_id,
                          details=f"{old_location} → {new_location} (tout : {move_qty} {src_unit})")
         notify("inventory", "📦 Déplacement de matériel",
-               f"{target.name} → {new_location or 'Non assigné'}", "/app/inventory")
+               f"{target.name} → {new_location or 'Non assigné'}", "/app/inventory",
+               exclude_user_id=user.id)
         return {"id": target.id, "name": target.name, "location": target.location,
                 "quantity": target.quantity, "split": False}
 
@@ -226,7 +301,8 @@ async def move_item(
     await log_action(db, user.id, "move", "inventory_item", item.id,
                      details=f"{old_location} → {new_location} (partiel : {move_qty} {item.unit})")
     notify("inventory", "📦 Déplacement de matériel",
-           f"{move_qty} {item.unit} de {item.name} → {new_location or 'Non assigné'}", "/app/inventory")
+           f"{move_qty} {item.unit} de {item.name} → {new_location or 'Non assigné'}", "/app/inventory",
+           exclude_user_id=user.id)
     return {"id": target.id, "name": target.name, "location": target.location,
             "quantity": target.quantity, "source_remaining": item.quantity, "split": True}
 
@@ -238,12 +314,12 @@ async def locations_summary(
 ):
     """Résumé par point de stockage : nombre d'articles, quantité totale, valeur."""
     result = await db.execute(
-        select(
+        _visible_filter(select(
             func.coalesce(InventoryItem.location, 'Non assigné').label('location'),
             func.count(InventoryItem.id).label('item_count'),
             func.sum(InventoryItem.quantity).label('total_qty'),
             func.sum(InventoryItem.quantity * InventoryItem.unit_price).label('total_value'),
-        ).group_by(InventoryItem.location).order_by('location')
+        ), user).group_by(InventoryItem.location).order_by('location')
     )
     return [
         {"location": r.location, "item_count": r.item_count,
