@@ -77,8 +77,8 @@
         </v-btn>
       </v-badge>
 
-      <!-- Sélecteur de rôle actif (à la volée) — si plusieurs rôles autorisés -->
-      <v-menu location="bottom end" v-if="auth.authorizedRoles.length > 1">
+      <!-- Sélecteur de rôle actif (à la volée) — dès qu'un rôle plus restreint est disponible -->
+      <v-menu location="bottom end" v-if="orderedRoles.length > 1">
         <template v-slot:activator="{ props }">
           <v-chip v-bind="props" class="ml-1" size="small" color="primary" variant="tonal" link title="Rôle utilisé">
             <v-icon size="16" start>{{ roleIcon(currentRole) }}</v-icon>
@@ -86,11 +86,12 @@
             <v-icon size="14" end class="d-none d-sm-inline">mdi-chevron-down</v-icon>
           </v-chip>
         </template>
-        <v-list density="compact" min-width="240">
+        <v-list density="compact" min-width="270">
           <v-list-subheader>J'utilise le rôle</v-list-subheader>
           <v-list-item
             v-for="r in orderedRoles" :key="r"
             :prepend-icon="roleIcon(r)" :title="roleLabel(r)"
+            :subtitle="auth.authorizedRoles.includes(r) ? null : 'Droits restreints'"
             :active="currentRole === r" @click="doSwitchRole(r)"
           >
             <template v-slot:append>
@@ -98,6 +99,10 @@
               <v-icon v-else-if="auth.defaultRole === r" size="14" color="accent">mdi-star</v-icon>
             </template>
           </v-list-item>
+          <v-divider />
+          <div class="px-4 py-2 text-caption text-medium-emphasis">
+            Travailler avec un rôle plus restreint évite les fausses manœuvres.
+          </div>
         </v-list>
       </v-menu>
 
@@ -115,7 +120,7 @@
             :subtitle="auth.user?.email"
             prepend-icon="mdi-account-circle"
           />
-          <template v-if="auth.authorizedRoles.length > 1">
+          <template v-if="orderedRoles.length > 1">
             <v-divider />
             <v-list-subheader class="text-caption">Rôle par défaut (à la connexion)</v-list-subheader>
             <v-list-item
@@ -383,7 +388,9 @@ const ROLE_ICONS = { admin: 'mdi-shield-crown', treasurer: 'mdi-cash', yard_mana
 const ROLE_ORDER = ['admin', 'yard_manager', 'treasurer', 'user', 'readonly']
 function roleLabel(r) { return ROLE_LABELS[r] || r }
 function roleIcon(r) { return ROLE_ICONS[r] || 'mdi-account' }
-const orderedRoles = computed(() => [...auth.authorizedRoles].sort((a, b) => ROLE_ORDER.indexOf(a) - ROLE_ORDER.indexOf(b)))
+// Options du sélecteur : les rôles attribués ET les rôles moins étendus
+// qu'ils impliquent (un administrateur peut travailler « en usager »).
+const orderedRoles = computed(() => [...auth.selectableRoles].sort((a, b) => ROLE_ORDER.indexOf(a) - ROLE_ORDER.indexOf(b)))
 const currentRole = computed(() => auth.activeRole || orderedRoles.value[0])
 
 async function doSwitchRole(r) {

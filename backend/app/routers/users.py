@@ -18,6 +18,7 @@ from app.schemas.user import (
 from app.utils.auth import (
     hash_password, verify_password, create_access_token,
     get_current_user, require_roles, get_user_roles, get_authorized_roles,
+    get_selectable_roles,
 )
 from app.utils.audit import log_action
 
@@ -36,8 +37,8 @@ async def login(body: LoginRequest, db: AsyncSession = Depends(get_db)):
     if not user.is_active:
         raise HTTPException(status_code=403, detail="Compte désactivé")
     # Rôle actif = rôle par défaut de l'utilisateur (s'il est autorisé), sinon tous.
-    authorized = get_authorized_roles(user)
-    active = user.default_role if user.default_role in authorized else None
+    selectable = get_selectable_roles(user)
+    active = user.default_role if user.default_role in selectable else None
     # « Rester connecté » → jeton quasi-permanent (10 ans) ; sinon durée par défaut.
     expires = timedelta(days=3650) if body.remember else None
     token = create_access_token(
@@ -60,10 +61,12 @@ async def switch_role(
     user: User = Depends(get_current_user),
 ):
     """Change le rôle actif « à la volée » (émet un nouveau jeton).
-    Le rôle demandé doit faire partie des rôles autorisés de l'utilisateur."""
-    authorized = get_authorized_roles(user)
+
+    Le rôle demandé doit être sélectionnable : un rôle attribué, ou un rôle
+    moins étendu qu'il implique (un admin peut travailler « en usager »).
+    """
     role = body.role
-    if role is not None and role not in authorized:
+    if role is not None and role not in get_selectable_roles(user):
         raise HTTPException(403, "Rôle non autorisé")
     token = create_access_token({"sub": user.id, "username": user.email, "active_role": role,
                                  "tv": user.token_version or 0})
@@ -77,8 +80,7 @@ async def set_default_role(
     user: User = Depends(get_current_user),
 ):
     """Définit le rôle actif par défaut (appliqué aux prochaines connexions)."""
-    authorized = get_authorized_roles(user)
-    if body.role is not None and body.role not in authorized:
+    if body.role is not None and body.role not in get_selectable_roles(user):
         raise HTTPException(403, "Rôle non autorisé")
     user.default_role = body.role
     await db.flush()
@@ -294,7 +296,8 @@ def _user_to_out(user: User) -> UserOut:
         last_name=user.last_name,
         phone=user.phone,
         is_active=user.is_active,
-        roles=get_authorized_roles(user),          # tous les rôles autorisés
+        roles=get_authorized_roles(user),          # tous les rôles attribués
+        selectable_roles=get_selectable_roles(user),  # + rôles moins étendus
         active_role=getattr(user, "active_role", None),
         default_role=user.default_role,
         created_at=user.created_at,
