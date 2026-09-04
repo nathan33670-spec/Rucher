@@ -51,6 +51,36 @@
         </v-chip>
       </div>
 
+      <!-- Provenance des valeurs affichées : sans ce rappel, on ne saurait pas
+           distinguer un relevé du jour d'une valeur héritée de la visite
+           précédente. -->
+      <v-alert
+        v-if="prefillFrom"
+        density="compact" variant="tonal" color="secondary" class="mb-4 text-left prefill-note"
+      >
+        <div class="d-flex align-center ga-2 flex-wrap">
+          <v-icon size="16">mdi-history</v-icon>
+          <span class="text-caption">
+            Valeurs reprises de la visite du <b>{{ formatVisitDate(prefillFrom.visited_at) }}</b>
+            <template v-if="prefillFrom.author_name"> par {{ prefillFrom.author_name }}</template>.
+            Corrigez ce qui a changé.
+          </span>
+          <v-spacer />
+          <v-btn size="x-small" variant="text" density="comfortable" @click="clearPrefill">
+            Repartir de zéro
+          </v-btn>
+        </div>
+      </v-alert>
+      <v-alert
+        v-else-if="currentHive && !lastVisits[currentHive.id]"
+        density="compact" variant="tonal" color="info" class="mb-4 text-left"
+      >
+        <span class="text-caption">
+          <v-icon size="15">mdi-information-outline</v-icon>
+          Première visite enregistrée pour cette ruche.
+        </span>
+      </v-alert>
+
       <!-- ═══ SECTION HAUSSES ═══ -->
       <v-card variant="outlined" class="mb-4 pa-3">
         <div class="text-subtitle-2 font-weight-bold mb-3">
@@ -370,6 +400,13 @@ const EMPTY_FORM = {
 
 const form = ref({ ...EMPTY_FORM })
 
+// Dernière visite de chaque ruche, chargée en une fois au démarrage de la
+// tournée : la saisie repart des valeurs connues, et cela reste disponible
+// hors connexion une fois la page ouverte.
+const lastVisits = ref({})
+// Visite dont proviennent les valeurs affichées (null = saisie repartie de zéro).
+const prefillFrom = ref(null)
+
 // Historique de la ruche sélectionnée
 const showHist = ref(false)
 const loadingHist = ref(false)
@@ -521,12 +558,42 @@ function stopDictation() {
   try { recognition?.stop() } catch { /* ignore */ }
 }
 
-function resetForm() {
+/**
+ * Prépare le formulaire pour la ruche courante.
+ *
+ * On repart des valeurs de la dernière visite : sur le terrain, le nombre de
+ * hausses, de cadres ou le nourrissement changent rarement d'une visite à
+ * l'autre. Repartir de zéro obligeait à tout ressaisir et faussait les
+ * relevés quand on oubliait un champ.
+ *
+ * Le commentaire, l'alerte et l'état « corps ouvert » ne sont jamais repris :
+ * ils décrivent la visite en cours, pas l'état de la colonie.
+ */
+function resetForm({ blank = false } = {}) {
   // Changer de ruche coupe la dictée : sans cela le texte dicté partirait
   // dans le commentaire de la ruche suivante.
   stopDictation()
   form.value = { ...EMPTY_FORM }
   bodyOpened.value = true
+  prefillFrom.value = null
+  if (blank) return
+
+  const last = currentHive.value ? lastVisits.value[currentHive.value.id] : null
+  if (!last) return
+
+  const f = form.value
+  if (last.queen_seen !== null && last.queen_seen !== undefined) f.queen_seen = last.queen_seen
+  if (last.brood_score !== null && last.brood_score !== undefined) f.brood_score = last.brood_score
+  if (last.reserves_score !== null && last.reserves_score !== undefined) f.reserves_score = last.reserves_score
+  if (last.supers_count !== null && last.supers_count !== undefined) f.supers_count = last.supers_count
+  if (last.frames_count !== null && last.frames_count !== undefined) f.frames_count = last.frames_count
+  if (last.feeding) f.feeding = last.feeding
+  prefillFrom.value = last
+}
+
+/** Repartir d'une fiche vierge quand rien de la dernière visite ne s'applique. */
+function clearPrefill() {
+  resetForm({ blank: true })
 }
 
 async function saveAndNext() {
@@ -568,6 +635,7 @@ async function saveAndNext() {
     }
 
     savedCount.value++
+    rememberAsLast(visitData)
     if (currentIndex.value < hives.value.length - 1) {
       currentIndex.value++
       resetForm()
@@ -586,6 +654,7 @@ async function saveAndNext() {
         await savePendingVisit(visitData)
         savedSnack.value = true
         savedCount.value++
+        rememberAsLast(visitData)
         if (currentIndex.value < hives.value.length - 1) {
           currentIndex.value++
           resetForm()
@@ -598,6 +667,25 @@ async function saveAndNext() {
     }
   } finally {
     saving.value = false
+  }
+}
+
+/**
+ * La visite qu'on vient de saisir devient la référence de cette ruche : revenir
+ * dessus, ou refaire une tournée, repart de ce qui a réellement été relevé —
+ * y compris hors connexion, où le serveur ne peut pas nous le confirmer.
+ */
+function rememberAsLast(visitData) {
+  lastVisits.value[visitData.hive_id] = {
+    visited_at: visitData.visited_at,
+    queen_seen: visitData.queen_seen,
+    brood_score: visitData.brood_score,
+    reserves_score: visitData.reserves_score,
+    supers_count: visitData.supers_count,
+    frames_count: visitData.frames_count,
+    feeding: visitData.feeding,
+    is_alert: visitData.is_alert,
+    author_name: authorName.value,
   }
 }
 
@@ -632,6 +720,16 @@ onMounted(async () => {
       : '/apiaries/' + (props.apiaryId || route.params.apiaryId) + '/hives/editable'
     const { data } = await api.get(url)
     hives.value = data
+    if (data.length) {
+      // Un seul appel pour toute la tournée : la suite fonctionne même si le
+      // réseau tombe une fois sur le rucher.
+      try {
+        const ids = data.map((h) => h.id).join(',')
+        const res = await api.get('/visits/last', { params: { hive_ids: ids } })
+        lastVisits.value = res.data || {}
+      } catch { lastVisits.value = {} }
+      resetForm()
+    }
   } catch {}
   loading.value = false
 })
@@ -648,6 +746,11 @@ onUnmounted(() => {
   max-width: 500px;
   margin: 0 auto;
   padding: 16px;
+}
+
+/* Bandeau de provenance : présent mais jamais concurrent des champs de saisie. */
+.prefill-note {
+  border: 1px solid rgba(0, 0, 0, 0.06);
 }
 
 /* Aperçu de dictée : bandeau discret avec témoin d'enregistrement. */
