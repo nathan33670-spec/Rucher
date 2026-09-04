@@ -21,7 +21,6 @@
           prepend-inner-icon="mdi-beehive-outline"
           :loading="loading"
           :error-messages="hiveError"
-          autofocus
         />
 
         <v-textarea

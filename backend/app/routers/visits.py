@@ -80,6 +80,66 @@ async def visit_stats(
     return {"month": month or 0, "total": total or 0}
 
 
+@router.get("/last")
+async def last_visit_per_hive(
+    hive_ids: str = Query(None, description="Identifiants séparés par des virgules"),
+    db: AsyncSession = Depends(get_db),
+    user: User = Depends(get_current_user),
+):
+    """Dernière visite de chaque ruche, indexée par ruche.
+
+    Sert à pré-remplir la visite rapide : on repart des valeurs connues plutôt
+    que de zéro. Un seul appel couvre toute la tournée, ce qui permet aussi de
+    travailler hors connexion une fois la page chargée.
+    """
+    wanted = None
+    if hive_ids:
+        try:
+            wanted = [int(x) for x in hive_ids.split(",") if x.strip()]
+        except ValueError:
+            raise HTTPException(400, "Liste de ruches invalide")
+        if not wanted:
+            return {}
+
+    # Date de la dernière visite par ruche, puis la visite correspondante.
+    sub = select(Visit.hive_id, func.max(Visit.visited_at).label("last_at"))
+    if wanted:
+        sub = sub.where(Visit.hive_id.in_(wanted))
+    sub = sub.group_by(Visit.hive_id).subquery()
+
+    result = await db.execute(
+        select(Visit)
+        .join(sub, (Visit.hive_id == sub.c.hive_id) & (Visit.visited_at == sub.c.last_at))
+        .order_by(desc(Visit.id))
+    )
+
+    out: dict[str, dict] = {}
+    authors: dict[int, User] = {}
+    for v in result.scalars().all():
+        # Deux visites à la même seconde : la plus récemment enregistrée gagne
+        # (tri décroissant sur l'identifiant), on ne garde donc que la première.
+        key = str(v.hive_id)
+        if key in out:
+            continue
+        if v.author_id not in authors:
+            authors[v.author_id] = await db.get(User, v.author_id)
+        a = authors[v.author_id]
+        out[key] = {
+            "id": v.id,
+            "visited_at": v.visited_at.isoformat(),
+            "queen_seen": v.queen_seen,
+            "brood_score": v.brood_score,
+            "reserves_score": v.reserves_score,
+            "supers_count": v.supers_count,
+            "frames_count": v.frames_count,
+            "feeding": v.feeding,
+            "is_alert": v.is_alert,
+            "author_name": (f"{a.first_name or ''} {a.last_name or ''}".strip()
+                            if a else None),
+        }
+    return out
+
+
 @router.post("/", response_model=VisitOut, status_code=201)
 async def create_visit(
     body: VisitCreate,
