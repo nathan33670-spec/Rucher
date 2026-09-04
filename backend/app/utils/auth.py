@@ -47,6 +47,9 @@ READONLY_ALLOWED_PATHS = (
     "/api/notifications/unsubscribe",
     "/api/notifications/preferences",
     "/api/notifications/test",
+    # Préférences météo personnelles : ne concernent que l'affichage de son
+    # propre écran, jamais les données de l'association.
+    "/api/settings/weather/mine",
 )
 
 SAFE_METHODS = ("GET", "HEAD", "OPTIONS")

@@ -15,6 +15,7 @@ from app.utils.auth import hash_password
 from app.config import get_settings
 from app.seed import seed_initial_accounts
 from app.ensure_schema import ensure_schema
+from app.utils.errors import register_error_handlers
 
 from app.routers import users, apiaries, visits, inventory, treasury, sanitary, audit, honey, docs, visit_plans, notifications, events, settings as settings_router, reports
 from app.scheduler import weekly_digest_loop
@@ -82,6 +83,9 @@ app.add_middleware(
     allow_methods=["*"],
     allow_headers=["*"],
 )
+
+# Erreurs explicites (422 lisibles, 500 avec référence traçable).
+register_error_handlers(app)
 
 app.include_router(users.router)
 app.include_router(apiaries.router)

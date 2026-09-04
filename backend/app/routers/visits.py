@@ -4,16 +4,17 @@ from datetime import datetime
 from fastapi import APIRouter, Depends, HTTPException, Query
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select, desc, func
+from sqlalchemy.orm import selectinload
 
 from app.database import get_db
 from app.models.visit import Visit
-from app.models.apiary import Hive
+from app.models.apiary import Hive, Apiary
 from app.models.sanitary import SanitaryRecord
 from app.models.user import User, RoleEnum
-from app.schemas.visit import VisitCreate, VisitUpdate, VisitOut
+from app.schemas.visit import VisitCreate, VisitUpdate, VisitOut, HiveAlertIn
 from app.utils.auth import get_current_user, get_user_roles
 from app.utils.audit import log_action
-from app.utils.push import notify
+from app.utils.push import notify, notify_users
 
 
 def _hive_label(hive: Hive) -> str:
@@ -108,10 +109,64 @@ async def create_visit(
     # Notifications push (aux abonnés ayant activé la catégorie)
     label = _hive_label(hive)
     notify("visits", "🐝 Nouvelle visite",
-           f"{user.first_name} a saisi une visite — {label}", "/app/visits")
+           f"{user.first_name} a saisi une visite — {label}", "/app/visits",
+           exclude_user_id=user.id)
     if visit.is_alert:
         notify("alerts", "⚠️ Alerte rucher",
-               f"{label} : {visit.alert_message or 'à vérifier'}", "/app")
+               f"{label} : {visit.alert_message or 'à vérifier'}", "/app",
+               exclude_user_id=user.id)
+
+    return _visit_out(visit, user, hive)
+
+
+@router.post("/alert", response_model=VisitOut, status_code=201)
+async def report_hive_problem(
+    body: HiveAlertIn,
+    db: AsyncSession = Depends(get_db),
+    user: User = Depends(get_current_user),
+):
+    """Signale un problème sur une ruche et prévient ses responsables.
+
+    Le signalement est enregistré comme une observation d'alerte : il apparaît
+    donc dans l'historique de la ruche et dans les alertes du tableau de bord,
+    au lieu de rester un message sans trace. Tout adhérent peut signaler —
+    y compris sur une ruche dont il n'a pas la charge, puisque c'est justement
+    aux responsables qu'il doit pouvoir donner l'alerte.
+    """
+    result = await db.execute(
+        select(Hive).options(selectinload(Hive.managers)).where(Hive.id == body.hive_id)
+    )
+    hive = result.scalar_one_or_none()
+    if not hive:
+        raise HTTPException(404, "Ruche introuvable")
+
+    message = body.message.strip()
+    visit = Visit(
+        hive_id=hive.id,
+        author_id=user.id,
+        visited_at=datetime.utcnow(),
+        comment=message,
+        is_alert=True,
+        alert_message=message[:500],
+    )
+    db.add(visit)
+    await db.flush()
+    await log_action(db, user.id, "alert", "visit", visit.id, details=message[:200])
+
+    label = _hive_label(hive)
+    apiary = await db.get(Apiary, hive.apiary_id)
+    where = f" ({apiary.name})" if apiary else ""
+    who = f"{user.first_name} {user.last_name}".strip() or user.email
+    title = f"⚠️ Problème signalé — {label}"
+    text = f"{who}{where} : {message[:180]}"
+
+    # Les responsables de la ruche sont prévenus nommément : ce sont eux qui
+    # doivent intervenir. Les autres abonnés à la catégorie « alertes » le sont
+    # aussi, mais jamais l'auteur du signalement.
+    manager_ids = [m.id for m in hive.managers]
+    if manager_ids:
+        notify_users(manager_ids, title, text, "/app/visits", exclude_user_id=user.id)
+    notify("alerts", title, text, "/app/visits", exclude_user_id=user.id)
 
     return _visit_out(visit, user, hive)
 
@@ -146,7 +201,8 @@ async def sync_visits(
         out.append(_visit_out(visit, user, hive))
     if out:
         notify("visits", "🐝 Visites synchronisées",
-               f"{user.first_name} a synchronisé {len(out)} visite(s).", "/app/visits")
+               f"{user.first_name} a synchronisé {len(out)} visite(s).", "/app/visits",
+               exclude_user_id=user.id)
     return out
 
 
@@ -203,7 +259,8 @@ def _visit_out(v: Visit, author: User = None, hive: Hive = None) -> VisitOut:
         id=v.id, hive_id=v.hive_id, author_id=v.author_id,
         visited_at=v.visited_at, queen_seen=v.queen_seen,
         brood_score=v.brood_score, reserves_score=v.reserves_score,
-        supers_count=v.supers_count, supers_delta=v.supers_delta,
+        supers_count=v.supers_count, frames_count=v.frames_count,
+        supers_delta=v.supers_delta,
         feeding=v.feeding,
         comment=v.comment, is_alert=v.is_alert,
         alert_message=v.alert_message, honey_harvest_kg=v.honey_harvest_kg,
@@ -211,6 +268,7 @@ def _visit_out(v: Visit, author: User = None, hive: Hive = None) -> VisitOut:
         treatment_type=v.treatment_type, treatment_product=v.treatment_product,
         is_live_mode=v.is_live_mode, synced=v.synced,
         created_at=v.created_at,
-        author_name=f"{author.first_name} {author.last_name}" if author else None,
+        author_name=(f"{author.first_name or ''} {author.last_name or ''}".strip()
+                     if author else None),
         hive_name=_hive_label(hive) if hive else None,
     )

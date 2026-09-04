@@ -170,6 +170,7 @@
 
 <script setup>
 import { ref, onMounted } from 'vue'
+import { apiError } from '../services/toast'
 import api from '../services/api'
 
 const access = ref({ treasury_read_all: false, audit_read_all: false })
@@ -201,7 +202,7 @@ const weekdays = [
 
 function ok(m) { okMsg.value = m; okSnack.value = true }
 function fail(e, fallback) {
-  errMsg.value = e?.response?.data?.detail || fallback
+  errMsg.value = apiError(e, fallback)
   errSnack.value = true
 }
 

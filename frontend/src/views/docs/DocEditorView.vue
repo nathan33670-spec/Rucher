@@ -41,6 +41,7 @@
 
 <script setup>
 import { ref, computed, onMounted } from 'vue'
+import { apiError } from '../../services/toast'
 import { useRouter } from 'vue-router'
 import { marked } from 'marked'
 import api from '../../services/api'
@@ -75,7 +76,7 @@ async function save() {
     emit('docs-changed')
     router.push({ name: 'docs-page', params: { slug } })
   } catch (e) {
-    error.value = e.response?.data?.detail || 'Erreur lors de l\'enregistrement.'
+    error.value = apiError(e, 'Erreur lors de l\'enregistrement.')
   } finally { saving.value = false }
 }
 

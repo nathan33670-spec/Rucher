@@ -51,6 +51,7 @@
 
 <script setup>
 import { ref } from 'vue'
+import { apiError } from '../services/toast'
 import { useRouter } from 'vue-router'
 import { useAuthStore } from '../stores/auth'
 import { canInstall } from '../services/pwa'
@@ -73,7 +74,7 @@ async function doLogin() {
     const redirect = router.currentRoute.value.query.redirect
     await router.replace(typeof redirect === 'string' ? redirect : { name: 'dashboard' })
   } catch (e) {
-    error.value = e.response?.data?.detail || 'Erreur de connexion'
+    error.value = apiError(e, 'Erreur de connexion')
   } finally {
     loading.value = false
   }

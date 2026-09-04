@@ -123,6 +123,7 @@
 
 <script setup>
 import { ref, computed, onMounted } from 'vue'
+import { apiError } from '../services/toast'
 import api from '../services/api'
 import { money } from '../services/format'
 import { confirmAction } from '../services/confirm'
@@ -180,7 +181,7 @@ async function load() {
     transactions.value = txRes.data
     summary.value = sumRes.data
   } catch (e) {
-    showError('Erreur de chargement de la trésorerie')
+    showError(apiError(e, 'Chargement de la trésorerie impossible'))
     console.error('Treasury load error:', e)
   }
 }
@@ -240,7 +241,7 @@ async function saveTx() {
     showSuccess('Écriture enregistrée')
     await load()
   } catch (e) {
-    showError(e.response?.data?.detail || "Erreur lors de l'enregistrement")
+    showError(apiError(e, "Erreur lors de l'enregistrement"))
   } finally {
     saving.value = false
   }
@@ -253,7 +254,7 @@ async function deleteTx(id) {
     showSuccess('Écriture supprimée')
     await load()
   } catch (e) {
-    showError(e.response?.data?.detail || 'Erreur lors de la suppression')
+    showError(apiError(e, 'Erreur lors de la suppression'))
   }
 }
 
@@ -287,7 +288,7 @@ async function downloadInvoice(invoiceId, filename) {
     a.click()
     window.URL.revokeObjectURL(url)
   } catch (e) {
-    showError('Erreur lors du téléchargement')
+    showError(apiError(e, 'Téléchargement impossible'))
   }
 }
 

@@ -131,6 +131,7 @@
 
 <script setup>
 import { ref, computed, onMounted } from 'vue'
+import { apiError } from '../services/toast'
 import api from '../services/api'
 import { confirmAction } from '../services/confirm'
 import { useAuthStore } from '../stores/auth'
@@ -212,7 +213,7 @@ async function load() {
     }
     hiveOptions.value = opts
   } catch (e) {
-    showError('Erreur de chargement')
+    showError(apiError(e, 'Chargement du suivi sanitaire impossible'))
     console.error(e)
   }
 }
@@ -249,7 +250,7 @@ async function saveTreatment() {
     showTreatmentForm.value = false
     showSuccess('Traitement enregistré')
     await load()
-  } catch (e) { showError(e.response?.data?.detail || 'Erreur') }
+  } catch (e) { showError(apiError(e, 'Erreur')) }
   finally { saving.value = false }
 }
 
@@ -266,7 +267,7 @@ async function saveVarroa() {
     showVarroaForm.value = false
     showSuccess('Comptage enregistré')
     await load()
-  } catch (e) { showError(e.response?.data?.detail || 'Erreur') }
+  } catch (e) { showError(apiError(e, 'Erreur')) }
   finally { saving.value = false }
 }
 
@@ -276,7 +277,7 @@ async function deleteRecord(id) {
     await api.delete('/sanitary/' + id)
     showSuccess('Supprimé')
     await load()
-  } catch (e) { showError(e.response?.data?.detail || 'Erreur') }
+  } catch (e) { showError(apiError(e, 'Erreur')) }
 }
 
 onMounted(load)

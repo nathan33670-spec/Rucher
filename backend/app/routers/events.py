@@ -111,6 +111,7 @@ async def create_event(
             "📅 " + body.title,
             f"{when}{lieu}. Indiquez si vous venez.",
             "/app/events",
+            exclude_user_id=user.id,
         )
 
     return _to_out(ev, None, RSVPCounts())
@@ -139,7 +140,8 @@ async def update_event(
         when = ev.start_at.strftime("%d/%m à %Hh%M") if ev.start_at else ""
         notify("events", "📅 Événement modifié",
                f"{ev.title}{' — ' + when if when else ''}"
-               + (f" · {ev.location}" if ev.location else ""), "/app/events")
+               + (f" · {ev.location}" if ev.location else ""), "/app/events",
+               exclude_user_id=user.id)
 
     counts = (await _counts_map(db, [ev.id]))[ev.id]
     mine = (await _my_responses(db, [ev.id], user.id)).get(ev.id)
@@ -165,7 +167,8 @@ async def delete_event(
     # Prévenir les adhérents : un événement annulé doit être signalé, sinon
     # certains se déplacent pour rien.
     notify("events", "❌ Événement annulé",
-           f"{title}{' — ' + when if when else ''} a été annulé.", "/app/events")
+           f"{title}{' — ' + when if when else ''} a été annulé.", "/app/events",
+           exclude_user_id=user.id)
 
 
 @router.post("/{event_id}/rsvp", response_model=EventOut)

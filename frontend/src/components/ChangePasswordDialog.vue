@@ -23,6 +23,7 @@
 
 <script setup>
 import { ref, watch } from 'vue'
+import { apiError } from '../services/toast'
 import { useAuthStore } from '../stores/auth'
 
 const props = defineProps({ modelValue: { type: Boolean, default: false } })
@@ -51,7 +52,7 @@ async function submit() {
     emit('done')
     close()
   } catch (e) {
-    error.value = e.response?.data?.detail || 'Erreur lors du changement de mot de passe'
+    error.value = apiError(e, 'Erreur lors du changement de mot de passe')
   } finally {
     saving.value = false
   }

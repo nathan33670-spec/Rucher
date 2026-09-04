@@ -59,7 +59,8 @@ async def create_transaction(
     await db.refresh(tx)
     sens = "Recette" if tx.transaction_type == TransactionType.INCOME else "Dépense"
     notify("treasury", "💶 Trésorerie",
-           f"{sens} : {tx.amount:.2f} € — {tx.description or tx.category.value}", "/app/treasury")
+           f"{sens} : {tx.amount:.2f} € — {tx.description or tx.category.value}", "/app/treasury",
+           exclude_user_id=user.id)
     return _tx_out(tx)
 
 

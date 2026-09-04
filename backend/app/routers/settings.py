@@ -26,17 +26,37 @@ WEATHER_KEY = "weather_criteria"
 ACCESS_KEY = "access_settings"
 
 
-async def _load_weather(db: AsyncSession) -> WeatherCriteria:
-    """Critères enregistrés, ou valeurs par défaut si absents/illisibles."""
-    row = await db.get(AppSetting, WEATHER_KEY)
+def _user_weather_key(user_id: int) -> str:
+    """Clé des critères personnels d'un adhérent."""
+    return f"{WEATHER_KEY}:user:{user_id}"
+
+
+async def _read_criteria(db: AsyncSession, key: str) -> WeatherCriteria | None:
+    row = await db.get(AppSetting, key)
     if not row:
-        return WeatherCriteria()
+        return None
     try:
         return WeatherCriteria.model_validate(json.loads(row.value))
     except Exception:
-        # Réglage corrompu : on repart des valeurs par défaut plutôt que de
-        # casser la page météo.
-        return WeatherCriteria()
+        # Réglage corrompu : on l'ignore plutôt que de casser la page météo.
+        return None
+
+
+async def _load_weather(db: AsyncSession) -> WeatherCriteria:
+    """Critères de l'association, ou valeurs par défaut si absents/illisibles."""
+    return await _read_criteria(db, WEATHER_KEY) or WeatherCriteria()
+
+
+async def _load_effective(db: AsyncSession, user: User) -> tuple[WeatherCriteria, bool]:
+    """Critères réellement appliqués à cet adhérent, et s'ils lui sont propres.
+
+    Chacun n'a pas les mêmes contraintes (matériel, disponibilité, tolérance au
+    vent) : les critères personnels priment donc sur ceux de l'association.
+    """
+    mine = await _read_criteria(db, _user_weather_key(user.id))
+    if mine is not None:
+        return mine, True
+    return await _load_weather(db), False
 
 
 @router.get("/weather", response_model=WeatherCriteria)
@@ -44,18 +64,63 @@ async def get_weather_criteria(
     db: AsyncSession = Depends(get_db),
     user: User = Depends(get_current_user),
 ):
-    """Lecture ouverte à tous : la page météo en a besoin pour classer les jours."""
+    """Critères appliqués à l'utilisateur courant : les siens s'il en a défini,
+    sinon ceux de l'association. C'est ce que la page météo utilise."""
+    criteria, _mine = await _load_effective(db, user)
+    return criteria
+
+
+@router.get("/weather/association", response_model=WeatherCriteria)
+async def get_association_weather(
+    db: AsyncSession = Depends(get_db),
+    user: User = Depends(get_current_user),
+):
+    """Critères de référence de l'association (repli et point de départ)."""
     return await _load_weather(db)
 
 
-@router.put("/weather", response_model=WeatherCriteria)
-async def set_weather_criteria(
+@router.get("/weather/mine")
+async def get_my_weather_criteria(
+    db: AsyncSession = Depends(get_db),
+    user: User = Depends(get_current_user),
+):
+    criteria, personal = await _load_effective(db, user)
+    return {"personal": personal, "criteria": criteria.model_dump()}
+
+
+@router.put("/weather/mine", response_model=WeatherCriteria)
+async def set_my_weather_criteria(
     body: WeatherCriteriaUpdate,
     db: AsyncSession = Depends(get_db),
-    user: User = Depends(require_roles(RoleEnum.ADMIN)),
+    user: User = Depends(get_current_user),
 ):
-    """Mise à jour réservée aux administrateurs."""
-    current = await _load_weather(db)
+    """Chaque adhérent règle ses propres conditions de sortie."""
+    current, _personal = await _load_effective(db, user)
+    merged = _merge_criteria(current, body)
+    key = _user_weather_key(user.id)
+    payload = json.dumps(merged.model_dump())
+    row = await db.get(AppSetting, key)
+    if row:
+        row.value = payload
+    else:
+        db.add(AppSetting(key=key, value=payload))
+    return merged
+
+
+@router.delete("/weather/mine", response_model=WeatherCriteria)
+async def reset_my_weather_criteria(
+    db: AsyncSession = Depends(get_db),
+    user: User = Depends(get_current_user),
+):
+    """Revient aux critères de l'association."""
+    row = await db.get(AppSetting, _user_weather_key(user.id))
+    if row:
+        await db.delete(row)
+    return await _load_weather(db)
+
+
+def _merge_criteria(current: WeatherCriteria, body: WeatherCriteriaUpdate) -> WeatherCriteria:
+    """Applique la mise à jour partielle et refuse les combinaisons absurdes."""
     merged = WeatherCriteria(
         ideal=body.ideal or current.ideal,
         ok=body.ok or current.ok,
@@ -64,6 +129,18 @@ async def set_weather_criteria(
         raise HTTPException(400, "L'heure de début doit précéder l'heure de fin")
     if merged.ideal.temp_min > merged.ideal.temp_max:
         raise HTTPException(400, "La température minimale doit être inférieure à la maximale")
+    return merged
+
+
+@router.put("/weather", response_model=WeatherCriteria)
+async def set_weather_criteria(
+    body: WeatherCriteriaUpdate,
+    db: AsyncSession = Depends(get_db),
+    user: User = Depends(require_roles(RoleEnum.ADMIN)),
+):
+    """Critères de l'association — mise à jour réservée aux administrateurs."""
+    current = await _load_weather(db)
+    merged = _merge_criteria(current, body)
 
     payload = json.dumps(merged.model_dump())
     row = await db.get(AppSetting, WEATHER_KEY)

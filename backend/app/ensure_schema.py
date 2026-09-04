@@ -62,6 +62,12 @@ COLUMN_MIGRATIONS = [
         "treatment_product",
         "ALTER TABLE visits ADD COLUMN IF NOT EXISTS treatment_product VARCHAR(200)",
     ),
+    # Cadres de corps comptés pendant la visite (comme les hausses).
+    (
+        "visits",
+        "frames_count",
+        "ALTER TABLE visits ADD COLUMN IF NOT EXISTS frames_count INTEGER",
+    ),
 ]
 
 

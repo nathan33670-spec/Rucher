@@ -68,6 +68,7 @@ class HiveOut(BaseModel):
     status: str
     notes: Optional[str] = None
     managers: list[dict] = []
+    apiary_name: Optional[str] = None
     photo_url: Optional[str] = None
     created_at: datetime
     class Config:

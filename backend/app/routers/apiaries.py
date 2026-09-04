@@ -176,6 +176,31 @@ async def list_my_hives(
     return [_hive_out(h) for h in result.scalars().all()]
 
 
+@router.get("/hives/all", response_model=list[HiveOut])
+async def list_all_hives(
+    db: AsyncSession = Depends(get_db),
+    user: User = Depends(get_current_user),
+):
+    """Toutes les ruches actives, avec leur rucher — pour le signalement.
+
+    Un adhérent doit pouvoir alerter sur n'importe quelle ruche, y compris une
+    dont il n'a pas la charge : c'est justement le cas où le responsable doit
+    être prévenu.
+    """
+    result = await db.execute(
+        select(Hive, Apiary.name)
+        .join(Apiary, Apiary.id == Hive.apiary_id)
+        .where(Hive.status == "active")
+        .order_by(Apiary.name, Hive.name)
+    )
+    out = []
+    for hive, apiary_name in result.all():
+        data = _hive_out(hive)
+        data.apiary_name = apiary_name
+        out.append(data)
+    return out
+
+
 @router.post("/hives", response_model=HiveOut, status_code=201)
 async def create_hive(
     body: HiveCreate,
@@ -342,7 +367,8 @@ async def get_last_visit(
         "is_alert": visit.is_alert,
         "alert_message": visit.alert_message,
         "honey_harvest_kg": visit.honey_harvest_kg,
-        "author_name": f"{author.first_name} {author.last_name}" if author else "Inconnu",
+        "author_name": (f"{author.first_name or ''} {author.last_name or ''}".strip()
+                        if author else "Inconnu"),
     }
 
 
@@ -358,7 +384,10 @@ def _hive_out(hive: Hive) -> HiveOut:
         position_y=hive.position_y,
         status=hive.status,
         notes=hive.notes,
-        managers=[{"id": m.id, "name": f"{m.first_name} {m.last_name}"} for m in hive.managers],
+        managers=[{"id": m.id,
+                   # Sans « strip », un nom de famille vide donnait « Thomas  ».
+                   "name": f"{m.first_name or ''} {m.last_name or ''}".strip() or m.email}
+                  for m in hive.managers],
         created_at=hive.created_at,
         photo_url=(f"/uploads/{os.path.basename(hive.photo_path)}" if hive.photo_path else None),
     )

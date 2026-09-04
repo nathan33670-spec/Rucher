@@ -23,14 +23,28 @@
           pluie &lt; {{ criteria.ideal.rain_max }}%, vent &lt; {{ criteria.ideal.wind_max }} km/h,
           au moins {{ criteria.ideal.min_hours }} h dans la journée
         </span>
+        <v-chip size="x-small" variant="tonal" :color="personalCriteria ? 'accent' : 'secondary'">
+          <v-icon start size="12">{{ personalCriteria ? 'mdi-account' : 'mdi-account-group' }}</v-icon>
+          {{ personalCriteria ? 'Mes critères' : "Critères de l'association" }}
+        </v-chip>
         <v-spacer />
+        <!-- Chaque adhérent règle ses propres conditions de sortie : le
+             matériel, la disponibilité et la tolérance au vent ne sont pas
+             les mêmes pour tout le monde. -->
+        <v-btn
+          size="small" variant="tonal" color="primary"
+          prepend-icon="mdi-account-cog-outline"
+          @click="openCriteria('mine')"
+        >
+          Mes critères
+        </v-btn>
         <v-btn
           v-if="auth.isAdmin"
-          size="small" variant="tonal" color="primary"
+          size="small" variant="text" color="secondary"
           prepend-icon="mdi-cog-outline"
-          @click="openCriteria"
+          @click="openCriteria('asso')"
         >
-          Régler les critères
+          Critères de l'association
         </v-btn>
       </div>
     </v-card>
@@ -209,14 +223,29 @@
     <v-dialog v-model="showCriteria" max-width="560">
       <v-card>
         <v-card-title class="d-flex align-center">
-          <v-icon class="mr-2" color="primary">mdi-tune-variant</v-icon>
-          Critères de créneau
+          <v-icon class="mr-2" color="primary">
+            {{ criteriaScope === 'mine' ? 'mdi-account-cog-outline' : 'mdi-tune-variant' }}
+          </v-icon>
+          {{ criteriaScope === 'mine' ? 'Mes critères de sortie' : "Critères de l'association" }}
         </v-card-title>
         <v-card-text>
           <p class="text-body-2 r-muted mb-4">
             Ces critères déterminent si une journée est classée <b>Idéale</b>, <b>Correcte</b>
             ou <b>Déconseillée</b>, et quelles heures sont proposées pour la visite.
           </p>
+          <v-alert
+            :type="criteriaScope === 'mine' ? 'info' : 'warning'"
+            variant="tonal" density="compact" class="mb-4"
+          >
+            <template v-if="criteriaScope === 'mine'">
+              Ces réglages ne concernent <b>que votre affichage</b>. Sans réglage
+              personnel, ce sont les critères de l'association qui s'appliquent.
+            </template>
+            <template v-else>
+              Ces réglages s'appliquent à <b>tous les adhérents</b> qui n'ont pas
+              défini les leurs.
+            </template>
+          </v-alert>
 
           <div class="text-subtitle-2 font-weight-bold mb-2">
             <v-chip size="small" color="success" variant="tonal" class="mr-2">Idéal</v-chip>
@@ -272,7 +301,9 @@
           </p>
         </v-card-text>
         <v-card-actions>
-          <v-btn variant="text" :loading="savingCriteria" @click="resetCriteria">Valeurs par défaut</v-btn>
+          <v-btn variant="text" :loading="savingCriteria" @click="resetCriteria">
+            {{ criteriaScope === 'mine' ? "Utiliser ceux de l'association" : 'Valeurs par défaut' }}
+          </v-btn>
           <v-spacer />
           <v-btn @click="showCriteria = false">Annuler</v-btn>
           <v-btn color="primary" :loading="savingCriteria" @click="saveCriteria">Enregistrer</v-btn>
@@ -286,6 +317,7 @@
 
 <script setup>
 import { ref, computed, reactive, onMounted } from 'vue'
+import { apiError } from '../services/toast'
 import api from '../services/api'
 import { useAuthStore } from '../stores/auth'
 
@@ -315,7 +347,11 @@ const DEFAULT_CRITERIA = {
 function clone(o) { return JSON.parse(JSON.stringify(o)) }
 
 const criteria = ref(clone(DEFAULT_CRITERIA))
+// Vrai lorsque l'adhérent a défini ses propres critères (sinon : ceux de l'asso).
+const personalCriteria = ref(false)
 const showCriteria = ref(false)
+// 'mine' = préférences personnelles · 'asso' = référence de l'association.
+const criteriaScope = ref('mine')
 const criteriaForm = ref(clone(DEFAULT_CRITERIA))
 const savingCriteria = ref(false)
 const criteriaMsg = ref('')
@@ -328,39 +364,82 @@ const showCriteriaMsg = computed({
 
 async function loadCriteria() {
   try {
-    const { data } = await api.get('/settings/weather')
-    criteria.value = data
+    // Critères réellement appliqués à cet utilisateur (les siens, sinon ceux
+    // de l'association), avec l'origine pour l'afficher clairement.
+    const { data } = await api.get('/settings/weather/mine')
+    criteria.value = data.criteria
+    personalCriteria.value = data.personal
   } catch { /* valeurs par défaut conservées */ }
 }
 
-function openCriteria() {
-  criteriaForm.value = clone(criteria.value)
+async function openCriteria(scope = 'mine') {
+  criteriaScope.value = scope
+  if (scope === 'asso') {
+    // Toujours partir de la référence de l'association, jamais des critères
+    // personnels de l'administrateur qui les modifie.
+    try {
+      const { data } = await api.get('/settings/weather/association')
+      criteriaForm.value = clone(data)
+    } catch (e) {
+      msgIsError.value = true
+      criteriaMsg.value = apiError(e, "Impossible de lire les critères de l'association")
+      return
+    }
+  } else {
+    criteriaForm.value = clone(criteria.value)
+  }
   showCriteria.value = true
 }
 
 async function saveCriteria() {
   savingCriteria.value = true
+  const mine = criteriaScope.value === 'mine'
   try {
-    const { data } = await api.put('/settings/weather', criteriaForm.value)
-    criteria.value = data
+    const { data } = await api.put(
+      mine ? '/settings/weather/mine' : '/settings/weather',
+      criteriaForm.value,
+    )
+    if (mine) {
+      criteria.value = data
+      personalCriteria.value = true
+    } else {
+      // Les critères de l'association ne s'appliquent à l'écran que si
+      // l'utilisateur n'a pas les siens.
+      if (!personalCriteria.value) criteria.value = data
+    }
     showCriteria.value = false
-    msgIsError.value = false; criteriaMsg.value = 'Critères enregistrés'
+    msgIsError.value = false
+    criteriaMsg.value = mine ? 'Vos critères sont enregistrés' : "Critères de l'association enregistrés"
   } catch (e) {
-    msgIsError.value = true; criteriaMsg.value = e.response?.data?.detail || "Impossible d'enregistrer les critères"
+    msgIsError.value = true; criteriaMsg.value = apiError(e, "Impossible d'enregistrer les critères")
   } finally {
+    // `days` est un computed sur `criteria` : le classement des journées et la
+    // liste des heures idéales se recalculent d'eux-mêmes.
     savingCriteria.value = false
   }
 }
 
 async function resetCriteria() {
   savingCriteria.value = true
+  const mine = criteriaScope.value === 'mine'
   try {
-    const { data } = await api.delete('/settings/weather')
+    const { data } = await api.delete(mine ? '/settings/weather/mine' : '/settings/weather')
     criteria.value = data
     criteriaForm.value = clone(data)
-    msgIsError.value = false; criteriaMsg.value = 'Critères par défaut rétablis'
-  } catch { msgIsError.value = true; criteriaMsg.value = 'Échec de la réinitialisation' }
-  finally { savingCriteria.value = false }
+    if (mine) personalCriteria.value = false
+    msgIsError.value = false
+    criteriaMsg.value = mine
+      ? "Vous suivez de nouveau les critères de l'association"
+      : 'Critères par défaut rétablis'
+    showCriteria.value = false
+  } catch (e) {
+    msgIsError.value = true
+    criteriaMsg.value = apiError(e, 'Échec de la réinitialisation')
+  } finally {
+    // `days` est un computed sur `criteria` : le classement des journées et la
+    // liste des heures idéales se recalculent d'eux-mêmes.
+    savingCriteria.value = false
+  }
 }
 
 function wmo(code) {
@@ -495,7 +574,7 @@ async function createEvent() {
     showEvent.value = false
     msgIsError.value = false; criteriaMsg.value = 'Sortie créée — les adhérents sont prévenus'
   } catch (e) {
-    msgIsError.value = true; criteriaMsg.value = e.response?.data?.detail || 'Création de la sortie impossible'
+    msgIsError.value = true; criteriaMsg.value = apiError(e, 'Création de la sortie impossible')
   } finally {
     savingEvent.value = false
   }

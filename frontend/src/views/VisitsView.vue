@@ -45,19 +45,18 @@
       <v-card>
         <v-card-title>Modifier la visite</v-card-title>
         <v-card-text>
-          <!-- Section Hausses -->
+          <!-- Section Hausses et cadres -->
           <v-card variant="outlined" class="mb-4 pa-3">
             <div class="text-subtitle-2 font-weight-bold mb-2">
-              <v-icon class="mr-1" color="primary">mdi-beehive-outline</v-icon> Hausses
+              <v-icon class="mr-1" color="primary">mdi-beehive-outline</v-icon> Hausses et cadres
             </div>
-            <v-btn-toggle v-model="form.supers_delta" mandatory class="mb-3">
-              <v-btn :value="-1" color="error">-1 Hausse</v-btn>
-              <v-btn :value="0">= Hausse</v-btn>
-              <v-btn :value="1" color="success">+1 Hausse</v-btn>
-            </v-btn-toggle>
             <v-row dense>
-              <v-col cols="6"><v-text-field v-model.number="form.honey_harvest_kg" label="Récolte miel (kg)" type="number" density="compact" /></v-col>
-              <v-col cols="6"><v-text-field v-model.number="form.pollen_harvest_kg" label="Récolte pollen (kg)" type="number" density="compact" /></v-col>
+              <v-col cols="6">
+                <v-text-field v-model.number="form.supers_count" label="Nb hausses" type="number" min="0" density="compact" />
+              </v-col>
+              <v-col cols="6">
+                <v-text-field v-model.number="form.frames_count" label="Nb cadres de corps" type="number" min="0" density="compact" />
+              </v-col>
             </v-row>
           </v-card>
 
@@ -70,18 +69,18 @@
             <v-slider v-model="form.brood_score" :min="0" :max="9" :step="1" label="Couvain" thumb-label />
             <v-slider v-model="form.reserves_score" :min="0" :max="9" :step="1" label="Réserves" thumb-label />
             <v-text-field v-model="form.feeding" label="Nourrissement" density="compact" />
-            <!-- Traitement : saisi sur le terrain, il doit être consultable
-                 et corrigeable depuis l'historique. -->
-            <v-select
-              v-model="form.treatment_type" :items="treatmentTypes"
-              label="Type de traitement" placeholder="Aucun" clearable density="compact"
-            />
-            <v-combobox
-              v-if="form.treatment_type"
-              v-model="form.treatment_product" :items="productSuggestions"
-              label="Produit utilisé" density="compact"
-            />
           </v-card>
+
+          <!-- La récolte se saisit dans « Miellée » et le traitement dans le
+               « Suivi sanitaire » : ils ne sont plus saisis depuis une visite.
+               Les valeurs déjà enregistrées restent affichées ci-dessous. -->
+          <v-alert
+            v-if="legacyExtras.length"
+            type="info" variant="tonal" density="compact" class="mb-4"
+          >
+            Saisi avec l'ancienne version : {{ legacyExtras.join(' · ') }}.
+            La récolte se gère dans « Miellée », le traitement dans « Suivi sanitaire ».
+          </v-alert>
 
           <v-textarea v-model="form.comment" label="Commentaires" rows="2" />
           <v-switch v-model="form.is_alert" label="Alerte" color="error" />
@@ -111,19 +110,13 @@ const showForm = ref(false)
 const formEditId = ref(null)
 const form = ref({
   hive_id: null, queen_seen: null, brood_score: 5, reserves_score: 5,
-  supers_delta: 0, feeding: '', comment: '', is_alert: false, alert_message: '', honey_harvest_kg: null, pollen_harvest_kg: null,
+  supers_count: null, frames_count: null, feeding: '',
+  comment: '', is_alert: false, alert_message: '',
 })
 
-// Mêmes listes que la saisie terrain, pour que les libellés concordent.
-const treatmentTypes = [
-  'Varroa', 'Loque américaine', 'Loque européenne',
-  'Nosémose', 'Teigne', 'Frelon asiatique', 'Autre',
-]
-const productSuggestions = [
-  'Apivar', 'Apiguard', 'Apilife Var', 'VarroMed',
-  'Acide oxalique (dégouttement)', 'Acide oxalique (sublimation)',
-  'Acide formique (MAQS)', 'Thymol',
-]
+// Récolte et traitement ne se saisissent plus depuis une visite ; les valeurs
+// déjà enregistrées sont rappelées à l'écran pour ne rien perdre.
+const legacyExtras = ref([])
 
 const headers = computed(() => {
   const h = [
@@ -133,7 +126,8 @@ const headers = computed(() => {
     { title: 'Reine', key: 'queen_seen' },
     { title: 'Couvain', key: 'brood_score' },
     { title: 'Réserves', key: 'reserves_score' },
-    { title: 'Hausses', key: 'supers_delta' },
+    { title: 'Hausses', key: 'supers_count' },
+    { title: 'Cadres', key: 'frames_count' },
     { title: 'Traitement', key: 'treatment_type' },
     { title: 'Commentaire', key: 'comment', sortable: false },
     { title: 'Alerte', key: 'is_alert' },
@@ -157,16 +151,21 @@ function editVisit(v) {
     queen_seen: v.queen_seen,
     brood_score: v.brood_score,
     reserves_score: v.reserves_score,
-    supers_delta: v.supers_delta,
+    supers_count: v.supers_count,
+    frames_count: v.frames_count,
     feeding: v.feeding || '',
     comment: v.comment || '',
     is_alert: v.is_alert,
     alert_message: v.alert_message || '',
-    honey_harvest_kg: v.honey_harvest_kg,
-    pollen_harvest_kg: v.pollen_harvest_kg,
-    treatment_type: v.treatment_type || null,
-    treatment_product: v.treatment_product || null,
   }
+  const extras = []
+  if (v.honey_harvest_kg) extras.push(`${v.honey_harvest_kg} kg de miel`)
+  if (v.pollen_harvest_kg) extras.push(`${v.pollen_harvest_kg} kg de pollen`)
+  if (v.treatment_type) {
+    extras.push('traitement ' + v.treatment_type
+      + (v.treatment_product ? ` (${v.treatment_product})` : ''))
+  }
+  legacyExtras.value = extras
   showForm.value = true
 }
 

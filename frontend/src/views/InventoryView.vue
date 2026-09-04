@@ -2,10 +2,18 @@
   <div>
     <div class="d-flex flex-wrap align-center justify-space-between ga-2 mb-4">
       <h2>Inventaire</h2>
-      <v-btn color="primary" prepend-icon="mdi-plus" @click="openNewItem" v-if="auth.isAdmin || auth.hasRole('yard_manager') || auth.hasRole('treasurer')">
-        Nouvel article
+      <!-- Chacun peut déclarer son propre matériel ; celui de l'association
+           reste réservé aux responsables (le serveur applique la même règle). -->
+      <v-btn color="primary" prepend-icon="mdi-plus" @click="openNewItem">
+        {{ canManageAsso ? 'Nouvel article' : 'Ajouter mon matériel' }}
       </v-btn>
     </div>
+
+    <v-tabs v-model="ownerTab" class="mb-3" density="compact">
+      <v-tab value="all">Tout</v-tab>
+      <v-tab value="asso" prepend-icon="mdi-account-group">Association</v-tab>
+      <v-tab value="mine" prepend-icon="mdi-account">Mon matériel</v-tab>
+    </v-tabs>
 
     <!-- Alertes stock -->
     <v-alert v-for="a in stockAlerts" :key="a.id" type="warning" density="compact" class="mb-2">
@@ -83,13 +91,14 @@
         </v-chip>
       </template>
       <template v-slot:item.actions="{ item }">
-        <template v-if="canEdit">
+        <template v-if="canEditItem(item)">
           <v-btn icon size="small" variant="text" color="success" title="Entrée" @click.stop="openMovement(item, 'in')"><v-icon>mdi-plus</v-icon></v-btn>
           <v-btn icon size="small" variant="text" color="error" title="Sortie" @click.stop="openMovement(item, 'out')"><v-icon>mdi-minus</v-icon></v-btn>
           <v-btn icon size="small" variant="text" color="info" title="Déplacer" @click.stop="openMove(item)"><v-icon>mdi-swap-horizontal</v-icon></v-btn>
           <v-btn icon size="small" variant="text" title="Modifier" @click.stop="editItem(item)"><v-icon>mdi-pencil</v-icon></v-btn>
-          <v-btn v-if="auth.isAdmin" icon size="small" variant="text" title="Supprimer" @click.stop="deleteItem(item.id)"><v-icon color="error">mdi-delete</v-icon></v-btn>
+          <v-btn v-if="canDeleteItem(item)" icon size="small" variant="text" title="Supprimer" @click.stop="deleteItem(item.id)"><v-icon color="error">mdi-delete</v-icon></v-btn>
         </template>
+        <span v-else class="r-muted">—</span>
       </template>
     </v-data-table>
 
@@ -151,6 +160,7 @@
             <v-col><v-text-field v-model.number="itemForm.alert_threshold" label="Seuil alerte" type="number" /></v-col>
           </v-row>
           <v-select
+            v-if="canManageAsso"
             v-model="itemForm.owner_user_id"
             :items="ownerOptions"
             label="Propriété"
@@ -158,6 +168,13 @@
             hint="Qui possède cet article ?"
             persistent-hint
           />
+          <!-- Un adhérent ne déclare que son propre matériel : le champ n'a
+               pas à être modifiable, mais la règle doit rester visible. -->
+          <v-alert v-else type="info" variant="tonal" density="compact">
+            <v-icon start size="16">mdi-account</v-icon>
+            Cet article sera enregistré comme <b>votre matériel personnel</b> :
+            vous seul et les responsables le verrez.
+          </v-alert>
         </v-card-text>
         <v-card-actions>
           <v-spacer />
@@ -240,13 +257,28 @@
 
 <script setup>
 import { ref, computed, onMounted } from 'vue'
+import { apiError } from '../services/toast'
 import api from '../services/api'
 import { confirmAction } from '../services/confirm'
 import { money } from '../services/format'
 import { useAuthStore } from '../stores/auth'
 
 const auth = useAuthStore()
-const canEdit = computed(() => auth.isAdmin || auth.hasRole('yard_manager') || auth.hasRole('treasurer'))
+// Gestion du matériel de l'association (le serveur applique la même règle).
+const canManageAsso = computed(() => auth.isAdmin || auth.hasRole('yard_manager') || auth.hasRole('treasurer'))
+const ownerTab = ref('all')
+
+/** Chacun gère son propre matériel ; celui de l'association, ses responsables. */
+function canEditItem(item) {
+  if (canManageAsso.value) return true
+  return !!item.owner_user_id && item.owner_user_id === auth.user?.id
+}
+function canDeleteItem(item) {
+  // Le matériel de l'association ne se supprime que par un administrateur.
+  if (!item.owner_user_id) return auth.isAdmin
+  return canEditItem(item)
+}
+function isMine(item) { return item.owner_user_id === auth.user?.id }
 const items = ref([])
 const stockAlerts = ref([])
 const locationSummary = ref([])
@@ -298,7 +330,8 @@ const headers = computed(() => {
     { title: 'Stock', key: 'quantity' },
     { title: 'Prix unit.', key: 'unit_price' },
   ]
-  if (canEdit.value) h.push({ title: 'Actions', key: 'actions', sortable: false })
+  // Chacun a au moins son propre matériel à gérer : la colonne est toujours utile.
+  h.push({ title: 'Actions', key: 'actions', sortable: false })
   return h
 })
 
@@ -359,6 +392,8 @@ function onCategorySelect(val) {
 
 const filteredItems = computed(() => {
   let result = items.value
+  if (ownerTab.value === 'mine') result = result.filter(isMine)
+  else if (ownerTab.value === 'asso') result = result.filter(i => !i.owner_user_id)
   if (filterLocation.value && filterLocation.value !== 'Tous') {
     result = result.filter(i => i.location === filterLocation.value)
   }
@@ -386,7 +421,7 @@ async function load() {
     stockAlerts.value = alertsRes.data
     locationSummary.value = locRes.data
   } catch (e) {
-    showError('Erreur de chargement de l\'inventaire')
+    showError(apiError(e, "Chargement de l'inventaire impossible"))
     console.error('Inventory load error:', e)
   }
   // Liste des utilisateurs pour le champ « Propriété » (admin uniquement).
@@ -400,7 +435,12 @@ async function load() {
 
 function openNewItem() {
   itemEditId.value = null
-  itemForm.value = { ...defaultItemForm }
+  // Un adhérent ne peut créer que du matériel lui appartenant ; on l'inscrit
+  // d'emblée pour que l'enregistrement ne soit pas refusé côté serveur.
+  itemForm.value = {
+    ...defaultItemForm,
+    owner_user_id: canManageAsso.value ? null : (auth.user?.id ?? null),
+  }
   nameSelect.value = null
   categorySelect.value = null
   locationSelect.value = null
@@ -437,7 +477,7 @@ async function saveItem() {
     showSuccess('Article enregistré')
     await load()
   } catch (e) {
-    showError(e.response?.data?.detail || 'Erreur lors de l\'enregistrement')
+    showError(apiError(e, 'Erreur lors de l\'enregistrement'))
   } finally {
     saving.value = false
   }
@@ -450,7 +490,7 @@ async function deleteItem(id) {
     showSuccess('Article supprimé')
     await load()
   } catch (e) {
-    showError(e.response?.data?.detail || 'Erreur lors de la suppression')
+    showError(apiError(e, 'Erreur lors de la suppression'))
   }
 }
 
@@ -476,7 +516,7 @@ async function saveMovement() {
     showSuccess('Mouvement enregistré')
     await load()
   } catch (e) {
-    showError(e.response?.data?.detail || 'Erreur lors du mouvement')
+    showError(apiError(e, 'Erreur lors du mouvement'))
   } finally {
     saving.value = false
   }
@@ -510,7 +550,7 @@ async function confirmMove() {
       : `« ${moveItem.value.name} » déplacé vers ${dest}`)
     await load()
   } catch (e) {
-    showError(e.response?.data?.detail || 'Erreur lors du déplacement')
+    showError(apiError(e, 'Erreur lors du déplacement'))
   } finally {
     saving.value = false
   }

@@ -3,7 +3,7 @@
 from pydantic import BaseModel
 from datetime import datetime
 from typing import Optional
-from app.schemas.common import NonEmptyStr
+from app.schemas.common import NonEmptyStr, NaiveDateTime
 
 
 class HoneyCategoryCreate(BaseModel):
@@ -24,7 +24,7 @@ class HoneyHarvestCreate(BaseModel):
     hive_id: Optional[int] = None
     category_id: Optional[int] = None
     ownership: str = "associative"
-    harvest_date: Optional[datetime] = None
+    harvest_date: Optional[NaiveDateTime] = None
     quantity_kg: float
     nb_frames: Optional[int] = None
     nb_supers: Optional[int] = None
@@ -35,7 +35,7 @@ class HoneyHarvestUpdate(BaseModel):
     hive_id: Optional[int] = None
     category_id: Optional[int] = None
     ownership: Optional[str] = None
-    harvest_date: Optional[datetime] = None
+    harvest_date: Optional[NaiveDateTime] = None
     quantity_kg: Optional[float] = None
     nb_frames: Optional[int] = None
     nb_supers: Optional[int] = None

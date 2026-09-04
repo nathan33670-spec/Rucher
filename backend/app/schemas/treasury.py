@@ -4,6 +4,7 @@ from pydantic import BaseModel
 from datetime import datetime
 from typing import Optional
 from app.models.treasury import TransactionType, TransactionCategory
+from app.schemas.common import NaiveDateTime
 
 
 class TransactionCreate(BaseModel):
@@ -12,7 +13,7 @@ class TransactionCreate(BaseModel):
     amount: float
     description: Optional[str] = None
     supplier: Optional[str] = None
-    date: Optional[datetime] = None
+    date: Optional[NaiveDateTime] = None
 
 class TransactionUpdate(BaseModel):
     transaction_type: Optional[TransactionType] = None

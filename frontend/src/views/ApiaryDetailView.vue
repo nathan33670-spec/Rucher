@@ -270,6 +270,7 @@
 
 <script setup>
 import { ref, computed, watch, onMounted } from 'vue'
+import { apiError } from '../services/toast'
 import { useRoute } from 'vue-router'
 import api from '../services/api'
 import { confirmAction } from '../services/confirm'
@@ -368,7 +369,7 @@ async function onMarkerMove({ id, x, y }) {
     const h = hives.value.find((v) => v.id === id)
     if (h) { h.position_x = x; h.position_y = y }
   } catch (e) {
-    showError('Erreur lors du déplacement')
+    showError(apiError(e, 'Déplacement impossible'))
   }
 }
 
@@ -381,7 +382,7 @@ async function load() {
     apiary.value = apRes.data.find((a) => a.id == apiaryId)
     hives.value = hivesRes.data
   } catch (e) {
-    showError('Erreur de chargement du rucher')
+    showError(apiError(e, 'Chargement du rucher impossible'))
     console.error('Apiary detail load error:', e)
   }
 
@@ -423,7 +424,7 @@ async function saveHive() {
     hiveForm.value = { name: '', napi_number: '', ownership: 'associative', status: 'active', notes: '', manager_ids: [] }
     await load()
   } catch (e) {
-    showError(e.response?.data?.detail || 'Erreur lors de l\'enregistrement')
+    showError(apiError(e, 'Erreur lors de l\'enregistrement'))
   } finally {
     saving.value = false
   }
@@ -442,7 +443,7 @@ async function uploadHivePhoto() {
     hivePhotoFile.value = null
     await load()
   } catch (e) {
-    showError(e.response?.data?.detail || 'Erreur upload photo')
+    showError(apiError(e, 'Erreur upload photo'))
   }
 }
 
@@ -455,7 +456,7 @@ async function deleteHivePhoto(hiveId) {
     successSnack.value = true
     await load()
   } catch (e) {
-    showError(e.response?.data?.detail || 'Erreur suppression photo')
+    showError(apiError(e, 'Erreur suppression photo'))
   }
 }
 
@@ -492,7 +493,7 @@ async function sendApiaryPhoto(blob) {
     showSuccess('Photo du rucher enregistrée')
     await load()
   } catch (e) {
-    showError(e.response?.data?.detail || 'Erreur upload photo')
+    showError(apiError(e, 'Erreur upload photo'))
   } finally {
     photoUploading.value = false
   }
@@ -520,7 +521,7 @@ async function deleteApiaryPhoto() {
     showSuccess('Photo supprimée')
     await load()
   } catch (e) {
-    showError(e.response?.data?.detail || 'Erreur suppression photo')
+    showError(apiError(e, 'Erreur suppression photo'))
   }
 }
 
@@ -531,7 +532,7 @@ async function deleteHive(id) {
     if (selectedHive.value?.id === id) selectedHive.value = null
     await load()
   } catch (e) {
-    showError(e.response?.data?.detail || 'Erreur lors de la suppression')
+    showError(apiError(e, 'Erreur lors de la suppression'))
   }
 }
 
@@ -570,7 +571,7 @@ async function saveQuickVisit() {
     // Recharger le détail de la ruche
     await selectHive(visitHive.value)
   } catch (e) {
-    showError(e.response?.data?.detail || 'Erreur lors de l\'enregistrement')
+    showError(apiError(e, 'Erreur lors de l\'enregistrement'))
   } finally {
     visitSaving.value = false
   }
