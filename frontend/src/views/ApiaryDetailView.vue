@@ -133,6 +133,10 @@
         <v-btn size="small" color="green-darken-2" variant="tonal" @click="openVisitDialog(selectedHive)">
           <v-icon class="mr-1">mdi-clipboard-check</v-icon> Visiter
         </v-btn>
+        <v-btn size="small" color="info" variant="text" prepend-icon="mdi-swap-horizontal"
+          @click="openMoveHive(selectedHive)">
+          Déplacer
+        </v-btn>
         <v-btn size="small" color="primary" variant="text" @click="editHive(selectedHive)">
           <v-icon class="mr-1">mdi-pencil</v-icon> Modifier
         </v-btn>
@@ -180,7 +184,10 @@
         <v-chip v-for="m in item.managers" :key="m.id" size="x-small" class="mr-1">{{ m.name }}</v-chip>
       </template>
       <template v-slot:item.actions="{ item }">
-        <v-btn icon size="small" variant="text" @click.stop="editHive(item)"><v-icon>mdi-pencil</v-icon></v-btn>
+        <v-btn icon size="small" variant="text" title="Modifier" @click.stop="editHive(item)"><v-icon>mdi-pencil</v-icon></v-btn>
+        <v-btn icon size="small" variant="text" title="Déplacer vers un autre rucher" @click.stop="openMoveHive(item)">
+          <v-icon color="info">mdi-swap-horizontal</v-icon>
+        </v-btn>
         <v-btn v-if="auth.isAdmin" icon size="small" @click.stop="deleteHive(item.id)"><v-icon color="error">mdi-delete</v-icon></v-btn>
       </template>
     </v-data-table>
@@ -191,7 +198,15 @@
         <v-card-title>{{ hiveEditId ? 'Modifier' : 'Nouvelle' }} ruche</v-card-title>
         <v-card-text>
           <v-text-field v-model="hiveForm.name" label="Nom" />
-          <v-text-field v-model="hiveForm.napi_number" label="N° NAPI" />
+          <v-text-field
+            v-model="hiveForm.napi_number"
+            label="N° NAPI"
+            prepend-inner-icon="mdi-identifier"
+            hint="Identifiant de la ruche au registre : deux ruches ne peuvent pas le partager."
+            persistent-hint
+            :error-messages="napiError"
+            class="mb-2"
+          />
           <v-btn-toggle v-model="hiveForm.ownership" mandatory class="mb-3 d-flex">
             <v-btn value="associative" color="info" class="flex-grow-1" prepend-icon="mdi-account-group">Associatif</v-btn>
             <v-btn value="private" color="accent" class="flex-grow-1" prepend-icon="mdi-home">Privé</v-btn>
@@ -204,6 +219,47 @@
           <v-spacer />
           <v-btn @click="showHiveForm = false">Annuler</v-btn>
           <v-btn color="primary" :loading="saving" @click="saveHive">Enregistrer</v-btn>
+        </v-card-actions>
+      </v-card>
+    </v-dialog>
+
+    <!-- Dialog déplacement de ruche -->
+    <v-dialog v-model="showMoveHive" max-width="480">
+      <v-card>
+        <v-card-title class="d-flex align-center">
+          <v-icon class="mr-2" color="info">mdi-swap-horizontal</v-icon>
+          Déplacer la ruche
+        </v-card-title>
+        <v-card-text>
+          <p class="text-body-2 r-muted mb-4">
+            Transhumance ou réorganisation : la ruche change de rucher et
+            emporte tout son historique — visites, traitements, récoltes.
+          </p>
+          <v-alert v-if="moveHiveTarget" density="compact" variant="tonal" class="mb-4">
+            <b>{{ moveHiveTarget.name || moveHiveTarget.napi_number || 'Ruche #' + moveHiveTarget.id }}</b>
+            <div class="text-caption">Actuellement au rucher « {{ apiary?.name }} »</div>
+          </v-alert>
+          <v-select
+            v-model="moveApiaryId"
+            :items="otherApiaries"
+            item-title="name" item-value="id"
+            label="Rucher de destination"
+            prepend-inner-icon="mdi-hexagon-multiple"
+            :error-messages="moveError"
+            :no-data-text="'Aucun autre rucher enregistré'"
+          />
+          <v-alert type="info" variant="tonal" density="compact">
+            <v-icon start size="15">mdi-map-marker-off-outline</v-icon>
+            Sa position sur le plan sera effacée : elle désignait un emplacement
+            sur la photo de ce rucher-ci. Replacez-la sur le nouveau plan.
+          </v-alert>
+        </v-card-text>
+        <v-card-actions>
+          <v-spacer />
+          <v-btn @click="showMoveHive = false">Annuler</v-btn>
+          <v-btn color="info" :loading="saving" :disabled="!otherApiaries.length" @click="confirmMoveHive">
+            Déplacer
+          </v-btn>
         </v-card-actions>
       </v-card>
     </v-dialog>
@@ -292,6 +348,21 @@ const lastVisitLoading = ref(false)
 const sanitarySummary = ref(null)
 const canEdit = computed(() => auth.isAdmin || auth.hasRole('yard_manager'))
 const showHiveForm = ref(false)
+// Message d'unicité du numéro NAPI, affiché sous le champ concerné plutôt
+// qu'en bandeau : c'est là qu'il faut corriger.
+const napiError = ref('')
+
+// ─── Déplacement d'une ruche vers un autre rucher ─────────
+const showMoveHive = ref(false)
+const moveHiveTarget = ref(null)
+const moveApiaryId = ref(null)
+const moveError = ref('')
+const allApiaries = ref([])
+const otherApiaries = computed(
+  () => allApiaries.value.filter((a) => a.id !== Number(apiaryId)),
+)
+// Le reproche disparaît dès qu'on y répond.
+watch(moveApiaryId, (v) => { if (v) moveError.value = '' })
 const hiveEditId = ref(null)
 const saving = ref(false)
 const errorSnack = ref(false)
@@ -312,6 +383,8 @@ const visitForm = ref({
 // Recadrage photo (admin)
 const showCrop = ref(false)
 const hiveForm = ref({ name: '', napi_number: '', ownership: 'associative', status: 'active', notes: '', manager_ids: [] })
+// De même pour le numéro : corriger la saisie retire le reproche.
+watch(() => hiveForm.value.napi_number, () => { napiError.value = '' })
 const hivePhotoFile = ref(null)
 const apiaryPhotoFile = ref(null)
 const photoUploading = ref(false)
@@ -392,14 +465,53 @@ async function load() {
   } catch { /* non-admin */ }
 }
 
+function openMoveHive(h) {
+  moveHiveTarget.value = h
+  moveApiaryId.value = null
+  moveError.value = ''
+  showMoveHive.value = true
+  if (!allApiaries.value.length) loadApiaries()
+}
+
+async function loadApiaries() {
+  try {
+    const { data } = await api.get('/apiaries/')
+    allApiaries.value = data
+  } catch (e) {
+    showError(apiError(e, 'Impossible de charger la liste des ruchers'))
+  }
+}
+
+async function confirmMoveHive() {
+  if (!moveApiaryId.value) { moveError.value = 'Choisissez le rucher de destination.'; return }
+  saving.value = true
+  try {
+    const { data } = await api.post(
+      `/apiaries/hives/${moveHiveTarget.value.id}/move`,
+      { apiary_id: moveApiaryId.value },
+    )
+    showMoveHive.value = false
+    showSuccess(`Ruche déplacée vers « ${data.apiary_name} »`)
+    // La ruche ne fait plus partie de ce rucher : on referme son panneau.
+    if (selectedHive.value?.id === moveHiveTarget.value.id) selectedHive.value = null
+    await load()
+  } catch (e) {
+    moveError.value = apiError(e, 'Déplacement impossible')
+  } finally {
+    saving.value = false
+  }
+}
+
 function openNewHive() {
   hiveEditId.value = null
+  napiError.value = ''
   hiveForm.value = { name: '', napi_number: '', ownership: 'associative', status: 'active', notes: '', manager_ids: [] }
   showHiveForm.value = true
 }
 
 function editHive(h) {
   hiveEditId.value = h.id
+  napiError.value = ''
   hiveForm.value = {
     name: h.name || '',
     napi_number: h.napi_number || '',
@@ -413,6 +525,7 @@ function editHive(h) {
 
 async function saveHive() {
   saving.value = true
+  napiError.value = ''
   try {
     if (hiveEditId.value) {
       await api.put(`/apiaries/hives/${hiveEditId.value}`, hiveForm.value)
@@ -424,7 +537,11 @@ async function saveHive() {
     hiveForm.value = { name: '', napi_number: '', ownership: 'associative', status: 'active', notes: '', manager_ids: [] }
     await load()
   } catch (e) {
-    showError(apiError(e, 'Erreur lors de l\'enregistrement'))
+    const msg = apiError(e, "Enregistrement impossible")
+    // Numéro déjà pris : le message appartient au champ, pas au bandeau —
+    // sinon on ne sait pas quoi corriger.
+    if (e?.response?.status === 409) napiError.value = msg
+    else showError(msg)
   } finally {
     saving.value = false
   }

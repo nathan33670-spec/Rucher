@@ -3,13 +3,14 @@
 from fastapi import APIRouter, Depends, HTTPException, UploadFile, File
 from fastapi.responses import FileResponse
 from sqlalchemy.ext.asyncio import AsyncSession
-from sqlalchemy import select, desc
+from sqlalchemy import select, desc, func
 
 from app.database import get_db
 from app.models.apiary import Apiary, Hive, hive_managers
 from app.models.visit import Visit
 from app.models.user import User, RoleEnum
-from app.schemas.apiary import ApiaryCreate, ApiaryUpdate, ApiaryOut, HiveCreate, HiveUpdate, HiveOut
+from app.schemas.apiary import (ApiaryCreate, ApiaryUpdate, ApiaryOut,
+                                HiveCreate, HiveUpdate, HiveMove, HiveOut)
 from app.utils.auth import get_current_user, require_roles, get_user_roles
 from app.utils.audit import log_action
 from app.config import get_settings
@@ -201,6 +202,39 @@ async def list_all_hives(
     return out
 
 
+def _clean_napi(value) -> str | None:
+    """Numéro NAPI normalisé ; une saisie vide vaut « pas de numéro »."""
+    if value is None:
+        return None
+    cleaned = str(value).strip()
+    return cleaned or None
+
+
+async def _check_napi_available(db: AsyncSession, napi: str | None, exclude_id: int = None) -> None:
+    """Refuse un numéro déjà porté par une autre ruche.
+
+    Le NAPI identifie une ruche auprès de l'administration : deux ruches qui
+    le partagent rendent le registre inexploitable et brouillent les visites.
+    Le contrôle porte sur l'ensemble des ruchers, pas seulement le rucher
+    courant — une ruche transhumée garde son numéro.
+    """
+    if not napi:
+        return
+    q = select(Hive).where(func.lower(Hive.napi_number) == napi.lower())
+    if exclude_id:
+        q = q.where(Hive.id != exclude_id)
+    other = (await db.execute(q.limit(1))).scalar_one_or_none()
+    if not other:
+        return
+    apiary = await db.get(Apiary, other.apiary_id)
+    label = other.name or f"Ruche #{other.id}"
+    where = f" du rucher « {apiary.name} »" if apiary else ""
+    raise HTTPException(
+        409,
+        f"Le numéro « {napi} » est déjà utilisé par la ruche « {label} »{where}.",
+    )
+
+
 @router.post("/hives", response_model=HiveOut, status_code=201)
 async def create_hive(
     body: HiveCreate,
@@ -210,6 +244,8 @@ async def create_hive(
     # « manager_ids » (table de liaison) et « photo » (upload dédié via
     # /hives/{id}/photo) ne sont pas des colonnes du modèle Hive.
     data = body.model_dump(exclude={"manager_ids", "photo"})
+    data["napi_number"] = _clean_napi(data.get("napi_number"))
+    await _check_napi_available(db, data["napi_number"])
     hive = Hive(**data)
     db.add(hive)
     await db.flush()
@@ -244,6 +280,9 @@ async def update_hive(
         raise HTTPException(403, "Permissions insuffisantes")
 
     data = body.model_dump(exclude_unset=True, exclude={"manager_ids", "photo"})
+    if "napi_number" in data:
+        data["napi_number"] = _clean_napi(data["napi_number"])
+        await _check_napi_available(db, data["napi_number"], exclude_id=hive.id)
     for k, v in data.items():
         setattr(hive, k, v)
 
@@ -259,6 +298,47 @@ async def update_hive(
     # Recharger pour obtenir les managers
     await db.refresh(hive)
     return _hive_out(hive)
+
+
+@router.post("/hives/{hive_id}/move", response_model=HiveOut)
+async def move_hive(
+    hive_id: int,
+    body: HiveMove,
+    db: AsyncSession = Depends(get_db),
+    user: User = Depends(require_roles(RoleEnum.ADMIN, RoleEnum.YARD_MANAGER)),
+):
+    """Transfère une ruche vers un autre rucher (transhumance, réorganisation).
+
+    Tout l'historique suit la ruche : visites, traitements, récoltes restent
+    attachés à elle. Seule sa position sur le plan est effacée — elle désignait
+    un emplacement sur la photo du rucher d'origine, qui n'a aucun sens sur le
+    nouveau plan.
+    """
+    result = await db.execute(select(Hive).where(Hive.id == hive_id))
+    hive = result.scalar_one_or_none()
+    if not hive:
+        raise HTTPException(404, "Ruche introuvable")
+
+    target = await db.get(Apiary, body.apiary_id)
+    if not target:
+        raise HTTPException(404, "Rucher de destination introuvable")
+    if hive.apiary_id == target.id:
+        raise HTTPException(400, f"Cette ruche est déjà dans le rucher « {target.name} ».")
+
+    origin = await db.get(Apiary, hive.apiary_id)
+    origin_name = origin.name if origin else f"#{hive.apiary_id}"
+
+    hive.apiary_id = target.id
+    hive.position_x = None
+    hive.position_y = None
+
+    await log_action(db, user.id, "move", "hive", hive.id,
+                     details=f"{origin_name} → {target.name}")
+    await db.flush()
+    await db.refresh(hive)
+    out = _hive_out(hive)
+    out.apiary_name = target.name
+    return out
 
 
 @router.delete("/hives/{hive_id}", status_code=204)

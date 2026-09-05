@@ -56,11 +56,23 @@ Légende : ✅ autorisé · ⛔ refusé (403) · 🔶 conditionnel (voir notes)
 | Supprimer un rucher | ✅ | ⛔ | ⛔ | ⛔ | ⛔ |
 | Photo de rucher (ajout / suppression) | ✅ | ⛔ | ✅ | ⛔ | ⛔ |
 | Créer une ruche | ✅ | ⛔ | ✅ | ⛔ | ⛔ |
-| Modifier une ruche | ✅ | ⛔ | ✅ | 🔶 ¹ | 🔶 ¹ |
+| Modifier une ruche (dont son n° NAPI) | ✅ | ⛔ | ✅ | 🔶 ¹ | 🔶 ¹ |
+| **Déplacer** une ruche vers un autre rucher | ✅ | ⛔ | ✅ | ⛔ | ⛔ |
 | Photo de ruche | ✅ | ⛔ | ✅ | 🔶 ¹ | 🔶 ¹ |
 | Supprimer une ruche | ✅ | ⛔ | ⛔ | ⛔ | ⛔ |
 
 ¹ Uniquement si l'utilisateur est **gestionnaire déclaré** de cette ruche.
+En lecture seule, l'écriture reste refusée quoi qu'il arrive.
+
+> **Numéro NAPI** : il identifie la ruche auprès de l'administration et doit
+> rester unique dans toute l'application, ruchers confondus. Une saisie déjà
+> utilisée est refusée (409) avec le nom de la ruche et du rucher qui la porte.
+> Le champ peut rester vide : plusieurs ruches sans numéro cohabitent.
+>
+> **Déplacement** : la ruche emporte tout son historique (visites, traitements,
+> récoltes) et son numéro. Seule sa position sur le plan est effacée — elle
+> désignait un emplacement sur la photo du rucher d'origine. L'opération est
+> tracée au journal avec l'origine et la destination.
 
 ### Visites
 
