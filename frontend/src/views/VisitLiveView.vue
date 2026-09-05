@@ -433,7 +433,7 @@ function formatVisitDate(iso) {
 const currentHive = computed(() => hives.value[currentIndex.value] || null)
 const currentHiveLabel = computed(() => {
   const h = currentHive.value
-  return h ? (h.name || h.napi_number || 'Ruche #' + h.id) : ''
+  return h ? (h.name || h.number || h.napi_number || 'Ruche #' + h.id) : ''
 })
 // Nom affiché de la personne qui saisit la visite.
 const authorName = computed(() => {
@@ -446,7 +446,7 @@ const progress = computed(() => hives.value.length ? ((currentIndex.value) / hiv
 const hiveOptions = computed(() =>
   hives.value.map((h, i) => ({
     index: i,
-    label: (i + 1) + '. ' + (h.name || h.napi_number || 'Ruche #' + h.id) + (h.ownership === 'private' ? ' · privée' : ''),
+    label: (i + 1) + '. ' + (h.name || h.number || h.napi_number || 'Ruche #' + h.id) + (h.ownership === 'private' ? ' · privée' : ''),
   }))
 )
 

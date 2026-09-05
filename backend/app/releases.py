@@ -14,7 +14,8 @@ RELEASES = [
         "date": "2026-09-05",
         "title": "Numéro de ruche et transhumance",
         "highlights": [
-            "Le numéro NAPI d'une ruche se modifie ; un numéro déjà utilisé est refusé en indiquant quelle ruche le porte.",
+            "Chaque ruche a désormais son propre numéro, distinct du NAPI : un numéro déjà utilisé est refusé en indiquant quelle ruche le porte.",
+            "Le NAPI reste le numéro d'apiculteur du propriétaire, commun à toutes ses ruches.",
             "Une ruche se déplace d'un rucher à un autre : elle emporte tout son historique, seule sa position sur le plan est à refaire.",
         ],
     },

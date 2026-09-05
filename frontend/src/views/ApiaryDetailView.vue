@@ -52,7 +52,7 @@
     <v-card v-if="selectedHive" class="mb-4" variant="outlined" color="primary">
       <v-card-title class="d-flex align-center">
         <v-icon class="mr-2" color="primary">mdi-hexagon</v-icon>
-        {{ selectedHive.name || selectedHive.napi_number || 'Ruche #' + selectedHive.id }}
+        {{ selectedHive.name || selectedHive.number || selectedHive.napi_number || 'Ruche #' + selectedHive.id }}
         <v-chip :color="selectedHive.status === 'active' ? 'success' : 'error'" size="small" class="ml-2">
           {{ selectedHive.status }}
         </v-chip>
@@ -199,12 +199,20 @@
         <v-card-text>
           <v-text-field v-model="hiveForm.name" label="Nom" />
           <v-text-field
-            v-model="hiveForm.napi_number"
-            label="N° NAPI"
-            prepend-inner-icon="mdi-identifier"
-            hint="Identifiant de la ruche au registre : deux ruches ne peuvent pas le partager."
+            v-model="hiveForm.number"
+            label="N° de ruche"
+            prepend-inner-icon="mdi-pound"
+            hint="Numéro propre à cette ruche : deux ruches ne peuvent pas le partager."
             persistent-hint
-            :error-messages="napiError"
+            :error-messages="numberError"
+            class="mb-2"
+          />
+          <v-text-field
+            v-model="hiveForm.napi_number"
+            label="N° NAPI (apiculteur)"
+            prepend-inner-icon="mdi-card-account-details-outline"
+            hint="Numéro d'apiculteur du propriétaire — le même pour toutes ses ruches."
+            persistent-hint
             class="mb-2"
           />
           <v-btn-toggle v-model="hiveForm.ownership" mandatory class="mb-3 d-flex">
@@ -236,7 +244,7 @@
             emporte tout son historique — visites, traitements, récoltes.
           </p>
           <v-alert v-if="moveHiveTarget" density="compact" variant="tonal" class="mb-4">
-            <b>{{ moveHiveTarget.name || moveHiveTarget.napi_number || 'Ruche #' + moveHiveTarget.id }}</b>
+            <b>{{ moveHiveTarget.name || moveHiveTarget.number || moveHiveTarget.napi_number || 'Ruche #' + moveHiveTarget.id }}</b>
             <div class="text-caption">Actuellement au rucher « {{ apiary?.name }} »</div>
           </v-alert>
           <v-select
@@ -269,7 +277,7 @@
       <v-card>
         <v-card-title class="d-flex align-center">
           <v-icon class="mr-2" color="green-darken-2">mdi-clipboard-check</v-icon>
-          Visite — {{ visitHive?.name || visitHive?.napi_number || 'Ruche #' + visitHive?.id }}
+          Visite — {{ visitHive?.name || visitHive?.number || visitHive?.napi_number || 'Ruche #' + visitHive?.id }}
         </v-card-title>
         <v-card-text>
           <!-- Hausses -->
@@ -348,9 +356,9 @@ const lastVisitLoading = ref(false)
 const sanitarySummary = ref(null)
 const canEdit = computed(() => auth.isAdmin || auth.hasRole('yard_manager'))
 const showHiveForm = ref(false)
-// Message d'unicité du numéro NAPI, affiché sous le champ concerné plutôt
+// Message d'unicité du numéro de ruche, affiché sous le champ concerné plutôt
 // qu'en bandeau : c'est là qu'il faut corriger.
-const napiError = ref('')
+const numberError = ref('')
 
 // ─── Déplacement d'une ruche vers un autre rucher ─────────
 const showMoveHive = ref(false)
@@ -382,15 +390,16 @@ const visitForm = ref({
 
 // Recadrage photo (admin)
 const showCrop = ref(false)
-const hiveForm = ref({ name: '', napi_number: '', ownership: 'associative', status: 'active', notes: '', manager_ids: [] })
-// De même pour le numéro : corriger la saisie retire le reproche.
-watch(() => hiveForm.value.napi_number, () => { napiError.value = '' })
+const hiveForm = ref({ name: '', number: '', napi_number: '', ownership: 'associative', status: 'active', notes: '', manager_ids: [] })
+// Corriger la saisie retire le reproche.
+watch(() => hiveForm.value.number, () => { numberError.value = '' })
 const hivePhotoFile = ref(null)
 const apiaryPhotoFile = ref(null)
 const photoUploading = ref(false)
 
 const hiveHeaders = [
   { title: 'Nom', key: 'name' },
+  { title: 'N° ruche', key: 'number' },
   { title: 'N° NAPI', key: 'napi_number' },
   { title: 'Type', key: 'ownership' },
   { title: 'Statut', key: 'status' },
@@ -504,16 +513,17 @@ async function confirmMoveHive() {
 
 function openNewHive() {
   hiveEditId.value = null
-  napiError.value = ''
-  hiveForm.value = { name: '', napi_number: '', ownership: 'associative', status: 'active', notes: '', manager_ids: [] }
+  numberError.value = ''
+  hiveForm.value = { name: '', number: '', napi_number: '', ownership: 'associative', status: 'active', notes: '', manager_ids: [] }
   showHiveForm.value = true
 }
 
 function editHive(h) {
   hiveEditId.value = h.id
-  napiError.value = ''
+  numberError.value = ''
   hiveForm.value = {
     name: h.name || '',
+    number: h.number || '',
     napi_number: h.napi_number || '',
     ownership: h.ownership || 'associative',
     status: h.status,
@@ -525,7 +535,7 @@ function editHive(h) {
 
 async function saveHive() {
   saving.value = true
-  napiError.value = ''
+  numberError.value = ''
   try {
     if (hiveEditId.value) {
       await api.put(`/apiaries/hives/${hiveEditId.value}`, hiveForm.value)
@@ -534,13 +544,13 @@ async function saveHive() {
     }
     showHiveForm.value = false
     hiveEditId.value = null
-    hiveForm.value = { name: '', napi_number: '', ownership: 'associative', status: 'active', notes: '', manager_ids: [] }
+    hiveForm.value = { name: '', number: '', napi_number: '', ownership: 'associative', status: 'active', notes: '', manager_ids: [] }
     await load()
   } catch (e) {
     const msg = apiError(e, "Enregistrement impossible")
     // Numéro déjà pris : le message appartient au champ, pas au bandeau —
     // sinon on ne sait pas quoi corriger.
-    if (e?.response?.status === 409) napiError.value = msg
+    if (e?.response?.status === 409) numberError.value = msg
     else showError(msg)
   } finally {
     saving.value = false

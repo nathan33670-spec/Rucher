@@ -202,25 +202,29 @@ async def list_all_hives(
     return out
 
 
-def _clean_napi(value) -> str | None:
-    """Numéro NAPI normalisé ; une saisie vide vaut « pas de numéro »."""
+def _clean_number(value) -> str | None:
+    """Numéro normalisé ; une saisie vide vaut « pas de numéro »."""
     if value is None:
         return None
     cleaned = str(value).strip()
     return cleaned or None
 
 
-async def _check_napi_available(db: AsyncSession, napi: str | None, exclude_id: int = None) -> None:
-    """Refuse un numéro déjà porté par une autre ruche.
+async def _check_number_available(db: AsyncSession, number: str | None,
+                                  exclude_id: int = None) -> None:
+    """Refuse un numéro de ruche déjà attribué.
 
-    Le NAPI identifie une ruche auprès de l'administration : deux ruches qui
-    le partagent rendent le registre inexploitable et brouillent les visites.
+    Attention : c'est le numéro **de la ruche** qui doit être unique, pas le
+    NAPI. Le NAPI est le numéro d'apiculteur : il identifie le propriétaire
+    auprès de l'administration, et toutes ses ruches le partagent.
+
     Le contrôle porte sur l'ensemble des ruchers, pas seulement le rucher
-    courant — une ruche transhumée garde son numéro.
+    courant : une ruche garde son numéro en changeant de rucher, un contrôle
+    limité à un rucher créerait donc des doublons au premier déplacement.
     """
-    if not napi:
+    if not number:
         return
-    q = select(Hive).where(func.lower(Hive.napi_number) == napi.lower())
+    q = select(Hive).where(func.lower(Hive.number) == number.lower())
     if exclude_id:
         q = q.where(Hive.id != exclude_id)
     other = (await db.execute(q.limit(1))).scalar_one_or_none()
@@ -231,7 +235,7 @@ async def _check_napi_available(db: AsyncSession, napi: str | None, exclude_id: 
     where = f" du rucher « {apiary.name} »" if apiary else ""
     raise HTTPException(
         409,
-        f"Le numéro « {napi} » est déjà utilisé par la ruche « {label} »{where}.",
+        f"Le numéro « {number} » est déjà utilisé par la ruche « {label} »{where}.",
     )
 
 
@@ -244,8 +248,9 @@ async def create_hive(
     # « manager_ids » (table de liaison) et « photo » (upload dédié via
     # /hives/{id}/photo) ne sont pas des colonnes du modèle Hive.
     data = body.model_dump(exclude={"manager_ids", "photo"})
-    data["napi_number"] = _clean_napi(data.get("napi_number"))
-    await _check_napi_available(db, data["napi_number"])
+    data["number"] = _clean_number(data.get("number"))
+    data["napi_number"] = _clean_number(data.get("napi_number"))
+    await _check_number_available(db, data["number"])
     hive = Hive(**data)
     db.add(hive)
     await db.flush()
@@ -280,9 +285,12 @@ async def update_hive(
         raise HTTPException(403, "Permissions insuffisantes")
 
     data = body.model_dump(exclude_unset=True, exclude={"manager_ids", "photo"})
+    if "number" in data:
+        data["number"] = _clean_number(data["number"])
+        await _check_number_available(db, data["number"], exclude_id=hive.id)
     if "napi_number" in data:
-        data["napi_number"] = _clean_napi(data["napi_number"])
-        await _check_napi_available(db, data["napi_number"], exclude_id=hive.id)
+        # Le NAPI est celui du propriétaire : aucune unicité à contrôler.
+        data["napi_number"] = _clean_number(data["napi_number"])
     for k, v in data.items():
         setattr(hive, k, v)
 
@@ -457,6 +465,7 @@ def _hive_out(hive: Hive) -> HiveOut:
     return HiveOut(
         id=hive.id,
         apiary_id=hive.apiary_id,
+        number=hive.number,
         napi_number=hive.napi_number,
         name=hive.name,
         ownership=own,

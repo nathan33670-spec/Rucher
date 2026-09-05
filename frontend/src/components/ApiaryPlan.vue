@@ -233,8 +233,10 @@ function diamondClass(h) {
     selected: props.selectedId === h.id,
   }
 }
-function shortLabel(h) { return h.napi_number || ('#' + h.id) }
-function fullName(h) { return h.name || h.napi_number || ('Ruche #' + h.id) }
+// Le NAPI est le même pour toutes les ruches d'un propriétaire : il ne
+// distinguait rien sur le plan. On affiche le numéro de la ruche.
+function shortLabel(h) { return h.number || h.napi_number || ('#' + h.id) }
+function fullName(h) { return h.name || h.number || h.napi_number || ('Ruche #' + h.id) }
 
 const onResize = () => measure()
 onMounted(() => { measure(); window.addEventListener('resize', onResize) })

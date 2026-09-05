@@ -20,7 +20,9 @@ from app.utils.push import notify, notify_users
 def _hive_label(hive: Hive) -> str:
     if not hive:
         return "Ruche"
-    return hive.name or hive.napi_number or f"Ruche #{hive.id}"
+    # Le NAPI reste en dernier recours : sur les bases antérieures au champ
+    # « numéro », c'est là que se trouvait l'identifiant de la ruche.
+    return hive.name or hive.number or hive.napi_number or f"Ruche #{hive.id}"
 
 
 def _record_treatment(db: AsyncSession, visit: Visit, user: User) -> None:

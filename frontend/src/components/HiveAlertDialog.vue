@@ -67,7 +67,7 @@ const messageError = ref('')
 const hiveOptions = computed(() =>
   hives.value.map((h) => ({
     id: h.id,
-    label: [h.name || h.napi_number || `Ruche #${h.id}`, h.apiary_name]
+    label: [h.name || h.number || h.napi_number || `Ruche #${h.id}`, h.apiary_name]
       .filter(Boolean)
       .join(' — '),
     managers: h.managers || [],

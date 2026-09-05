@@ -37,6 +37,11 @@ class Hive(Base):
     __tablename__ = "hives"
     id = Column(Integer, primary_key=True, index=True)
     apiary_id = Column(Integer, ForeignKey("apiaries.id", ondelete="CASCADE"), nullable=False)
+    # Numéro de la ruche, propre à chaque ruche (souvent peint dessus).
+    number = Column(String(50), index=True)
+    # Numéro d'apiculteur (NAPI) : il identifie le **propriétaire** auprès de
+    # l'administration, pas la ruche. Toutes les ruches d'un même apiculteur
+    # portent donc le même — il n'a rien d'unique.
     napi_number = Column(String(50), index=True)
     name = Column(String(200))
     ownership = Column(Enum(OwnershipType), default=OwnershipType.ASSOCIATIVE, nullable=False)
