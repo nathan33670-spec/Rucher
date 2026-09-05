@@ -46,6 +46,11 @@ class HiveCreate(BaseModel):
     manager_ids: list[int] = []
     photo: Optional[str] = None
 
+class HiveMove(BaseModel):
+    """Transfert d'une ruche vers un autre rucher (transhumance, réorganisation)."""
+    apiary_id: int
+
+
 class HiveUpdate(BaseModel):
     napi_number: Optional[str] = None
     name: Optional[str] = None

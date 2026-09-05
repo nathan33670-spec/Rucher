@@ -10,6 +10,15 @@ Convention : la version la plus récente en tête.
 
 RELEASES = [
     {
+        "version": "1.5.0",
+        "date": "2026-09-05",
+        "title": "Numéro de ruche et transhumance",
+        "highlights": [
+            "Le numéro NAPI d'une ruche se modifie ; un numéro déjà utilisé est refusé en indiquant quelle ruche le porte.",
+            "Une ruche se déplace d'un rucher à un autre : elle emporte tout son historique, seule sa position sur le plan est à refaire.",
+        ],
+    },
+    {
         "version": "1.4.0",
         "date": "2026-09-05",
         "title": "Notes de version, filtres et pertes de miel",
