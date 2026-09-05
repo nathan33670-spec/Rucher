@@ -49,6 +49,7 @@ class HoneyHarvestOut(BaseModel):
     ownership: str = "associative"
     harvest_date: datetime
     quantity_kg: float
+    loss_kg: float = 0
     nb_frames: Optional[int] = None
     nb_supers: Optional[int] = None
     notes: Optional[str] = None
@@ -83,6 +84,7 @@ class JarOut(BaseModel):
     jar_weight_g: int
     quantity: int
     initial_quantity: int
+    lost_quantity: int = 0
     unit_price: Optional[float] = None
     category_name: Optional[str] = None
     # Traçabilité : à quel lot (récolte) appartient ce pot.
@@ -99,6 +101,24 @@ class SaleCreate(BaseModel):
     quantity: int
     unit_price: Optional[float] = None  # si non fourni, prend le prix du pot
     buyer: Optional[str] = None
+
+class HarvestLossIn(BaseModel):
+    """Perte déclarée sur une récolte (fond de cuve, renversement…).
+
+    ``kg`` peut être négatif pour corriger une déclaration excessive.
+    """
+    kg: float
+    reason: NonEmptyStr
+
+
+class JarAdjustIn(BaseModel):
+    """Correction du stock d'un lot de pots (casse, don, inventaire)."""
+    harvest_id: int
+    jar_weight_g: int
+    ownership: str = "associative"
+    new_stock: int
+    reason: NonEmptyStr
+
 
 class SaleUpdate(BaseModel):
     quantity: Optional[int] = None

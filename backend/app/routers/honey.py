@@ -16,7 +16,7 @@ from app.models.honey import HoneyHarvest, HoneyCategory, HoneyJar, HoneySale, O
 from app.models.treasury import Transaction, TransactionType, TransactionCategory
 from app.models.user import User, RoleEnum
 from app.schemas.honey import (
-    SaleUpdate,
+    SaleUpdate, HarvestLossIn, JarAdjustIn,
     HoneyCategoryCreate, HoneyCategoryOut,
     HoneyHarvestCreate, HoneyHarvestUpdate, HoneyHarvestOut,
     JarCreate, JarUpdate, JarOut,
@@ -208,6 +208,60 @@ async def update_harvest(
     for k, v in body.model_dump(exclude_unset=True).items():
         setattr(h, k, v)
     await log_action(db, user.id, "update", "honey_harvest", h.id)
+    return _harvest_out(h)
+
+
+def _check_harvest_write(user: User, h: HoneyHarvest) -> None:
+    own = h.ownership.value if hasattr(h.ownership, 'value') else h.ownership
+    if own == 'private' and h.created_by != user.id and not _is_manager(user):
+        raise HTTPException(403, "Cette récolte ne vous appartient pas")
+    if own == 'associative' and not _is_manager(user):
+        raise HTTPException(403, "Seuls les responsables peuvent gérer les récoltes associatives")
+
+
+@router.post("/{harvest_id}/loss", response_model=HoneyHarvestOut)
+async def declare_harvest_loss(
+    harvest_id: int,
+    body: HarvestLossIn,
+    db: AsyncSession = Depends(get_db),
+    user: User = Depends(get_current_user),
+):
+    """Déclare (ou corrige) une perte de miel sur une récolte.
+
+    Une partie du miel récolté n'arrive jamais en pot : fond de cuve, filtre,
+    maturateur renversé. Sans cette déclaration, ce miel restait indéfiniment
+    au « reste à empoter » et le stock ne retombait jamais à zéro. La perte est
+    conservée séparément de la quantité récoltée : le volume réellement récolté
+    reste exact pour les statistiques de production.
+    """
+    h = await db.get(HoneyHarvest, harvest_id)
+    if not h:
+        raise HTTPException(404, "Récolte introuvable")
+    _check_harvest_write(user, h)
+
+    if body.kg == 0:
+        raise HTTPException(400, "Indiquez une quantité différente de zéro.")
+
+    new_loss = round((h.loss_kg or 0) + body.kg, 3)
+    if new_loss < 0:
+        raise HTTPException(400, "La correction dépasse les pertes déjà déclarées.")
+
+    jarred = sum(((j.initial_quantity or j.quantity or 0) * j.jar_weight_g) / 1000
+                 for j in (h.jars or []))
+    if new_loss + jarred > (h.quantity_kg or 0) + 0.001:
+        reste = round(max(0.0, (h.quantity_kg or 0) - jarred), 2)
+        raise HTTPException(
+            400,
+            f"Perte supérieure au miel disponible : il reste {reste} kg à empoter "
+            f"sur cette récolte.",
+        )
+
+    h.loss_kg = new_loss
+    verb = "perte" if body.kg > 0 else "correction de perte"
+    await log_action(db, user.id, "loss", "honey_harvest", h.id,
+                     details=f"{verb} {body.kg:+g} kg — {body.reason}")
+    await db.flush()
+    await db.refresh(h)
     return _harvest_out(h)
 
 
@@ -434,6 +488,7 @@ async def jar_stock_summary(
             HoneyJar.ownership,
             func.sum(HoneyJar.quantity).label("stock"),
             func.sum(HoneyJar.initial_quantity).label("initial"),
+            func.sum(HoneyJar.lost_quantity).label("lost"),
             func.max(HoneyJar.unit_price).label("unit_price"),
             HoneyHarvest.harvest_date,
             HoneyHarvest.created_by,
@@ -478,6 +533,7 @@ async def jar_stock_summary(
         own = r.ownership.value if hasattr(r.ownership, "value") else r.ownership
         initial = r.initial or 0
         stock = r.stock or 0
+        lost = r.lost or 0
         out.append({
             "harvest_id": r.harvest_id,
             # Référence de lot lisible : date de récolte + identifiant.
@@ -488,11 +544,95 @@ async def jar_stock_summary(
             "ownership": own,
             "stock": stock,
             "initial": initial,
-            "sold": initial - stock,
+            "lost": lost,
+            # Un pot cassé sort du stock sans avoir été vendu : sans le
+            # retrancher, la casse était comptabilisée comme une vente.
+            "sold": max(0, initial - stock - lost),
             "unit_price": r.unit_price,
             "owner_name": owner_names.get(r.created_by) if own == "private" else None,
         })
     return out
+
+
+@router.post("/jars/adjust")
+async def adjust_jar_stock(
+    body: JarAdjustIn,
+    db: AsyncSession = Depends(get_db),
+    user: User = Depends(get_current_user),
+):
+    """Corrige à la main le nombre de pots en stock d'un lot.
+
+    Casse, don, écart d'inventaire : l'écart est enregistré comme une perte,
+    jamais comme une vente — sinon le chiffre d'affaires du lot devenait faux.
+    """
+    if body.new_stock < 0:
+        raise HTTPException(400, "Le stock ne peut pas être négatif.")
+
+    harvest = await db.get(HoneyHarvest, body.harvest_id)
+    if not harvest:
+        raise HTTPException(404, "Récolte introuvable")
+
+    rows = (await db.execute(
+        select(HoneyJar).where(
+            HoneyJar.harvest_id == body.harvest_id,
+            HoneyJar.jar_weight_g == body.jar_weight_g,
+            HoneyJar.ownership == body.ownership,
+        ).order_by(HoneyJar.id)
+    )).scalars().all()
+    if not rows:
+        raise HTTPException(404, "Lot introuvable")
+
+    first = rows[0]
+    own = first.ownership.value if hasattr(first.ownership, 'value') else first.ownership
+    if own == 'private' and first.created_by != user.id and not _is_manager(user):
+        raise HTTPException(403, "Ce lot ne vous appartient pas")
+    if own == 'associative' and not _is_manager(user):
+        raise HTTPException(403, "Seuls les responsables peuvent gérer les pots associatifs")
+
+    current = sum(r.quantity or 0 for r in rows)
+    delta = body.new_stock - current
+    if delta == 0:
+        raise HTTPException(400, "Ce lot est déjà à ce nombre de pots.")
+
+    if delta < 0:
+        # Retrait : on puise dans les lignes du lot, et on compte la perte.
+        to_remove = -delta
+        for r in rows:
+            if to_remove <= 0:
+                break
+            take = min(r.quantity or 0, to_remove)
+            r.quantity -= take
+            r.lost_quantity = (r.lost_quantity or 0) + take
+            to_remove -= take
+    else:
+        # Ajout : on annule d'abord des pertes déjà déclarées (correction d'une
+        # saisie), et seulement ensuite on remet des pots en stock.
+        to_add = delta
+        for r in rows:
+            if to_add <= 0:
+                break
+            back = min(r.lost_quantity or 0, to_add)
+            if back:
+                r.lost_quantity -= back
+                r.quantity += back
+                to_add -= back
+        if to_add:
+            first.quantity += to_add
+            first.initial_quantity = (first.initial_quantity or 0) + to_add
+
+    await log_action(db, user.id, "adjust", "honey_jar", first.id,
+                     details=f"stock {current} → {body.new_stock} pots "
+                             f"de {body.jar_weight_g} g — {body.reason}")
+    await db.flush()
+    return {
+        "harvest_id": body.harvest_id,
+        "jar_weight_g": body.jar_weight_g,
+        "ownership": body.ownership,
+        "stock": body.new_stock,
+        "delta": delta,
+        "detail": (f"{-delta} pot(s) retiré(s) du stock" if delta < 0
+                   else f"{delta} pot(s) remis en stock"),
+    }
 
 
 # ─── Ventes ───────────────────────────────────────────────────────
@@ -697,6 +837,7 @@ def _harvest_out(h: HoneyHarvest) -> HoneyHarvestOut:
         ownership=h.ownership.value if hasattr(h.ownership, 'value') else h.ownership,
         harvest_date=h.harvest_date,
         quantity_kg=h.quantity_kg,
+        loss_kg=h.loss_kg or 0,
         nb_frames=h.nb_frames,
         nb_supers=h.nb_supers,
         notes=h.notes,
@@ -706,7 +847,8 @@ def _harvest_out(h: HoneyHarvest) -> HoneyHarvestOut:
         apiary_name=h.apiary.name if h.apiary else None,
         hive_name=(h.hive.name or h.hive.napi_number or f"Ruche #{h.hive.id}") if h.hive else None,
         jars=[{"id": j.id, "jar_weight_g": j.jar_weight_g, "quantity": j.quantity,
-               "initial_quantity": j.initial_quantity, "unit_price": j.unit_price}
+               "initial_quantity": j.initial_quantity,
+               "lost_quantity": j.lost_quantity or 0, "unit_price": j.unit_price}
               for j in (h.jars or [])],
     )
 
@@ -720,6 +862,7 @@ def _jar_out(j: HoneyJar) -> JarOut:
         jar_weight_g=j.jar_weight_g,
         quantity=j.quantity,
         initial_quantity=j.initial_quantity,
+        lost_quantity=j.lost_quantity or 0,
         unit_price=j.unit_price,
         category_name=j.category.name if j.category else None,
         lot=_lot_ref(j.harvest),

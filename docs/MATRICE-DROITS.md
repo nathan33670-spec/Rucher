@@ -132,6 +132,8 @@ privé (propriétaire + admin + responsable de rucher).
 | Vendre un pot **privé** | 🔶 ² | 🔶 ² | 🔶 ² | 🔶 ² | 🔶 ² |
 | Vendre un pot **associatif** | ✅ | ✅ | ✅ | ⛔ | ⛔ |
 | Gérer les catégories de miel | ✅ | ⛔ | ⛔ | ⛔ | ⛔ |
+| Déclarer une perte sur une récolte (fond de cuve) | ✅ | ⛔ | ✅ | 🔶 ⁴ | ⛔ |
+| Corriger le stock d'un lot de pots (casse) | ✅ | ⛔ | ✅ | 🔶 ⁴ | ⛔ |
 
 ¹ admin / yard_manager voient tout ; les autres voient l'associatif + leur privé.
 ² Le créateur, ou un responsable (admin / yard_manager).
@@ -192,8 +194,12 @@ accès*. La saisie reste réservée aux administrateurs et trésoriers.
 | Régler les critères **de l'association** | ✅ | ⛔ | ⛔ | ⛔ | ⛔ |
 | Signaler un problème sur une ruche | ✅ | ✅ | ✅ | ✅ | ⛔ |
 | Diagnostic des notifications | ✅ | ⛔ | ⛔ | ⛔ | ⛔ |
+| Lire le journal des versions | ✅ | ✅ | ✅ | ✅ | ✅ |
+| Lire / vider **sa propre** boîte de notifications | ✅ | ✅ | ✅ | ✅ | ✅ ³ |
 | Documentation : écrire / supprimer | ✅ | ⛔ | ⛔ | ⛔ | ⛔ |
 | Notifications : s'abonner, régler ses préférences | ✅ | ✅ | ✅ | ✅ | ✅ |
+
+⁴ Uniquement sur ses propres récoltes et lots privés.
 
 ³ Les critères météo personnels ne modifient que l'affichage de son propre
 écran : ils font partie des rares écritures autorisées à un compte en lecture

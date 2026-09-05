@@ -64,6 +64,7 @@ const dynamic = ref([])
 const prise = [
   { title: 'Mémo rapide', desc: "L'essentiel en 1 page pour saisir et suivre vos ruches.", icon: 'mdi-lightning-bolt', to: { name: 'docs-memo' } },
   { title: "Guide complet", desc: 'Chaque écran de l\'application expliqué, captures à l\'appui.', icon: 'mdi-book-open-page-variant', to: { name: 'docs-guide' } },
+  { title: 'Versions et nouveautés', desc: 'Ce qui change à chaque mise à jour de l\'application.', icon: 'mdi-rocket-launch-outline', to: { name: 'docs-versions' } },
 ]
 const formation = [
   { title: "Cycle de vie de l'abeille", desc: "De l'œuf à la butineuse : castes, durées, rôles.", icon: 'mdi-bee', to: { name: 'docs-cycle' } },

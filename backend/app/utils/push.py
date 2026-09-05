@@ -17,7 +17,9 @@ from pywebpush import webpush, WebPushException
 from py_vapid import Vapid02, _check_sub
 
 from app.database import async_session
-from app.models.notification import AppSetting, PushSubscription, NotificationPref
+from app.models.notification import (AppSetting, PushSubscription,
+                                     NotificationPref, InboxMessage)
+from app.models.user import User
 from app.config import get_settings
 
 # Catégories notifiables (doivent correspondre aux colonnes de NotificationPref)
@@ -182,9 +184,46 @@ async def _dispatch(subs, title, body, url):
     return sent
 
 
+async def store_inbox(db, user_ids, category: str, title: str, body: str, url: str):
+    """Archive la notification dans la boîte de réception de chaque personne.
+
+    Le push est transitoire et n'atteint que les appareils abonnés ; la boîte
+    de réception, elle, reste consultable depuis la cloche, sur n'importe quel
+    appareil et après coup.
+    """
+    for uid in user_ids:
+        db.add(InboxMessage(user_id=uid, category=category, title=title,
+                            body=body, url=url or "/app"))
+
+
+async def _category_recipients(db, category: str, exclude_user_id: int = None,
+                               exclude_user_ids=None) -> list[int]:
+    """Adhérents actifs concernés par cette catégorie.
+
+    L'absence de ligne de préférences vaut « tout activé », comme les valeurs
+    par défaut du modèle : sans cela, un compte dont les préférences n'ont
+    jamais été écrites restait muet, en silence.
+    """
+    field = getattr(NotificationPref, category)
+    res = await db.execute(
+        select(User.id)
+        .outerjoin(NotificationPref, NotificationPref.user_id == User.id)
+        .where(
+            User.is_active.is_(True),
+            or_(NotificationPref.user_id.is_(None),
+                and_(NotificationPref.enabled.is_(True), field.is_(True))),
+        )
+    )
+    excluded = set(exclude_user_ids or ())
+    if exclude_user_id:
+        excluded.add(exclude_user_id)
+    return [uid for uid in res.scalars().all() if uid not in excluded]
+
+
 async def send_push_to_category(category: str, title: str, body: str,
-                                url: str = "/app", exclude_user_id: int = None):
-    """Notifie les utilisateurs abonnés ayant activé cette catégorie.
+                                url: str = "/app", exclude_user_id: int = None,
+                                exclude_user_ids=None):
+    """Notifie les utilisateurs concernés par cette catégorie.
 
     ``exclude_user_id`` évite de notifier l'auteur de l'action : recevoir une
     alerte pour ce que l'on vient soi-même de saisir noyait les notifications
@@ -194,27 +233,21 @@ async def send_push_to_category(category: str, title: str, body: str,
         print(f"⚠️  Push : catégorie inconnue « {category} », message ignoré")
         return 0
     async with async_session() as db:
-        field = getattr(NotificationPref, category)
-        # On part des abonnements, pas des préférences : un appareil abonné
-        # dont la ligne de préférences manque (échec d'écriture, base
-        # antérieure à une colonne) ne recevait plus jamais rien, en silence.
-        # L'absence de préférences vaut « tout activé », comme les valeurs par
-        # défaut du modèle.
+        user_ids = await _category_recipients(db, category, exclude_user_id, exclude_user_ids)
+        if not user_ids:
+            return await _dispatch([], title, body, url)
+        await store_inbox(db, user_ids, category, title, body, url)
+        await db.commit()
         res = await db.execute(
-            select(PushSubscription)
-            .outerjoin(NotificationPref,
-                       NotificationPref.user_id == PushSubscription.user_id)
-            .where(
-                or_(NotificationPref.user_id.is_(None),
-                    and_(NotificationPref.enabled.is_(True), field.is_(True))),
-            )
+            select(PushSubscription).where(PushSubscription.user_id.in_(user_ids))
         )
-        subs = [s for s in res.scalars().all() if s.user_id != exclude_user_id]
+        subs = list(res.scalars().all())
     return await _dispatch(subs, title, body, url)
 
 
 async def send_push_to_users(user_ids, title: str, body: str,
-                             url: str = "/app", exclude_user_id: int = None):
+                             url: str = "/app", exclude_user_id: int = None,
+                             category: str = "alerts", store: bool = True):
     """Notifie des utilisateurs précis (ex. les responsables d'une ruche).
 
     Ces messages sont nominatifs : ils passent outre les préférences de
@@ -234,6 +267,12 @@ async def send_push_to_users(user_ids, title: str, body: str,
         targets -= set(res.scalars().all())
         if not targets:
             return await _dispatch([], title, body, url)
+        # ``store`` permet à l'appelant d'avoir déjà archivé le message
+        # lui-même : sans cela, une annonce de version apparaissait deux fois
+        # dans la cloche.
+        if store:
+            await store_inbox(db, targets, category, title, body, url)
+            await db.commit()
         res = await db.execute(
             select(PushSubscription).where(PushSubscription.user_id.in_(targets))
         )
@@ -255,7 +294,7 @@ _bg_tasks = set()
 
 
 def notify(category: str, title: str, body: str, url: str = "/app",
-           exclude_user_id: int = None):
+           exclude_user_id: int = None, exclude_user_ids=None):
     """Déclenche l'envoi sans bloquer la requête (fire-and-forget)."""
     try:
         loop = asyncio.get_running_loop()
@@ -263,14 +302,14 @@ def notify(category: str, title: str, body: str, url: str = "/app",
         print(f"⚠️  Push : aucune boucle d'exécution, « {title} » non envoyé")
         return
     task = loop.create_task(
-        send_push_to_category(category, title, body, url, exclude_user_id)
+        send_push_to_category(category, title, body, url, exclude_user_id, exclude_user_ids)
     )
     _bg_tasks.add(task)
     task.add_done_callback(_bg_tasks.discard)
 
 
 def notify_users(user_ids, title: str, body: str, url: str = "/app",
-                 exclude_user_id: int = None):
+                 exclude_user_id: int = None, category: str = "alerts"):
     """Notification nominative, sans bloquer la requête."""
     try:
         loop = asyncio.get_running_loop()
@@ -278,7 +317,7 @@ def notify_users(user_ids, title: str, body: str, url: str = "/app",
         print(f"⚠️  Push : aucune boucle d'exécution, « {title} » non envoyé")
         return
     task = loop.create_task(
-        send_push_to_users(user_ids, title, body, url, exclude_user_id)
+        send_push_to_users(user_ids, title, body, url, exclude_user_id, category)
     )
     _bg_tasks.add(task)
     task.add_done_callback(_bg_tasks.discard)

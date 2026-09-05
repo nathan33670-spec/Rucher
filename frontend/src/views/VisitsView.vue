@@ -8,7 +8,12 @@
       </v-chip>
     </div>
 
-    <v-data-table :headers="headers" :items="visits" density="compact">
+    <FilterBar
+      v-model="filters" :fields="filterFields"
+      :total="visits.length" :shown="filteredVisits.length" item-label="visite"
+    />
+
+    <v-data-table :headers="headers" :items="filteredVisits" density="compact">
       <template v-slot:item.visited_at="{ item }">
         {{ new Date(item.visited_at).toLocaleString('fr-FR') }}
       </template>
@@ -98,6 +103,7 @@
 
 <script setup>
 import { ref, computed, onMounted } from 'vue'
+import FilterBar from '../components/FilterBar.vue'
 import api from '../services/api'
 import { toastError, toastSuccess, apiError } from '../services/toast'
 import { confirmAction } from '../services/confirm'
@@ -106,6 +112,42 @@ import { useAuthStore } from '../stores/auth'
 const auth = useAuthStore()
 const canEdit = computed(() => auth.isAdmin || auth.hasRole('yard_manager'))
 const visits = ref([])
+
+// ─── Filtres ──────────────────────────────────────────────
+// Trier par ruche ne servait à rien tant qu'on ne pouvait pas n'en garder
+// qu'une : c'est le besoin réel quand on suit une colonie.
+const filters = ref({ hive: null, author: null, from: null, to: null, alert: null, q: null })
+
+const uniq = (list) => [...new Set(list.filter(Boolean))].sort((a, b) => a.localeCompare(b))
+const hiveName = (v) => v.hive_name || ('Ruche #' + v.hive_id)
+
+const filterFields = computed(() => [
+  { key: 'hive', label: 'Ruche', type: 'select', icon: 'mdi-beehive-outline',
+    items: uniq(visits.value.map(hiveName)).map((n) => ({ title: n, value: n })) },
+  { key: 'author', label: 'Auteur', type: 'select', icon: 'mdi-account',
+    items: uniq(visits.value.map((v) => v.author_name)).map((n) => ({ title: n, value: n })) },
+  { key: 'alert', label: 'Alerte', type: 'select', icon: 'mdi-alert-outline',
+    items: [{ title: 'Avec alerte', value: 'yes' }, { title: 'Sans alerte', value: 'no' }] },
+  { key: 'q', label: 'Dans le commentaire', type: 'search' },
+  { key: 'from', label: 'Du', type: 'date' },
+  { key: 'to', label: 'Au', type: 'date' },
+])
+
+const filteredVisits = computed(() => {
+  const f = filters.value
+  const needle = (f.q || '').trim().toLowerCase()
+  return visits.value.filter((v) => {
+    if (f.hive && hiveName(v) !== f.hive) return false
+    if (f.author && v.author_name !== f.author) return false
+    if (f.alert === 'yes' && !v.is_alert) return false
+    if (f.alert === 'no' && v.is_alert) return false
+    if (needle && !(v.comment || '').toLowerCase().includes(needle)) return false
+    // Les bornes de date sont inclusives : « du 1er au 3 » contient le 3.
+    if (f.from && v.visited_at < f.from) return false
+    if (f.to && v.visited_at.substring(0, 10) > f.to) return false
+    return true
+  })
+})
 const showForm = ref(false)
 const formEditId = ref(null)
 const form = ref({

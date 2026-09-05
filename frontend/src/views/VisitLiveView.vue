@@ -627,10 +627,11 @@ async function saveAndNext() {
     }
 
     if (form.value.is_alert) {
+      // Trace immédiate dans la cloche : hors connexion, le serveur n'a encore
+      // rien enregistré et la notification n'arriverait qu'à la synchronisation.
       notif.addAlert({
-        message: form.value.comment || 'Alerte terrain',
-        hiveName: currentHive.value.name || ('Ruche #' + currentHive.value.id),
-        date: new Date().toLocaleString('fr-FR'),
+        title: '⚠️ ' + (currentHive.value.name || 'Ruche #' + currentHive.value.id),
+        body: form.value.comment || 'Alerte terrain',
       })
     }
 

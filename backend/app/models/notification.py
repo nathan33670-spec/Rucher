@@ -38,3 +38,24 @@ class NotificationPref(Base):
     treasury = Column(Boolean, default=False)        # écriture de trésorerie
     events = Column(Boolean, default=True)           # événement de l'association
     updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
+
+
+class InboxMessage(Base):
+    """Notification consultable dans l'application (icône cloche).
+
+    Le push est transitoire : il disparaît de l'écran, n'existe pas sur les
+    appareils non abonnés et jamais sur un ordinateur de bureau. Cette table
+    garde une trace durable de ce qui a été annoncé, consultable par chacun
+    quand il le souhaite.
+    """
+    __tablename__ = "inbox_messages"
+
+    id = Column(Integer, primary_key=True, index=True)
+    user_id = Column(Integer, ForeignKey("users.id", ondelete="CASCADE"),
+                     nullable=False, index=True)
+    category = Column(String(30), nullable=False, default="info")
+    title = Column(String(200), nullable=False)
+    body = Column(Text)
+    url = Column(String(300))
+    created_at = Column(DateTime, default=datetime.utcnow, index=True)
+    read_at = Column(DateTime, nullable=True)

@@ -48,7 +48,12 @@
       </v-col>
     </v-row>
 
-    <v-data-table :headers="headers" :items="transactions" density="compact">
+    <FilterBar
+      v-model="filters" :fields="filterFields"
+      :total="transactions.length" :shown="filteredTransactions.length" item-label="écriture"
+    />
+
+    <v-data-table :headers="headers" :items="filteredTransactions" density="compact">
       <template v-slot:item.transaction_type="{ item }">
         <v-chip :color="item.transaction_type === 'income' ? 'success' : 'error'" size="small">
           {{ item.transaction_type === 'income' ? 'Recette' : 'Dépense' }}
@@ -123,6 +128,7 @@
 
 <script setup>
 import { ref, computed, onMounted } from 'vue'
+import FilterBar from '../components/FilterBar.vue'
 import { apiError } from '../services/toast'
 import api from '../services/api'
 import { money } from '../services/format'
@@ -157,6 +163,36 @@ function categoryLabel(val) {
   const found = categories.find(c => c.value === val)
   return found ? found.title : val
 }
+
+// ─── Filtres ──────────────────────────────────────────────
+// Retrouver « toutes les dépenses de matériel de mai » demandait de faire
+// défiler toute l'année : le tri seul ne suffisait pas.
+const filters = ref({ type: null, category: null, from: null, to: null, q: null })
+const uniqTx = (l) => [...new Set(l.filter(Boolean))].sort((a, b) => String(a).localeCompare(String(b)))
+
+const filterFields = computed(() => [
+  { key: 'type', label: 'Sens', type: 'select', icon: 'mdi-swap-vertical',
+    items: [{ title: 'Recettes', value: 'income' }, { title: 'Dépenses', value: 'expense' }] },
+  { key: 'category', label: 'Catégorie', type: 'select', icon: 'mdi-tag-outline',
+    items: uniqTx(transactions.value.map((t) => t.category)).map((c) => ({ title: c, value: c })) },
+  { key: 'q', label: 'Libellé ou fournisseur', type: 'search' },
+  { key: 'from', label: 'Du', type: 'date' },
+  { key: 'to', label: 'Au', type: 'date' },
+])
+
+const filteredTransactions = computed(() => {
+  const f = filters.value
+  const needle = (f.q || '').trim().toLowerCase()
+  return transactions.value.filter((t) => {
+    if (f.type && t.transaction_type !== f.type) return false
+    if (f.category && t.category !== f.category) return false
+    if (needle && !`${t.description || ''} ${t.supplier || ''}`.toLowerCase().includes(needle)) return false
+    const d = (t.date || '').substring(0, 10)
+    if (f.from && d < f.from) return false
+    if (f.to && d > f.to) return false
+    return true
+  })
+})
 
 const headers = [
   { title: 'Date', key: 'date' },

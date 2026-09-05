@@ -25,6 +25,7 @@ const routes = [
       { path: 'cycle-abeille', name: 'docs-cycle', component: () => import('./views/docs/CycleAbeilleView.vue') },
       { path: 'varroa', name: 'docs-varroa', component: () => import('./views/docs/VarroaView.vue') },
       { path: 'reglementation', name: 'docs-reglementation', component: () => import('./views/docs/ReglementationView.vue') },
+      { path: 'versions', name: 'docs-versions', component: () => import('./views/docs/VersionsView.vue') },
       { path: 'nouveau', name: 'docs-new', component: () => import('./views/docs/DocEditorView.vue'), meta: { requiresAuth: true } },
       { path: 'editer/:slug', name: 'docs-edit', component: () => import('./views/docs/DocEditorView.vue'), props: true, meta: { requiresAuth: true } },
       { path: 'p/:slug', name: 'docs-page', component: () => import('./views/docs/DynamicDocView.vue'), props: true },
