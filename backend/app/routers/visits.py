@@ -226,7 +226,10 @@ async def report_hive_problem(
     manager_ids = [m.id for m in hive.managers]
     if manager_ids:
         notify_users(manager_ids, title, text, "/app/visits", exclude_user_id=user.id)
-    notify("alerts", title, text, "/app/visits", exclude_user_id=user.id)
+    # Les responsables viennent d'être prévenus nommément : les inclure aussi
+    # dans la diffusion par catégorie leur enverrait deux fois le même message.
+    notify("alerts", title, text, "/app/visits",
+           exclude_user_id=user.id, exclude_user_ids=manager_ids)
 
     return _visit_out(visit, user, hive)
 

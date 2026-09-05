@@ -6,6 +6,7 @@ export const builtinSections = [
       { to: { name: 'docs-home' }, title: 'Accueil documentation', icon: 'mdi-book-open-variant' },
       { to: { name: 'docs-memo' }, title: 'Mémo rapide (utilisateur)', icon: 'mdi-lightning-bolt' },
       { to: { name: 'docs-guide' }, title: "Guide complet de l'application", icon: 'mdi-book-open-page-variant' },
+      { to: { name: 'docs-versions' }, title: 'Versions et nouveautés', icon: 'mdi-rocket-launch-outline' },
     ],
   },
   {

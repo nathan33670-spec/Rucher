@@ -90,7 +90,7 @@
       </v-btn>
 
       <v-badge :content="unreadAlerts" :model-value="unreadAlerts > 0" color="error" overlap>
-        <v-btn icon @click="showAlerts = true">
+        <v-btn icon title="Notifications" @click="openNotifications">
           <v-icon>mdi-bell</v-icon>
         </v-btn>
       </v-badge>
@@ -216,19 +216,68 @@
       </v-card>
     </v-dialog>
 
-    <!-- Panneau alertes -->
-    <v-dialog v-model="showAlerts" max-width="500">
+    <!-- Centre de notifications -->
+    <v-dialog v-model="showAlerts" max-width="560" scrollable>
       <v-card>
-        <v-card-title>🔔 Alertes</v-card-title>
-        <v-card-text>
-          <v-list v-if="notif.alerts.length">
-            <v-list-item v-for="a in notif.alerts" :key="a.id" :class="{ 'rucher-unread': !a.read }" @click="notif.markRead(a.id)">
-              <v-list-item-title>{{ a.message }}</v-list-item-title>
-              <v-list-item-subtitle>{{ a.hiveName }} — {{ a.date }}</v-list-item-subtitle>
+        <v-card-title class="d-flex align-center ga-2">
+          <v-icon color="primary">mdi-bell-outline</v-icon>
+          <span>Notifications</span>
+          <v-chip v-if="notif.unread" size="x-small" color="error" variant="flat">
+            {{ notif.unread }}
+          </v-chip>
+          <v-spacer />
+          <v-btn
+            v-if="notif.unread" size="small" variant="text" density="comfortable"
+            @click="notif.markAllRead()"
+          >
+            Tout marquer comme lu
+          </v-btn>
+        </v-card-title>
+        <v-divider />
+        <v-card-text style="max-height: 60vh;">
+          <div v-if="notif.loading && !notif.alerts.length" class="text-center py-6">
+            <v-progress-circular indeterminate color="primary" size="28" />
+          </div>
+          <v-list v-else-if="notif.alerts.length" density="comfortable" class="py-0">
+            <v-list-item
+              v-for="a in notif.alerts" :key="a.id"
+              :class="{ 'rucher-unread': !a.read }"
+              @click="openNotification(a)"
+            >
+              <template v-slot:prepend>
+                <v-avatar :color="notifColor(a.category)" variant="tonal" size="34" rounded="lg">
+                  <v-icon size="18">{{ notifIcon(a.category) }}</v-icon>
+                </v-avatar>
+              </template>
+              <v-list-item-title class="text-body-2 font-weight-medium text-wrap">
+                {{ a.title }}
+              </v-list-item-title>
+              <v-list-item-subtitle v-if="a.body" class="text-wrap">{{ a.body }}</v-list-item-subtitle>
+              <v-list-item-subtitle class="text-caption r-muted">
+                {{ formatNotifDate(a.created_at) }}
+                <span v-if="a.local"> · en attente de synchronisation</span>
+              </v-list-item-subtitle>
+              <template v-slot:append>
+                <v-icon v-if="!a.read" size="10" color="error">mdi-circle</v-icon>
+              </template>
             </v-list-item>
           </v-list>
-          <p v-else class="text-center r-muted">Aucune alerte</p>
+          <div v-else class="text-center py-8 r-muted">
+            <v-icon size="34" class="mb-2">mdi-bell-sleep-outline</v-icon>
+            <p class="mb-0">Aucune notification pour le moment.</p>
+          </div>
         </v-card-text>
+        <v-divider />
+        <v-card-actions>
+          <v-btn
+            v-if="notif.messages.length" size="small" variant="text" color="error"
+            @click="clearNotifications"
+          >
+            Tout effacer
+          </v-btn>
+          <v-spacer />
+          <v-btn variant="text" @click="showAlerts = false">Fermer</v-btn>
+        </v-card-actions>
       </v-card>
     </v-dialog>
 
@@ -240,6 +289,7 @@
 import { ref, computed, onMounted, onUnmounted } from 'vue'
 import { useDisplay } from 'vuetify'
 import { useRouter, useRoute } from 'vue-router'
+import { confirmAction } from '../services/confirm'
 import { useAuthStore } from '../stores/auth'
 import { useNotifStore } from '../stores/notif'
 import api from '../services/api'
@@ -324,10 +374,54 @@ onMounted(async () => {
   // Proposition d'activation des notifications au 1er lancement (installé).
   maybeAskNotifications()
   loadAccess()
+  notif.load()
 })
 onUnmounted(() => window.removeEventListener('online', onOnline))
 
-const unreadAlerts = computed(() => notif.alerts.filter((a) => !a.read).length)
+const unreadAlerts = computed(() => notif.unread)
+
+// ─── Centre de notifications ─────────────────────────────
+const NOTIF_ICONS = {
+  release: 'mdi-rocket-launch-outline', alerts: 'mdi-alert-outline',
+  visits: 'mdi-bee', inventory: 'mdi-package-variant-closed',
+  sanitary: 'mdi-medical-bag', treasury: 'mdi-cash', events: 'mdi-calendar-star',
+}
+const NOTIF_COLORS = {
+  release: 'primary', alerts: 'error', visits: 'secondary',
+  inventory: 'secondary', sanitary: 'info', treasury: 'success', events: 'accent',
+}
+function notifIcon(c) { return NOTIF_ICONS[c] || 'mdi-bell-outline' }
+function notifColor(c) { return NOTIF_COLORS[c] || 'secondary' }
+
+function formatNotifDate(iso) {
+  if (!iso) return ''
+  const d = new Date(iso)
+  const today = new Date()
+  const sameDay = d.toDateString() === today.toDateString()
+  return sameDay
+    ? "Aujourd'hui à " + d.toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' })
+    : d.toLocaleString('fr-FR', { day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' })
+}
+
+function openNotifications() {
+  showAlerts.value = true
+  notif.load()
+}
+
+function openNotification(a) {
+  notif.markRead(a.id)
+  // Une notification sans destination reste un simple message : on ne referme
+  // pas le panneau pour rien.
+  if (a.url && a.url !== route.fullPath) {
+    showAlerts.value = false
+    router.push(a.url).catch(() => {})
+  }
+}
+
+async function clearNotifications() {
+  if (!(await confirmAction('Effacer toutes vos notifications ?'))) return
+  await notif.clearAll()
+}
 
 // Signalement d'un problème sur une ruche (menu latéral et barre supérieure).
 const showHiveAlert = ref(false)

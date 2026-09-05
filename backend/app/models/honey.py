@@ -34,6 +34,10 @@ class HoneyHarvest(Base):
     ownership = Column(Enum(OwnershipFilter), default=OwnershipFilter.ASSOCIATIVE, nullable=False)
     harvest_date = Column(DateTime, default=datetime.utcnow, nullable=False)
     quantity_kg = Column(Float, nullable=False)
+    # Miel récolté mais perdu avant la mise en pot (fond de cuve, casse d'un
+    # maturateur…). Déclaré à la main, il ne doit ni disparaître de la récolte
+    # ni rester compté comme « reste à empoter ».
+    loss_kg = Column(Float, default=0, nullable=False)
     nb_frames = Column(Integer)
     nb_supers = Column(Integer)
     notes = Column(Text)
@@ -64,6 +68,8 @@ class HoneyJar(Base):
     jar_weight_g = Column(Integer, nullable=False)  # 1000, 500, 250, 125
     quantity = Column(Integer, default=0, nullable=False)  # stock actuel
     initial_quantity = Column(Integer, default=0, nullable=False)  # quantité mise en pot
+    # Pots cassés ou perdus : retirés du stock sans être comptés comme vendus.
+    lost_quantity = Column(Integer, default=0, nullable=False)
     unit_price = Column(Float)  # prix de vente unitaire
     created_by = Column(Integer, ForeignKey("users.id"), nullable=True)
     created_at = Column(DateTime, default=datetime.utcnow)

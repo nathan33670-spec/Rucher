@@ -1,12 +1,14 @@
 """Routes — Notifications push (abonnement, préférences, test)."""
 
-from fastapi import APIRouter, Depends
+from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.ext.asyncio import AsyncSession
-from sqlalchemy import select, delete, func
+from datetime import datetime
+
+from sqlalchemy import select, delete, func, desc
 
 from app.database import get_db
 from app.models.user import User, RoleEnum
-from app.models.notification import PushSubscription, NotificationPref
+from app.models.notification import PushSubscription, NotificationPref, InboxMessage
 from app.schemas.notification import SubscribeIn, UnsubscribeIn, PrefsOut, PrefsUpdate
 from app.utils.auth import get_current_user, require_roles
 from app.utils.push import (get_or_create_vapid, send_push_to_user,
@@ -126,6 +128,88 @@ async def test_notification(
         }
     return {"sent": sent, "devices": devices,
             "detail": f"Notification envoyée à {sent} appareil(s)."}
+
+
+# ═══════════════════════════════════════════════════════════════════
+# Boîte de réception (icône cloche)
+# ═══════════════════════════════════════════════════════════════════
+
+def _inbox_out(m: InboxMessage) -> dict:
+    return {
+        "id": m.id,
+        "category": m.category,
+        "title": m.title,
+        "body": m.body,
+        "url": m.url,
+        "created_at": m.created_at.isoformat() if m.created_at else None,
+        "read": m.read_at is not None,
+    }
+
+
+@router.get("/inbox")
+async def list_inbox(
+    limit: int = 50,
+    db: AsyncSession = Depends(get_db),
+    user: User = Depends(get_current_user),
+):
+    """Notifications reçues par l'utilisateur courant, les plus récentes d'abord."""
+    limit = max(1, min(limit, 200))
+    res = await db.execute(
+        select(InboxMessage)
+        .where(InboxMessage.user_id == user.id)
+        .order_by(desc(InboxMessage.created_at), desc(InboxMessage.id))
+        .limit(limit)
+    )
+    messages = list(res.scalars().all())
+    unread = await db.scalar(
+        select(func.count()).select_from(InboxMessage).where(
+            InboxMessage.user_id == user.id, InboxMessage.read_at.is_(None)
+        )
+    ) or 0
+    return {"unread": unread, "messages": [_inbox_out(m) for m in messages]}
+
+
+@router.post("/inbox/{message_id}/read")
+async def mark_inbox_read(
+    message_id: int,
+    db: AsyncSession = Depends(get_db),
+    user: User = Depends(get_current_user),
+):
+    msg = await db.get(InboxMessage, message_id)
+    # On ne révèle pas l'existence d'un message appartenant à quelqu'un d'autre.
+    if not msg or msg.user_id != user.id:
+        raise HTTPException(404, "Notification introuvable")
+    if msg.read_at is None:
+        msg.read_at = datetime.utcnow()
+    await db.flush()
+    return _inbox_out(msg)
+
+
+@router.post("/inbox/read-all")
+async def mark_all_inbox_read(
+    db: AsyncSession = Depends(get_db),
+    user: User = Depends(get_current_user),
+):
+    res = await db.execute(
+        select(InboxMessage).where(
+            InboxMessage.user_id == user.id, InboxMessage.read_at.is_(None)
+        )
+    )
+    now = datetime.utcnow()
+    count = 0
+    for m in res.scalars().all():
+        m.read_at = now
+        count += 1
+    return {"detail": f"{count} notification(s) marquée(s) comme lue(s)", "read": count}
+
+
+@router.delete("/inbox", status_code=204)
+async def clear_inbox(
+    db: AsyncSession = Depends(get_db),
+    user: User = Depends(get_current_user),
+):
+    """Vide sa propre boîte de réception."""
+    await db.execute(delete(InboxMessage).where(InboxMessage.user_id == user.id))
 
 
 @router.get("/diagnostics")

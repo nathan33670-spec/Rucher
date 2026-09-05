@@ -68,6 +68,19 @@ COLUMN_MIGRATIONS = [
         "frames_count",
         "ALTER TABLE visits ADD COLUMN IF NOT EXISTS frames_count INTEGER",
     ),
+    # Pertes déclarées sur une récolte (fond de cuve) et sur des pots (casse).
+    (
+        "honey_harvests",
+        "loss_kg",
+        "ALTER TABLE honey_harvests ADD COLUMN IF NOT EXISTS loss_kg DOUBLE PRECISION NOT NULL DEFAULT 0",
+    ),
+    (
+        "honey_jars",
+        "lost_quantity",
+        "ALTER TABLE honey_jars ADD COLUMN IF NOT EXISTS lost_quantity INTEGER NOT NULL DEFAULT 0",
+    ),
+    # Boîte de réception des notifications (table créée par create_all ; la
+    # migration ne concerne que les bases où la table préexisterait sans colonne).
 ]
 
 

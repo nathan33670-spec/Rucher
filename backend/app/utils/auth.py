@@ -47,6 +47,7 @@ READONLY_ALLOWED_PATHS = (
     "/api/notifications/unsubscribe",
     "/api/notifications/preferences",
     "/api/notifications/test",
+    "/api/notifications/inbox/read-all",
     # Préférences météo personnelles : ne concernent que l'affichage de son
     # propre écran, jamais les données de l'association.
     "/api/settings/weather/mine",
@@ -90,7 +91,12 @@ async def get_current_user(
 
     # Lecture seule : aucune écriture sur les données de l'association.
     if request.method not in SAFE_METHODS and _is_readonly(user):
-        if request.url.path not in READONLY_ALLOWED_PATHS:
+        path = request.url.path
+        # Marquer ses propres notifications comme lues ne touche pas aux
+        # données de l'association : l'identifiant du message varie, d'où le
+        # motif plutôt qu'un chemin fixe.
+        own_inbox = path.startswith("/api/notifications/inbox")
+        if path not in READONLY_ALLOWED_PATHS and not own_inbox:
             raise HTTPException(
                 status_code=403,
                 detail="Votre compte est en lecture seule : modification impossible.",

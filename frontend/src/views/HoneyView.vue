@@ -44,6 +44,9 @@
               <div class="text-h6 font-weight-bold">{{ hc.total_kg.toFixed(1) }} kg</div>
               <div class="text-caption font-weight-medium">{{ hc.category }}</div>
               <div class="text-caption r-muted">mis en pot : {{ hc.jarred_kg.toFixed(1) }} kg</div>
+              <div v-if="hc.loss_kg > 0" class="text-caption text-warning">
+                perte déclarée : {{ hc.loss_kg.toFixed(1) }} kg
+              </div>
               <div class="text-caption" :class="hc.remaining_kg > 0 ? 'text-success' : 'r-muted'">
                 reste à empoter : {{ hc.remaining_kg.toFixed(1) }} kg
               </div>
@@ -130,14 +133,25 @@
               <div class="d-flex align-center text-caption flex-wrap ga-1">
                 <span class="font-weight-bold text-success">{{ js.sold }} vendu{{ js.sold > 1 ? 's' : '' }}</span>
                 <span class="r-muted">sur {{ js.initial }} empoté{{ js.initial > 1 ? 's' : '' }}</span>
+                <span v-if="js.lost" class="text-warning">· {{ js.lost }} perdu{{ js.lost > 1 ? 's' : '' }}</span>
                 <v-spacer />
                 <span v-if="js.unit_price" class="font-weight-bold">{{ money(js.unit_price) }}</span>
               </div>
 
-              <div class="text-caption r-muted mt-1">
-                <v-icon size="12">mdi-calendar</v-icon>
-                Récolte du {{ new Date(js.harvest_date).toLocaleDateString('fr-FR') }}
-                <template v-if="js.owner_name"> · {{ js.owner_name }}</template>
+              <div class="d-flex align-center flex-wrap ga-1 mt-1">
+                <span class="text-caption r-muted">
+                  <v-icon size="12">mdi-calendar</v-icon>
+                  Récolte du {{ new Date(js.harvest_date).toLocaleDateString('fr-FR') }}
+                  <template v-if="js.owner_name"> · {{ js.owner_name }}</template>
+                </span>
+                <v-spacer />
+                <v-btn
+                  size="x-small" variant="text" density="comfortable"
+                  prepend-icon="mdi-tune" title="Corriger le stock de ce lot"
+                  @click="openJarAdjust(js)"
+                >
+                  Ajuster
+                </v-btn>
               </div>
             </v-card>
           </v-col>
@@ -158,7 +172,11 @@
           <v-chip size="x-small" variant="tonal" class="ml-2">{{ sales.length }}</v-chip>
         </v-expansion-panel-title>
         <v-expansion-panel-text>
-          <v-data-table v-if="sales.length" :headers="saleHeaders" :items="sales" density="compact">
+          <FilterBar
+            v-model="saleFilters" :fields="saleFilterFields"
+            :total="sales.length" :shown="filteredSales.length" item-label="vente"
+          />
+          <v-data-table v-if="filteredSales.length" :headers="saleHeaders" :items="filteredSales" density="compact">
             <template v-slot:item.sold_at="{ item }">{{ new Date(item.sold_at).toLocaleDateString('fr-FR') }}</template>
             <template v-slot:item.total_amount="{ item }"><v-chip color="success" size="small" variant="tonal">{{ money(item.total_amount) }}</v-chip></template>
             <template v-slot:item.lot="{ item }">
@@ -186,13 +204,21 @@
           <v-chip size="x-small" variant="tonal" class="ml-2">{{ harvests.length }}</v-chip>
         </v-expansion-panel-title>
         <v-expansion-panel-text>
-      <v-data-table :headers="headers" :items="harvests" density="compact">
+      <FilterBar
+        v-model="harvestFilters" :fields="harvestFilterFields"
+        :total="harvests.length" :shown="filteredHarvests.length" item-label="récolte"
+      />
+      <v-data-table :headers="headers" :items="filteredHarvests" density="compact">
         <template v-slot:item.harvest_date="{ item }">{{ new Date(item.harvest_date).toLocaleDateString('fr-FR') }}</template>
         <template v-slot:item.quantity_kg="{ item }"><v-chip color="primary" size="small" variant="tonal">{{ item.quantity_kg }} kg</v-chip></template>
         <template v-slot:item.ownership="{ item }">
           <v-chip :color="item.ownership === 'associative' ? 'info' : 'accent'" size="x-small" variant="tonal">{{ item.ownership === 'associative' ? 'Associatif' : 'Privé' }}</v-chip>
         </template>
         <template v-slot:item.category_name="{ item }">{{ item.category_name || '—' }}</template>
+        <template v-slot:item.loss_kg="{ item }">
+          <span v-if="item.loss_kg" class="text-warning">{{ item.loss_kg.toFixed(1) }} kg</span>
+          <span v-else class="r-muted">—</span>
+        </template>
         <template v-slot:item.jars="{ item }">
           <template v-if="item.jars?.length">
             <v-chip
@@ -207,8 +233,11 @@
           <span v-else class="r-muted">—</span>
         </template>
         <template v-slot:item.actions="{ item }">
-          <v-btn icon size="small" variant="text" @click="editHarvest(item)"><v-icon>mdi-pencil</v-icon></v-btn>
-          <v-btn v-if="auth.isAdmin" icon size="small" variant="text" @click="deleteHarvest(item.id)"><v-icon color="error">mdi-delete</v-icon></v-btn>
+          <v-btn icon size="small" variant="text" title="Modifier" @click="editHarvest(item)"><v-icon>mdi-pencil</v-icon></v-btn>
+          <v-btn icon size="small" variant="text" title="Déclarer une perte (fond de cuve…)" @click="openLoss(item)">
+            <v-icon color="warning">mdi-water-off-outline</v-icon>
+          </v-btn>
+          <v-btn v-if="auth.isAdmin" icon size="small" variant="text" title="Supprimer" @click="deleteHarvest(item.id)"><v-icon color="error">mdi-delete</v-icon></v-btn>
         </template>
       </v-data-table>
         </v-expansion-panel-text>
@@ -250,6 +279,87 @@
         <v-card-actions>
           <v-spacer /><v-btn @click="showForm = false">Annuler</v-btn>
           <v-btn color="primary" :loading="saving" @click="save">Enregistrer</v-btn>
+        </v-card-actions>
+      </v-card>
+    </v-dialog>
+
+    <!-- Dialog : perte sur une récolte -->
+    <v-dialog v-model="showLoss" max-width="460">
+      <v-card>
+        <v-card-title class="d-flex align-center">
+          <v-icon class="mr-2" color="warning">mdi-water-off-outline</v-icon>
+          Déclarer une perte
+        </v-card-title>
+        <v-card-text>
+          <p class="text-body-2 r-muted mb-4">
+            Une partie du miel récolté n'arrive jamais en pot : fond de cuve,
+            filtre, maturateur renversé. La récolte reste enregistrée telle
+            qu'elle a été pesée ; seul le « reste à empoter » diminue.
+          </p>
+          <v-alert v-if="lossTarget" density="compact" variant="tonal" class="mb-4">
+            <div class="text-body-2">
+              <b>{{ lossTarget.category_name || 'Non catégorisé' }}</b> —
+              récolte du {{ new Date(lossTarget.harvest_date).toLocaleDateString('fr-FR') }}
+            </div>
+            <div class="text-caption">
+              {{ lossTarget.quantity_kg }} kg récoltés ·
+              perte déjà déclarée : {{ (lossTarget.loss_kg || 0).toFixed(1) }} kg
+            </div>
+          </v-alert>
+          <v-text-field
+            v-model.number="lossForm.kg" label="Quantité perdue (kg)" type="number" step="0.1"
+            prepend-inner-icon="mdi-scale" autofocus
+            hint="Une valeur négative corrige une perte déclarée en trop."
+            persistent-hint class="mb-3"
+          />
+          <v-combobox
+            v-model="lossForm.reason" :items="lossReasons" label="Motif"
+            placeholder="Choisir ou saisir un motif"
+          />
+        </v-card-text>
+        <v-card-actions>
+          <v-spacer />
+          <v-btn @click="showLoss = false">Annuler</v-btn>
+          <v-btn color="warning" :loading="saving" @click="saveLoss">Enregistrer</v-btn>
+        </v-card-actions>
+      </v-card>
+    </v-dialog>
+
+    <!-- Dialog : correction du stock d'un lot de pots -->
+    <v-dialog v-model="showJarAdjust" max-width="460">
+      <v-card>
+        <v-card-title class="d-flex align-center">
+          <v-icon class="mr-2" color="primary">mdi-tune</v-icon>
+          Corriger le stock du lot
+        </v-card-title>
+        <v-card-text>
+          <p class="text-body-2 r-muted mb-4">
+            Casse, don, écart constaté à l'inventaire. L'écart est enregistré
+            comme une perte, jamais comme une vente.
+          </p>
+          <v-alert v-if="adjustTarget" density="compact" variant="tonal" class="mb-4">
+            <div class="text-body-2">
+              <b>{{ adjustTarget.lot }}</b> — pots de {{ adjustTarget.jar_weight_g }} g
+            </div>
+            <div class="text-caption">
+              {{ adjustTarget.stock }} en stock · {{ adjustTarget.sold }} vendu(s)
+              <template v-if="adjustTarget.lost"> · {{ adjustTarget.lost }} perdu(s)</template>
+            </div>
+          </v-alert>
+          <v-text-field
+            v-model.number="adjustForm.new_stock" label="Nombre de pots réellement en stock"
+            type="number" min="0" prepend-inner-icon="mdi-bottle-tonic-outline" autofocus
+            class="mb-3"
+          />
+          <v-combobox
+            v-model="adjustForm.reason" :items="adjustReasons" label="Motif"
+            placeholder="Choisir ou saisir un motif"
+          />
+        </v-card-text>
+        <v-card-actions>
+          <v-spacer />
+          <v-btn @click="showJarAdjust = false">Annuler</v-btn>
+          <v-btn color="primary" :loading="saving" @click="saveJarAdjust">Enregistrer</v-btn>
         </v-card-actions>
       </v-card>
     </v-dialog>
@@ -312,6 +422,7 @@
 
 <script setup>
 import { ref, computed, watch, onMounted } from 'vue'
+import FilterBar from '../components/FilterBar.vue'
 import { apiError } from '../services/toast'
 import api from '../services/api'
 import { money } from '../services/format'
@@ -365,12 +476,69 @@ const form = ref({ ...defaultForm })
 const jarForm = ref({ harvest_id: null, ownership: 'associative', jar_weight_g: 500, quantity: 1, unit_price: null })
 const saleForm = ref({ jar_id: null, quantity: 1, unit_price: null, buyer: '' })
 
+// ─── Filtres des historiques ──────────────────────────────
+// Sur une saison entière, retrouver les ventes d'un lot ou les récoltes d'un
+// rucher demandait de tout parcourir : le tri par colonne n'y suffisait pas.
+const uniqH = (l) => [...new Set(l.filter(Boolean))].sort((a, b) => String(a).localeCompare(String(b)))
+
+const saleFilters = ref({ lot: null, category: null, ownership: null, buyer: null, from: null, to: null })
+const saleFilterFields = computed(() => [
+  { key: 'lot', label: 'Lot', type: 'select', icon: 'mdi-barcode',
+    items: uniqH(sales.value.map(lotOf)).map((v) => ({ title: v, value: v })) },
+  { key: 'category', label: 'Catégorie', type: 'select', icon: 'mdi-tag-outline',
+    items: uniqH(sales.value.map((s) => s.category_name)).map((v) => ({ title: v, value: v })) },
+  { key: 'ownership', label: 'Propriété', type: 'select', icon: 'mdi-account-key',
+    items: [{ title: 'Associatif', value: 'associative' }, { title: 'Privé', value: 'private' }] },
+  { key: 'buyer', label: 'Acheteur', type: 'search' },
+  { key: 'from', label: 'Du', type: 'date' },
+  { key: 'to', label: 'Au', type: 'date' },
+])
+const filteredSales = computed(() => {
+  const f = saleFilters.value
+  const needle = (f.buyer || '').trim().toLowerCase()
+  return sales.value.filter((s) => {
+    if (f.lot && lotOf(s) !== f.lot) return false
+    if (f.category && s.category_name !== f.category) return false
+    if (f.ownership && s.ownership !== f.ownership) return false
+    if (needle && !(s.buyer || '').toLowerCase().includes(needle)) return false
+    const d = (s.sold_at || '').substring(0, 10)
+    if (f.from && d < f.from) return false
+    if (f.to && d > f.to) return false
+    return true
+  })
+})
+
+const harvestFilters = ref({ category: null, apiary: null, ownership: null, from: null, to: null })
+const harvestFilterFields = computed(() => [
+  { key: 'category', label: 'Catégorie', type: 'select', icon: 'mdi-tag-outline',
+    items: uniqH(harvests.value.map((h) => h.category_name)).map((v) => ({ title: v, value: v })) },
+  { key: 'apiary', label: 'Rucher', type: 'select', icon: 'mdi-hexagon-multiple',
+    items: uniqH(harvests.value.map((h) => h.apiary_name)).map((v) => ({ title: v, value: v })) },
+  { key: 'ownership', label: 'Propriété', type: 'select', icon: 'mdi-account-key',
+    items: [{ title: 'Associatif', value: 'associative' }, { title: 'Privé', value: 'private' }] },
+  { key: 'from', label: 'Du', type: 'date' },
+  { key: 'to', label: 'Au', type: 'date' },
+])
+const filteredHarvests = computed(() => {
+  const f = harvestFilters.value
+  return harvests.value.filter((h) => {
+    if (f.category && h.category_name !== f.category) return false
+    if (f.apiary && h.apiary_name !== f.apiary) return false
+    if (f.ownership && h.ownership !== f.ownership) return false
+    const d = (h.harvest_date || '').substring(0, 10)
+    if (f.from && d < f.from) return false
+    if (f.to && d > f.to) return false
+    return true
+  })
+})
+
 const headers = [
   { title: 'Date', key: 'harvest_date' },
   { title: 'Type', key: 'ownership' },
   { title: 'Catégorie', key: 'category_name' },
   { title: 'Rucher', key: 'apiary_name' },
   { title: 'Quantité', key: 'quantity_kg' },
+  { title: 'Perte', key: 'loss_kg' },
   { title: 'Pots', key: 'jars', sortable: false },
   { title: 'Actions', key: 'actions', sortable: false },
 ]
@@ -410,8 +578,11 @@ const honeyByCategory = computed(() => {
   const map = {}
   for (const h of harvests.value) {
     const cat = h.category_name || 'Non catégorisé'
-    if (!map[cat]) map[cat] = { category: cat, total_kg: 0, jarred_kg: 0 }
+    if (!map[cat]) map[cat] = { category: cat, total_kg: 0, jarred_kg: 0, loss_kg: 0 }
     map[cat].total_kg += h.quantity_kg || 0
+    // Le miel perdu (fond de cuve, casse) n'ira jamais en pot : sans le
+    // retrancher, le « reste à empoter » ne retombait jamais à zéro.
+    map[cat].loss_kg += h.loss_kg || 0
     // Poids mis en pot : on compte la quantité INITIALEMENT empotée, pas le
     // stock restant. Vendre un pot ne remet pas le miel dans la récolte —
     // utiliser « quantity » faisait remonter le « reste » à chaque vente.
@@ -425,8 +596,8 @@ const honeyByCategory = computed(() => {
     ...c,
     // Le reste ne peut pas être négatif : au-delà du volume récolté, c'est une
     // saisie à corriger, pas un stock.
-    remaining_kg: Math.max(0, c.total_kg - c.jarred_kg),
-    over_potted: c.jarred_kg > c.total_kg + 0.001,
+    remaining_kg: Math.max(0, c.total_kg - c.jarred_kg - c.loss_kg),
+    over_potted: c.jarred_kg + c.loss_kg > c.total_kg + 0.001,
   }))
 })
 
@@ -521,6 +692,66 @@ async function deleteHarvest(id) {
   if (!(await confirmAction('Supprimer cette récolte ?'))) return
   try { await api.delete('/honey/' + id); showSuccess('Supprimée'); await load() }
   catch (e) { showError(apiError(e, 'Erreur')) }
+}
+
+// ─── Corrections de stock (pertes) ────────────────────────
+const showLoss = ref(false)
+const lossTarget = ref(null)
+const lossForm = ref({ kg: null, reason: '' })
+const lossReasons = ['Fond de cuve', 'Filtre et maturateur', 'Renversement',
+                     'Cristallisation inexploitable', 'Consommation personnelle', 'Autre']
+
+const showJarAdjust = ref(false)
+const adjustTarget = ref(null)
+const adjustForm = ref({ new_stock: 0, reason: '' })
+const adjustReasons = ['Casse', 'Don', 'Écart d\'inventaire', 'Dégustation', 'Autre']
+
+function openLoss(h) {
+  lossTarget.value = h
+  lossForm.value = { kg: null, reason: '' }
+  showLoss.value = true
+}
+
+async function saveLoss() {
+  const kg = Number(lossForm.value.kg)
+  if (!kg) { showError('Indiquez la quantité perdue.'); return }
+  if (!lossForm.value.reason) { showError('Indiquez le motif de la perte.'); return }
+  saving.value = true
+  try {
+    await api.post(`/honey/${lossTarget.value.id}/loss`, { kg, reason: lossForm.value.reason })
+    showLoss.value = false
+    showSuccess(kg > 0 ? `Perte de ${kg} kg enregistrée` : 'Perte corrigée')
+    await load()
+  } catch (e) { showError(apiError(e, "Perte non enregistrée")) }
+  finally { saving.value = false }
+}
+
+function openJarAdjust(js) {
+  adjustTarget.value = js
+  adjustForm.value = { new_stock: js.stock, reason: '' }
+  showJarAdjust.value = true
+}
+
+async function saveJarAdjust() {
+  const target = adjustTarget.value
+  const n = Number(adjustForm.value.new_stock)
+  if (!Number.isInteger(n) || n < 0) { showError('Indiquez un nombre de pots valide.'); return }
+  if (n === target.stock) { showError('Ce lot est déjà à ce nombre de pots.'); return }
+  if (!adjustForm.value.reason) { showError('Indiquez le motif de la correction.'); return }
+  saving.value = true
+  try {
+    const { data } = await api.post('/honey/jars/adjust', {
+      harvest_id: target.harvest_id,
+      jar_weight_g: target.jar_weight_g,
+      ownership: target.ownership,
+      new_stock: n,
+      reason: adjustForm.value.reason,
+    })
+    showJarAdjust.value = false
+    showSuccess(data.detail || 'Stock corrigé')
+    await load()
+  } catch (e) { showError(apiError(e, 'Correction impossible')) }
+  finally { saving.value = false }
 }
 
 function openNewJar() { jarForm.value = { harvest_id: null, ownership: 'associative', jar_weight_g: 500, quantity: 1, unit_price: null }; showJarForm.value = true }

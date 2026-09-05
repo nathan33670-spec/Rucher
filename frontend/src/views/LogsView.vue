@@ -2,12 +2,15 @@
   <div>
     <div class="d-flex align-center mb-4">
       <h2>Journal d'activité</h2>
-      <v-spacer />
-      <v-select v-model="filter" :items="filterOptions" item-title="title" item-value="value" label="Filtrer" density="compact" style="max-width:200px" clearable @update:model-value="load" />
     </div>
 
+    <FilterBar
+      v-model="filters" :fields="filterFields"
+      :total="logs.length" :shown="filteredLogs.length" item-label="entrée"
+    />
+
     <v-timeline density="compact" side="end">
-      <v-timeline-item v-for="log in logs" :key="log.id" :dot-color="actionColor(log.action)" size="small">
+      <v-timeline-item v-for="log in filteredLogs" :key="log.id" :dot-color="actionColor(log.action)" size="small">
         <v-card density="compact" class="pa-2">
           <div class="d-flex align-center">
             <v-icon size="small" class="mr-2">{{ actionIcon(log.action) }}</v-icon>
@@ -23,26 +26,58 @@
       </v-timeline-item>
     </v-timeline>
 
-    <div v-if="!logs.length" class="text-center r-muted pa-8">Aucune entrée dans le journal</div>
+    <div v-if="!filteredLogs.length" class="text-center r-muted pa-8">
+      {{ logs.length ? 'Aucune entrée ne correspond à ces filtres' : 'Aucune entrée dans le journal' }}
+    </div>
   </div>
 </template>
 
 <script setup>
-import { ref, onMounted } from 'vue'
+import { ref, computed, onMounted } from 'vue'
+import FilterBar from '../components/FilterBar.vue'
 import api from '../services/api'
+import { toastError, apiError } from '../services/toast'
 
 const logs = ref([])
-const filter = ref(null)
-const filterOptions = [
-  { title: 'Tout', value: null },
-  { title: 'Visites', value: 'visit' },
-  { title: 'Ruches', value: 'hive' },
-  { title: 'Ruchers', value: 'apiary' },
-  { title: 'Utilisateurs', value: 'user' },
-  { title: 'Inventaire', value: 'inventory_item' },
-  { title: 'Trésorerie', value: 'transaction' },
-  { title: 'Sanitaire', value: 'sanitary_record' },
-]
+
+// ─── Filtres ──────────────────────────────────────────────
+// Le type d'objet ne suffisait pas : « qu'a fait Untel le 3 » demandait de
+// remonter tout le journal à la main.
+const filters = ref({ entity: null, user: null, action: null, from: null, to: null })
+const uniqL = (l) => [...new Set(l.filter(Boolean))].sort((a, b) => String(a).localeCompare(String(b)))
+const ENTITY_LABELS = {
+  visit: 'Visites', hive: 'Ruches', apiary: 'Ruchers', user: 'Utilisateurs',
+  inventory_item: 'Inventaire', inventory_movement: 'Mouvements de stock',
+  transaction: 'Trésorerie', sanitary_record: 'Sanitaire',
+  honey_harvest: 'Récoltes', honey_jar: 'Pots', honey_sale: 'Ventes',
+  event: 'Événements', settings: 'Réglages', doc: 'Documentation',
+}
+
+const filterFields = computed(() => [
+  { key: 'entity', label: 'Type', type: 'select', icon: 'mdi-shape-outline',
+    items: uniqL(logs.value.map((l) => l.entity_type))
+      .map((v) => ({ title: ENTITY_LABELS[v] || v, value: v })) },
+  { key: 'user', label: 'Par qui', type: 'select', icon: 'mdi-account',
+    items: uniqL(logs.value.map((l) => l.user_name)).map((v) => ({ title: v, value: v })) },
+  { key: 'action', label: 'Action', type: 'select', icon: 'mdi-gesture-tap',
+    items: uniqL(logs.value.map((l) => l.action))
+      .map((v) => ({ title: actionLabel(v), value: v })) },
+  { key: 'from', label: 'Du', type: 'date' },
+  { key: 'to', label: 'Au', type: 'date' },
+])
+
+const filteredLogs = computed(() => {
+  const f = filters.value
+  return logs.value.filter((l) => {
+    if (f.entity && l.entity_type !== f.entity) return false
+    if (f.user && l.user_name !== f.user) return false
+    if (f.action && l.action !== f.action) return false
+    const d = (l.created_at || '').substring(0, 10)
+    if (f.from && d < f.from) return false
+    if (f.to && d > f.to) return false
+    return true
+  })
+})
 
 function actionColor(a) {
   return { create: 'success', update: 'info', delete: 'error' }[a] || 'grey'
@@ -55,10 +90,14 @@ function actionLabel(a) {
 }
 
 async function load() {
-  const params = {}
-  if (filter.value) params.entity_type = filter.value
-  const { data } = await api.get('/audit/', { params })
-  logs.value = data
+  // Le journal est chargé une fois puis filtré à l'écran : les filtres
+  // s'enchaînent sans aller-retour serveur.
+  try {
+    const { data } = await api.get('/audit/', { params: { limit: 300 } })
+    logs.value = data
+  } catch (e) {
+    toastError(apiError(e, "Chargement du journal impossible"))
+  }
 }
 
 onMounted(load)

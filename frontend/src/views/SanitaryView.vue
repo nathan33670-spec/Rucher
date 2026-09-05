@@ -18,8 +18,14 @@
       <v-tab value="varroa" prepend-icon="mdi-bug-outline">Comptages</v-tab>
     </v-tabs>
 
+    <FilterBar
+      v-model="filters" :fields="filterFields"
+      :total="currentRows.length" :shown="filteredRows.length"
+      :item-label="activeTab === 'treatments' ? 'traitement' : 'comptage'"
+    />
+
     <!-- Tableau traitements -->
-    <v-data-table v-if="activeTab === 'treatments'" :headers="treatmentHeaders" :items="treatments" density="compact">
+    <v-data-table v-if="activeTab === 'treatments'" :headers="treatmentHeaders" :items="filteredRows" density="compact">
       <template v-slot:item.application_date="{ item }">
         {{ new Date(item.application_date).toLocaleDateString('fr-FR') }}
       </template>
@@ -36,7 +42,7 @@
     </v-data-table>
 
     <!-- Tableau varroa -->
-    <v-data-table v-if="activeTab === 'varroa'" :headers="varroaHeaders" :items="varroaCounts" density="compact">
+    <v-data-table v-if="activeTab === 'varroa'" :headers="varroaHeaders" :items="filteredRows" density="compact">
       <template v-slot:item.application_date="{ item }">
         {{ new Date(item.application_date).toLocaleDateString('fr-FR') }}
       </template>
@@ -131,6 +137,7 @@
 
 <script setup>
 import { ref, computed, onMounted } from 'vue'
+import FilterBar from '../components/FilterBar.vue'
 import { apiError } from '../services/toast'
 import api from '../services/api'
 import { confirmAction } from '../services/confirm'
@@ -142,6 +149,40 @@ const canEdit = computed(() => auth.isAdmin || auth.hasRole('yard_manager'))
 const activeTab = ref('treatments')
 const treatments = ref([])
 const varroaCounts = ref([])
+
+// ─── Filtres ──────────────────────────────────────────────
+// Le registre sanitaire se consulte ruche par ruche : c'est la question qu'on
+// se pose devant une colonie, pas « toutes les ruches par date ».
+const filters = ref({ hive: null, kind: null, from: null, to: null })
+const currentRows = computed(() => (activeTab.value === 'treatments' ? treatments.value : varroaCounts.value))
+const rowHive = (r) => r.hive_name || ('Ruche #' + r.hive_id)
+const uniq = (l) => [...new Set(l.filter(Boolean))].sort((a, b) => a.localeCompare(b))
+
+const filterFields = computed(() => {
+  const f = [
+    { key: 'hive', label: 'Ruche', type: 'select', icon: 'mdi-beehive-outline',
+      items: uniq(currentRows.value.map(rowHive)).map((n) => ({ title: n, value: n })) },
+  ]
+  if (activeTab.value === 'treatments') {
+    f.push({ key: 'kind', label: 'Type de traitement', type: 'select', icon: 'mdi-medical-bag',
+      items: uniq(treatments.value.map((r) => r.treatment_type)).map((n) => ({ title: n, value: n })) })
+  }
+  f.push({ key: 'from', label: 'Du', type: 'date' })
+  f.push({ key: 'to', label: 'Au', type: 'date' })
+  return f
+})
+
+const filteredRows = computed(() => {
+  const f = filters.value
+  return currentRows.value.filter((r) => {
+    if (f.hive && rowHive(r) !== f.hive) return false
+    if (f.kind && r.treatment_type !== f.kind) return false
+    const d = (r.application_date || '').substring(0, 10)
+    if (f.from && d < f.from) return false
+    if (f.to && d > f.to) return false
+    return true
+  })
+})
 const hiveOptions = ref([])
 
 const showTreatmentForm = ref(false)
