@@ -36,7 +36,8 @@ class ApiaryOut(BaseModel):
 
 class HiveCreate(BaseModel):
     apiary_id: int
-    napi_number: Optional[str] = None
+    number: Optional[str] = None          # numéro de la ruche
+    napi_number: Optional[str] = None     # numéro d'apiculteur (propriétaire)
     name: Optional[str] = None
     ownership: str = "associative"
     position_x: Optional[float] = None
@@ -52,6 +53,7 @@ class HiveMove(BaseModel):
 
 
 class HiveUpdate(BaseModel):
+    number: Optional[str] = None
     napi_number: Optional[str] = None
     name: Optional[str] = None
     ownership: Optional[str] = None
@@ -65,6 +67,7 @@ class HiveUpdate(BaseModel):
 class HiveOut(BaseModel):
     id: int
     apiary_id: int
+    number: Optional[str] = None
     napi_number: Optional[str] = None
     name: Optional[str] = None
     ownership: str = "associative"

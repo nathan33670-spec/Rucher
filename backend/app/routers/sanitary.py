@@ -32,7 +32,8 @@ def _record_out(r: SanitaryRecord) -> SanitaryOut:
         notes=r.notes,
         performed_by=r.performed_by,
         created_at=r.created_at,
-        hive_name=(hive.name or hive.napi_number or f"Ruche #{hive.id}") if hive else None,
+        hive_name=(hive.name or hive.number or hive.napi_number
+                   or f"Ruche #{hive.id}") if hive else None,
     )
 
 

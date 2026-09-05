@@ -61,7 +61,8 @@ async def collect(db: AsyncSession, since: datetime, until: datetime) -> dict:
     hives = {}
     if hive_ids:
         rows = (await db.execute(select(Hive).where(Hive.id.in_(hive_ids)))).scalars().all()
-        hives = {h.id: (h.name or h.napi_number or f"Ruche #{h.id}") for h in rows}
+        hives = {h.id: (h.name or h.number or h.napi_number or f"Ruche #{h.id}")
+                 for h in rows}
     d["hive_names"] = hives
 
     # ─── Sanitaire ─────────────────────────────────────────────────

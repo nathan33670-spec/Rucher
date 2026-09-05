@@ -81,6 +81,12 @@ COLUMN_MIGRATIONS = [
     ),
     # Boîte de réception des notifications (table créée par create_all ; la
     # migration ne concerne que les bases où la table préexisterait sans colonne).
+    # Numéro propre à la ruche, distinct du NAPI (numéro d'apiculteur).
+    (
+        "hives",
+        "number",
+        "ALTER TABLE hives ADD COLUMN IF NOT EXISTS number VARCHAR(50)",
+    ),
 ]
 
 

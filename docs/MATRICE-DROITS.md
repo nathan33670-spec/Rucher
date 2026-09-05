@@ -56,7 +56,7 @@ Légende : ✅ autorisé · ⛔ refusé (403) · 🔶 conditionnel (voir notes)
 | Supprimer un rucher | ✅ | ⛔ | ⛔ | ⛔ | ⛔ |
 | Photo de rucher (ajout / suppression) | ✅ | ⛔ | ✅ | ⛔ | ⛔ |
 | Créer une ruche | ✅ | ⛔ | ✅ | ⛔ | ⛔ |
-| Modifier une ruche (dont son n° NAPI) | ✅ | ⛔ | ✅ | 🔶 ¹ | 🔶 ¹ |
+| Modifier une ruche (dont son n° de ruche) | ✅ | ⛔ | ✅ | 🔶 ¹ | 🔶 ¹ |
 | **Déplacer** une ruche vers un autre rucher | ✅ | ⛔ | ✅ | ⛔ | ⛔ |
 | Photo de ruche | ✅ | ⛔ | ✅ | 🔶 ¹ | 🔶 ¹ |
 | Supprimer une ruche | ✅ | ⛔ | ⛔ | ⛔ | ⛔ |
@@ -64,10 +64,18 @@ Légende : ✅ autorisé · ⛔ refusé (403) · 🔶 conditionnel (voir notes)
 ¹ Uniquement si l'utilisateur est **gestionnaire déclaré** de cette ruche.
 En lecture seule, l'écriture reste refusée quoi qu'il arrive.
 
-> **Numéro NAPI** : il identifie la ruche auprès de l'administration et doit
-> rester unique dans toute l'application, ruchers confondus. Une saisie déjà
-> utilisée est refusée (409) avec le nom de la ruche et du rucher qui la porte.
-> Le champ peut rester vide : plusieurs ruches sans numéro cohabitent.
+> **Deux numéros à ne pas confondre :**
+>
+> - le **numéro de ruche** identifie *une* ruche (souvent peint dessus). Il doit
+>   rester unique dans toute l'application, ruchers confondus — une ruche garde
+>   son numéro en changeant de rucher, un contrôle limité à un rucher créerait
+>   donc des doublons au premier déplacement. Une saisie déjà utilisée est
+>   refusée (409) avec le nom de la ruche et du rucher qui la porte ;
+> - le **NAPI** est le numéro d'*apiculteur* : il identifie le propriétaire
+>   auprès de l'administration, et **toutes ses ruches le partagent**. Aucune
+>   unicité n'est donc contrôlée dessus.
+>
+> Les deux champs peuvent rester vides.
 >
 > **Déplacement** : la ruche emporte tout son historique (visites, traitements,
 > récoltes) et son numéro. Seule sa position sur le plan est effacée — elle
