@@ -223,7 +223,9 @@ accès*. La saisie reste réservée aux administrateurs et trésoriers.
 | Action | admin | treasurer | yard_manager | user | readonly |
 |---|:--:|:--:|:--:|:--:|:--:|
 | Lister les comptes | ✅ | ⛔ | ⛔ | ⛔ | ⛔ |
-| Créer / modifier / supprimer un compte | ✅ | ⛔ | ⛔ | ⛔ | ⛔ |
+| Créer / modifier un compte | ✅ | ⛔ | ⛔ | ⛔ | ⛔ |
+| Désactiver un compte | ✅ | ⛔ | ⛔ | ⛔ | ⛔ |
+| Supprimer un compte | 🔶 ⁵ | ⛔ | ⛔ | ⛔ | ⛔ |
 | Attribuer les rôles | ✅ | ⛔ | ⛔ | ⛔ | ⛔ |
 | Réinitialiser le mot de passe d'un tiers | ✅ | ⛔ | ⛔ | ⛔ | ⛔ |
 | Changer **son propre** mot de passe | ✅ | ✅ | ✅ | ✅ | ✅ |
@@ -260,6 +262,24 @@ même titre que son mot de passe.
 | Après réinitialisation | `token_version` est incrémenté : **tous les appareils sont déconnectés**, ce qui est le comportement attendu si le mot de passe était compromis. |
 | Compte désactivé ou sans adresse | Aucun envoi, réponse neutre, trace côté serveur pour l'administrateur. |
 | SMTP non configuré | Message explicite invitant à passer par un administrateur : laisser attendre un e-mail qui ne partira jamais serait pire. |
+
+### Supprimer ou désactiver un compte
+
+⁵ Un compte ne se supprime que s'il **n'a rien laissé derrière lui**. Une visite,
+une récolte, une vente, un acte au registre sanitaire, une écriture de
+trésorerie, un mouvement de stock ou du matériel personnel décrivent la vie de
+l'association : ils doivent survivre au départ de la personne **et** conserver
+leur auteur. La suppression est donc refusée en nommant précisément ce qui la
+retient, et l'interface propose à la place de **désactiver** le compte —
+la personne ne peut plus se connecter, tout son historique reste en place.
+
+`GET /api/users/{id}/deletion-check` renvoie cet état avant toute action, pour
+que la boîte de dialogue propose d'emblée le bon bouton plutôt que de laisser
+se heurter à une erreur de base de données.
+
+Sont également refusés : la suppression de **son propre** compte et celle du
+**dernier administrateur**. Une ruche qui perdrait son seul responsable est
+signalée en avertissement, sans bloquer.
 
 > **Adresse e-mail et identifiant sont deux choses distinctes.** La colonne
 > `users.email` porte l'**identifiant de connexion** (« paulin ») pour des

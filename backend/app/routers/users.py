@@ -10,6 +10,11 @@ from sqlalchemy import select, func, update
 from app.database import get_db
 from app.models.user import User, UserRole, RoleEnum, PasswordResetToken
 from app.models.visit import Visit
+from app.models.apiary import hive_managers
+from app.models.honey import HoneyHarvest, HoneyJar, HoneySale
+from app.models.inventory import InventoryItem, InventoryMovement
+from app.models.sanitary import SanitaryRecord
+from app.models.treasury import Transaction
 from app.models.audit import AuditLog
 from app.schemas.user import (
     UserCreate, UserUpdate, UserOut, LoginRequest, Token, PasswordReset, SelfPasswordChange,
@@ -354,6 +359,98 @@ async def reset_password(
     return {"detail": "Mot de passe modifié — le compte a été déconnecté de tous ses appareils"}
 
 
+# Ce qu'un compte laisse derrière lui. Ces enregistrements décrivent la vie de
+# l'association — une récolte, une écriture comptable, un traitement inscrit au
+# registre sanitaire — et doivent survivre au départ de la personne. Supprimer
+# le compte les détruirait ou, pire, les priverait de leur auteur : on refuse
+# donc, en disant précisément ce qui retient.
+DELETION_BLOCKERS = [
+    (Visit, Visit.author_id, "visite saisie", "visites saisies"),
+    (HoneyHarvest, HoneyHarvest.created_by, "récolte de miel", "récoltes de miel"),
+    (HoneyJar, HoneyJar.created_by, "mise en pot", "mises en pot"),
+    (HoneySale, HoneySale.sold_by, "vente de miel", "ventes de miel"),
+    (SanitaryRecord, SanitaryRecord.performed_by,
+     "acte au registre sanitaire", "actes au registre sanitaire"),
+    (Transaction, Transaction.created_by,
+     "écriture de trésorerie", "écritures de trésorerie"),
+    (InventoryMovement, InventoryMovement.performed_by,
+     "mouvement de stock", "mouvements de stock"),
+    # Le matériel personnel n'empêche pas techniquement la suppression, mais
+    # son propriétaire deviendrait « l'association » : ce serait un transfert
+    # de propriété silencieux.
+    (InventoryItem, InventoryItem.owner_user_id,
+     "matériel personnel", "matériels personnels"),
+]
+
+
+async def deletion_blockers(db: AsyncSession, user_id: int) -> list[dict]:
+    """Liste, avec leur nombre, les éléments qui empêchent la suppression."""
+    out = []
+    for model, column, singular, plural in DELETION_BLOCKERS:
+        n = await db.scalar(
+            select(func.count()).select_from(model).where(column == user_id)
+        ) or 0
+        if n:
+            out.append({"count": n, "label": singular if n == 1 else plural})
+    return out
+
+
+def _blockers_sentence(blockers: list[dict]) -> str:
+    return ", ".join(f"{b['count']} {b['label']}" for b in blockers)
+
+
+@router.get("/{user_id}/deletion-check")
+async def check_user_deletion(
+    user_id: int,
+    db: AsyncSession = Depends(get_db),
+    current: User = Depends(require_roles(RoleEnum.ADMIN)),
+):
+    """Dit si un compte peut être supprimé, et sinon ce qui le retient.
+
+    Interrogé à l'ouverture de la boîte de dialogue : mieux vaut proposer
+    d'emblée la bonne action que laisser cliquer sur « Supprimer » pour se
+    heurter à une erreur de base de données.
+    """
+    result = await db.execute(select(User).where(User.id == user_id))
+    user = result.scalar_one_or_none()
+    if not user:
+        raise HTTPException(404, "Utilisateur introuvable")
+
+    blockers = await deletion_blockers(db, user_id)
+    warnings = []
+
+    if user_id == current.id:
+        warnings.append("Vous ne pouvez pas supprimer votre propre compte.")
+
+    if RoleEnum.ADMIN.value in get_user_roles(user):
+        admin_count = await db.scalar(
+            select(func.count(func.distinct(UserRole.user_id)))
+            .where(UserRole.role == RoleEnum.ADMIN)
+        ) or 0
+        if admin_count <= 1:
+            warnings.append("C'est le dernier administrateur : le compte ne peut pas être supprimé.")
+
+    managed = await db.scalar(
+        select(func.count()).select_from(hive_managers)
+        .where(hive_managers.c.user_id == user_id)
+    ) or 0
+    if managed and not blockers:
+        warnings.append(
+            f"{managed} ruche(s) resteraient sans responsable : pensez à en désigner un autre."
+        )
+
+    blocked = bool(blockers) or user_id == current.id or any(
+        "dernier administrateur" in w for w in warnings
+    )
+    return {
+        "deletable": not blocked,
+        "blockers": blockers,
+        "warnings": warnings,
+        "is_active": user.is_active,
+        "managed_hives": managed,
+    }
+
+
 @router.delete("/{user_id}")
 async def delete_user(
     user_id: int,
@@ -369,15 +466,20 @@ async def delete_user(
     if not user:
         raise HTTPException(status_code=404, detail="Utilisateur introuvable")
 
-    # Un utilisateur ayant saisi des visites ne peut pas être supprimé
-    # (author_id est NOT NULL, sans cascade) — on invite à le désactiver.
-    visit_count = await db.scalar(
-        select(func.count()).select_from(Visit).where(Visit.author_id == user_id)
-    )
-    if visit_count:
+    # Contrôle complet : jusqu'ici seules les visites étaient vérifiées, et une
+    # récolte ou une écriture comptable faisait échouer la requête sur une
+    # erreur de contrainte incompréhensible pour l'utilisateur.
+    blockers = await deletion_blockers(db, user_id)
+    if blockers:
         raise HTTPException(
-            status_code=400,
-            detail=f"Impossible de supprimer : {visit_count} visite(s) saisie(s) par cet utilisateur. Désactivez le compte à la place.",
+            status_code=409,
+            detail=(
+                f"Ce compte ne peut pas être supprimé : il a laissé "
+                f"{_blockers_sentence(blockers)}. Ces enregistrements font partie "
+                f"de l'historique de l'association et doivent conserver leur auteur. "
+                f"Désactivez le compte : la personne ne pourra plus se connecter, "
+                f"et tout son historique reste en place."
+            ),
         )
 
     # Ne jamais supprimer le dernier administrateur

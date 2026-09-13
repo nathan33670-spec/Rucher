@@ -14,7 +14,12 @@
       <div v-for="e in csvResult.errors" :key="e" class="text-caption">{{ e }}</div>
     </v-alert>
 
-    <v-data-table :headers="headers" :items="users" density="compact">
+    <FilterBar
+      v-model="filters" :fields="filterFields"
+      :total="users.length" :shown="filteredUsers.length" item-label="compte"
+    />
+
+    <v-data-table :headers="headers" :items="filteredUsers" density="compact">
       <template v-slot:item.roles="{ item }">
         <v-chip v-for="r in item.roles" :key="r" size="x-small" class="mr-1" color="primary" variant="tonal">{{ roleLabel(r) }}</v-chip>
       </template>
@@ -63,19 +68,72 @@
     </v-dialog>
 
     <!-- Dialog suppression -->
-    <v-dialog v-model="showDelete" max-width="440">
+    <v-dialog v-model="showDelete" max-width="520">
       <v-card>
-        <v-card-title>Supprimer l'utilisateur</v-card-title>
+        <v-card-title>
+          {{ delCheck && !delCheck.deletable ? 'Désactiver le compte' : "Supprimer l'utilisateur" }}
+        </v-card-title>
         <v-card-text>
-          <p>Supprimer définitivement <b>{{ delUser?.first_name }} {{ delUser?.last_name }}</b>
-          (<code>{{ delUser?.email }}</code>) ?</p>
-          <p class="text-caption r-muted mt-1">Cette action est irréversible.</p>
+          <p class="mb-3">
+            <b>{{ delUser?.first_name }} {{ delUser?.last_name }}</b>
+            (<code>{{ delUser?.email }}</code>)
+          </p>
+
+          <div v-if="checkingDel" class="text-center py-4">
+            <v-progress-circular indeterminate color="primary" size="26" />
+          </div>
+
+          <!-- Le compte a laissé une trace : on explique quoi, et on propose la
+               seule action qui a du sens. -->
+          <template v-else-if="delCheck && !delCheck.deletable">
+            <v-alert type="info" variant="tonal" density="compact" class="mb-3">
+              <div v-if="delCheck.blockers.length">
+                Ce compte ne peut pas être supprimé : il a laissé
+                <b>{{ blockersSentence }}</b>.
+                Ces enregistrements font partie de l'historique de l'association
+                et doivent conserver leur auteur.
+              </div>
+              <div v-for="(w, i) in delCheck.warnings" :key="i" :class="{ 'mt-2': delCheck.blockers.length || i }">
+                {{ w }}
+              </div>
+            </v-alert>
+            <p v-if="delCheck.is_active" class="text-body-2">
+              En <b>désactivant</b> le compte, {{ delUser?.first_name }} ne pourra
+              plus se connecter, mais tout son historique reste en place et
+              conserve son nom.
+            </p>
+            <v-alert v-else type="success" variant="tonal" density="compact">
+              Ce compte est déjà désactivé : il ne peut plus se connecter.
+            </v-alert>
+          </template>
+
+          <template v-else-if="delCheck">
+            <p>Ce compte n'a laissé aucun enregistrement : il peut être supprimé
+              définitivement.</p>
+            <v-alert
+              v-for="(w, i) in delCheck.warnings" :key="i"
+              type="warning" variant="tonal" density="compact" class="mt-3"
+            >{{ w }}</v-alert>
+            <p class="text-caption r-muted mt-2">Cette action est irréversible.</p>
+          </template>
+
           <v-alert v-if="delError" type="error" density="compact" class="mt-3">{{ delError }}</v-alert>
         </v-card-text>
         <v-card-actions>
           <v-spacer />
           <v-btn @click="showDelete = false">Annuler</v-btn>
-          <v-btn color="error" :loading="deleting" @click="confirmDelete">Supprimer</v-btn>
+          <v-btn
+            v-if="delCheck && !delCheck.deletable && delCheck.is_active"
+            color="warning" :loading="deleting" @click="deactivateUser"
+          >
+            Désactiver le compte
+          </v-btn>
+          <v-btn
+            v-if="delCheck && delCheck.deletable"
+            color="error" :loading="deleting" @click="confirmDelete"
+          >
+            Supprimer
+          </v-btn>
         </v-card-actions>
       </v-card>
     </v-dialog>
@@ -99,7 +157,8 @@
 </template>
 
 <script setup>
-import { ref, watch, onMounted } from 'vue'
+import { ref, computed, watch, onMounted } from 'vue'
+import FilterBar from '../components/FilterBar.vue'
 import api from '../services/api'
 import { toastError, toastSuccess, apiError } from '../services/toast'
 import { useAuthStore } from '../stores/auth'
@@ -123,6 +182,11 @@ const showDelete = ref(false)
 const delUser = ref(null)
 const delError = ref('')
 const deleting = ref(false)
+const delCheck = ref(null)
+const checkingDel = ref(false)
+const blockersSentence = computed(() =>
+  (delCheck.value?.blockers || []).map((b) => `${b.count} ${b.label}`).join(', '),
+)
 
 const roleOptions = [
   { title: 'Administrateur', value: 'admin' },
@@ -131,6 +195,33 @@ const roleOptions = [
   { title: 'Usager', value: 'user' },
   { title: 'Lecture seule', value: 'readonly' },
 ]
+
+// ─── Filtres ──────────────────────────────────────────────
+// Passé une dizaine d'adhérents, retrouver un compte demandait de parcourir
+// les pages : la liste se filtre comme les autres écrans.
+const filters = ref({ q: null, role: null, active: null })
+const filterFields = computed(() => [
+  { key: 'q', label: 'Nom, identifiant ou e-mail', type: 'search' },
+  { key: 'role', label: 'Rôle', type: 'select', icon: 'mdi-shield-account-outline',
+    items: roleOptions.map((r) => ({ title: r.title, value: r.value })) },
+  { key: 'active', label: 'État', type: 'select', icon: 'mdi-account-check-outline',
+    items: [{ title: 'Actifs', value: 'yes' }, { title: 'Désactivés', value: 'no' }] },
+])
+
+const filteredUsers = computed(() => {
+  const f = filters.value
+  const needle = (f.q || '').trim().toLowerCase()
+  return users.value.filter((u) => {
+    if (f.role && !(u.roles || []).includes(f.role)) return false
+    if (f.active === 'yes' && !u.is_active) return false
+    if (f.active === 'no' && u.is_active) return false
+    if (needle) {
+      const hay = `${u.first_name} ${u.last_name} ${u.email} ${u.contact_email || ''}`.toLowerCase()
+      if (!hay.includes(needle)) return false
+    }
+    return true
+  })
+})
 
 const headers = [
   { title: 'Nom', key: 'last_name' },
@@ -226,10 +317,39 @@ async function confirmResetPw() {
   }
 }
 
-function askDelete(u) {
+async function askDelete(u) {
   delUser.value = u
   delError.value = ''
+  delCheck.value = null
   showDelete.value = true
+  // On demande au serveur ce qui retient le compte AVANT de proposer quoi que
+  // ce soit : laisser cliquer sur « Supprimer » pour se heurter à une erreur de
+  // contrainte n'apprend rien à personne.
+  checkingDel.value = true
+  try {
+    const { data } = await api.get(`/users/${u.id}/deletion-check`)
+    delCheck.value = data
+  } catch (e) {
+    delError.value = apiError(e, 'Vérification impossible')
+  } finally {
+    checkingDel.value = false
+  }
+}
+
+/** Désactivation : la personne ne se connecte plus, son historique reste. */
+async function deactivateUser() {
+  deleting.value = true
+  delError.value = ''
+  try {
+    await api.put(`/users/${delUser.value.id}`, { is_active: false })
+    showDelete.value = false
+    await load()
+    toastSuccess(`${delUser.value.first_name} ne peut plus se connecter — son historique est conservé`)
+  } catch (e) {
+    delError.value = apiError(e, 'Désactivation impossible')
+  } finally {
+    deleting.value = false
+  }
 }
 
 async function confirmDelete() {
@@ -241,7 +361,7 @@ async function confirmDelete() {
     await load()
     toastSuccess('Utilisateur supprimé')
   } catch (e) {
-    delError.value = apiError(e, 'Erreur lors de la suppression')
+    delError.value = apiError(e, 'Suppression impossible')
   } finally {
     deleting.value = false
   }

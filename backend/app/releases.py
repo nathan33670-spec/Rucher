@@ -10,6 +10,16 @@ Convention : la version la plus récente en tête.
 
 RELEASES = [
     {
+        "version": "1.7.1",
+        "date": "2026-09-13",
+        "title": "Suppression de compte expliquée",
+        "highlights": [
+            "Supprimer un compte qui a saisi des données affichait une erreur technique ; l'application dit maintenant ce qui le retient et propose de désactiver le compte.",
+            "Désactiver conserve tout l'historique de la personne et l'empêche simplement de se connecter.",
+            "La liste des adhérents se filtre par nom, rôle ou état.",
+        ],
+    },
+    {
         "version": "1.7.0",
         "date": "2026-09-13",
         "title": "Numéros de ruche libres et correction des visites",
