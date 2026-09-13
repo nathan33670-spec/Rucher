@@ -14,6 +14,9 @@ const routes = [
     ],
   },
   { path: '/login', name: 'login', component: () => import('./views/LoginView.vue') },
+  // Réinitialisation de mot de passe : accessible sans session, par définition.
+  { path: '/mot-de-passe-oublie', name: 'forgot-password', component: () => import('./views/ForgotPasswordView.vue') },
+  { path: '/reinitialiser-mot-de-passe', name: 'reset-password', component: () => import('./views/ResetPasswordView.vue') },
   {
     // Documentation — PUBLIQUE (accessible sans connexion)
     path: '/docs',
@@ -72,7 +75,7 @@ router.beforeEach((to) => {
     return { name: 'login' }
   }
   // Déjà connecté mais on tente d'aller sur /login → vers le tableau de bord
-  if (to.name === 'login' && auth.isAuthenticated) {
+  if ((to.name === 'login' || to.name === 'forgot-password') && auth.isAuthenticated) {
     return { name: 'dashboard' }
   }
   // Sinon, navigation autorisée

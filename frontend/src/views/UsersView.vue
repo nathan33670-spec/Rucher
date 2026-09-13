@@ -4,7 +4,7 @@
       <h2>Utilisateurs</h2>
       <div class="d-flex flex-wrap ga-2">
         <v-btn color="secondary" prepend-icon="mdi-upload" @click="csvInput.click()">Import CSV</v-btn>
-        <v-btn color="primary" prepend-icon="mdi-plus" @click="showForm = true">Nouvel utilisateur</v-btn>
+        <v-btn color="primary" prepend-icon="mdi-plus" @click="openNewUser">Nouvel utilisateur</v-btn>
       </div>
     </div>
     <input ref="csvInput" type="file" accept=".csv" style="display:none" @change="importCSV" />
@@ -33,7 +33,18 @@
       <v-card>
         <v-card-title>{{ formEditId ? 'Modifier' : 'Nouvel' }} utilisateur</v-card-title>
         <v-card-text>
-          <v-text-field v-model="form.email" label="Nom d'utilisateur" :disabled="!!formEditId" hint="Identifiant de connexion, sans e-mail (ex. paulin)" persistent-hint />
+          <v-text-field v-model="form.email" label="Nom d'utilisateur" :disabled="!!formEditId" hint="Identifiant de connexion, sans e-mail (ex. paulin)" persistent-hint class="mb-2" />
+          <v-text-field
+            v-model="form.contact_email"
+            label="Adresse e-mail"
+            type="email"
+            autocapitalize="none"
+            prepend-inner-icon="mdi-email-outline"
+            hint="Sert à joindre l'adhérent et à lui envoyer un lien de réinitialisation de mot de passe."
+            persistent-hint
+            :error-messages="emailError"
+            class="mb-2"
+          />
           <v-text-field v-if="!formEditId" v-model="form.password" label="Mot de passe" type="password" />
           <v-row>
             <v-col><v-text-field v-model="form.first_name" label="Prénom" /></v-col>
@@ -88,7 +99,7 @@
 </template>
 
 <script setup>
-import { ref, onMounted } from 'vue'
+import { ref, watch, onMounted } from 'vue'
 import api from '../services/api'
 import { toastError, toastSuccess, apiError } from '../services/toast'
 import { useAuthStore } from '../stores/auth'
@@ -97,7 +108,10 @@ const auth = useAuthStore()
 const users = ref([])
 const showForm = ref(false)
 const formEditId = ref(null)
-const form = ref({ email: '', password: '', first_name: '', last_name: '', phone: '', roles: ['user'], is_active: true })
+const form = ref({ email: '', contact_email: '', password: '', first_name: '', last_name: '', phone: '', roles: ['user'], is_active: true })
+// Message d'unicité de l'adresse, affiché sous le champ concerné.
+const emailError = ref('')
+watch(() => form.value.contact_email, () => { emailError.value = '' })
 const csvInput = ref(null)
 const csvResult = ref(null)
 
@@ -122,6 +136,7 @@ const headers = [
   { title: 'Nom', key: 'last_name' },
   { title: 'Prénom', key: 'first_name' },
   { title: 'Identifiant', key: 'email' },
+  { title: 'Adresse e-mail', key: 'contact_email' },
   { title: 'Rôles', key: 'roles', sortable: false },
   { title: 'Actif', key: 'is_active' },
   { title: 'Actions', key: 'actions', sortable: false },
@@ -140,13 +155,29 @@ async function load() {
   }
 }
 
+const EMPTY_USER = {
+  email: '', contact_email: '', password: '', first_name: '', last_name: '',
+  phone: '', roles: ['user'], is_active: true,
+}
+
+function openNewUser() {
+  // Sans cette remise à zéro, le formulaire rouvrait avec les données du
+  // dernier compte modifié — et l'on créait un doublon sans s'en apercevoir.
+  formEditId.value = null
+  form.value = { ...EMPTY_USER }
+  emailError.value = ''
+  showForm.value = true
+}
+
 function editUser(u) {
   formEditId.value = u.id
-  form.value = { ...u, password: '' }
+  form.value = { ...u, contact_email: u.contact_email || '', password: '' }
+  emailError.value = ''
   showForm.value = true
 }
 
 async function saveUser() {
+  emailError.value = ''
   if (!form.value.email?.trim()) { toastError("L'identifiant est obligatoire"); return }
   if (!form.value.first_name?.trim() || !form.value.last_name?.trim()) {
     toastError('Prénom et nom sont obligatoires'); return
@@ -155,10 +186,11 @@ async function saveUser() {
     toastError('Le mot de passe doit faire au moins 6 caractères'); return
   }
   try {
+    const payload = { ...form.value, contact_email: form.value.contact_email?.trim() || null }
     if (formEditId.value) {
-      await api.put(`/users/${formEditId.value}`, form.value)
+      await api.put(`/users/${formEditId.value}`, payload)
     } else {
-      await api.post('/users/', form.value)
+      await api.post('/users/', payload)
     }
     const wasEdit = !!formEditId.value
     showForm.value = false
@@ -166,7 +198,10 @@ async function saveUser() {
     await load()
     toastSuccess(wasEdit ? 'Utilisateur modifié' : 'Utilisateur créé')
   } catch (e) {
-    toastError(apiError(e, "Erreur lors de l'enregistrement"))
+    const msg = apiError(e, "Enregistrement impossible")
+    // Adresse déjà utilisée : le message appartient au champ, pas au bandeau.
+    if (e?.response?.status === 409) emailError.value = msg
+    else toastError(msg)
   }
 }
 

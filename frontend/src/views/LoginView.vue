@@ -22,6 +22,11 @@
             <v-btn type="submit" color="primary" block size="large" class="mt-1" :loading="loading">
               Se connecter
             </v-btn>
+            <div class="text-center mt-2">
+              <v-btn variant="text" size="small" :to="{ name: 'forgot-password' }">
+                Mot de passe oublié ?
+              </v-btn>
+            </div>
           </v-form>
 
           <!-- Installation « comme une application » (mobile) -->

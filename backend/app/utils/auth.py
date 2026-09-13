@@ -41,6 +41,7 @@ def create_access_token(data: dict, expires_delta: Optional[timedelta] = None) -
 # son propre compte et son propre appareil, jamais les données de l'association.
 READONLY_ALLOWED_PATHS = (
     "/api/users/me/password",
+    "/api/users/me/profile",
     "/api/users/me/default-role",
     "/api/users/switch-role",
     "/api/notifications/subscribe",

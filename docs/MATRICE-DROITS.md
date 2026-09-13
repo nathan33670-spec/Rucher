@@ -207,6 +207,8 @@ accès*. La saisie reste réservée aux administrateurs et trésoriers.
 | Attribuer les rôles | ✅ | ⛔ | ⛔ | ⛔ | ⛔ |
 | Réinitialiser le mot de passe d'un tiers | ✅ | ⛔ | ⛔ | ⛔ | ⛔ |
 | Changer **son propre** mot de passe | ✅ | ✅ | ✅ | ✅ | ✅ |
+| Modifier **ses propres** coordonnées (e-mail, téléphone) | ✅ | ✅ | ✅ | ✅ | ✅ ³ |
+| Demander un lien « mot de passe oublié » | 🔓 | 🔓 | 🔓 | 🔓 | 🔓 |
 | Changer **son** rôle actif / par défaut | 🔶 ¹ | 🔶 ¹ | 🔶 ¹ | 🔶 ¹ | 🔶 ¹ |
 | Import CSV de comptes | ✅ | ⛔ | ⛔ | ⛔ | ⛔ |
 | Lire les critères météo | ✅ | ✅ | ✅ | ✅ | ✅ |
@@ -221,9 +223,29 @@ accès*. La saisie reste réservée aux administrateurs et trésoriers.
 
 ⁴ Uniquement sur ses propres récoltes et lots privés.
 
-³ Les critères météo personnels ne modifient que l'affichage de son propre
-écran : ils font partie des rares écritures autorisées à un compte en lecture
-seule, au même titre que son mot de passe.
+🔓 Accessible **sans être connecté** : c'est tout l'objet de la fonctionnalité.
+
+³ Ces réglages ne concernent que son propre compte ou son propre écran : ils
+font partie des rares écritures autorisées à un compte en lecture seule, au
+même titre que son mot de passe.
+
+### Mot de passe oublié — choix de sécurité
+
+| Point | Mise en œuvre |
+|---|---|
+| Enumération des comptes | La réponse est **identique** que le compte existe ou non ; sans cela le formulaire servirait d'annuaire des adhérents. |
+| Stockage du jeton | Seule l'**empreinte SHA-256** est conservée : une fuite de la base ne permet pas de rejouer un lien encore valide. |
+| Durée de vie | 1 heure, **usage unique**. Valider une demande révoque toutes les autres en cours pour ce compte. |
+| Abus | Au plus 5 demandes par heure et par compte, et jamais deux à moins d'une minute d'intervalle. |
+| Après réinitialisation | `token_version` est incrémenté : **tous les appareils sont déconnectés**, ce qui est le comportement attendu si le mot de passe était compromis. |
+| Compte désactivé ou sans adresse | Aucun envoi, réponse neutre, trace côté serveur pour l'administrateur. |
+| SMTP non configuré | Message explicite invitant à passer par un administrateur : laisser attendre un e-mail qui ne partira jamais serait pire. |
+
+> **Adresse e-mail et identifiant sont deux choses distinctes.** La colonne
+> `users.email` porte l'**identifiant de connexion** (« paulin ») pour des
+> raisons historiques ; l'adresse réelle vit dans `users.contact_email`. Une
+> adresse ne peut désigner qu'un seul compte, sinon la réinitialisation
+> viserait le mauvais adhérent.
 
 ¹ Uniquement parmi ses rôles **sélectionnables** (rôles attribués + rôles moins
 étendus qu'ils impliquent, cf. § 1). Toute autre valeur est refusée (403), y

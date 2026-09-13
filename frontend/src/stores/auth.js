@@ -32,6 +32,12 @@ export const useAuthStore = defineStore('auth', {
     hasRole() { return (role) => this.roles.includes(role) || this.roles.includes('admin') },
   },
   actions: {
+    /** Adopte un jeton obtenu hors du formulaire de connexion (lien reçu par e-mail). */
+    async adoptToken(token) {
+      this.token = token
+      localStorage.setItem('token', token)
+      await this.fetchUser()
+    },
     async login(username, password, remember = true) {
       const { data } = await api.post('/users/login', { username, password, remember })
       this.token = data.access_token
