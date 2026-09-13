@@ -73,6 +73,7 @@
 
 <script setup>
 import { ref, reactive, computed, watch, onMounted, onUnmounted, nextTick } from 'vue'
+import { hiveLabel, hiveShortLabel } from '../services/hive'
 
 const props = defineProps({
   photoUrl: { type: String, default: null },
@@ -235,8 +236,8 @@ function diamondClass(h) {
 }
 // Le NAPI est le même pour toutes les ruches d'un propriétaire : il ne
 // distinguait rien sur le plan. On affiche le numéro de la ruche.
-function shortLabel(h) { return h.number || h.napi_number || ('#' + h.id) }
-function fullName(h) { return h.name || h.number || h.napi_number || ('Ruche #' + h.id) }
+const shortLabel = hiveShortLabel
+const fullName = hiveLabel
 
 const onResize = () => measure()
 onMounted(() => { measure(); window.addEventListener('resize', onResize) })

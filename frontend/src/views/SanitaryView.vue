@@ -138,6 +138,7 @@
 <script setup>
 import { ref, computed, onMounted } from 'vue'
 import FilterBar from '../components/FilterBar.vue'
+import { hiveLabelFromRow } from '../services/hive'
 import { apiError } from '../services/toast'
 import api from '../services/api'
 import { confirmAction } from '../services/confirm'
@@ -155,7 +156,7 @@ const varroaCounts = ref([])
 // se pose devant une colonie, pas « toutes les ruches par date ».
 const filters = ref({ hive: null, kind: null, from: null, to: null })
 const currentRows = computed(() => (activeTab.value === 'treatments' ? treatments.value : varroaCounts.value))
-const rowHive = (r) => r.hive_name || ('Ruche #' + r.hive_id)
+const rowHive = hiveLabelFromRow
 const uniq = (l) => [...new Set(l.filter(Boolean))].sort((a, b) => a.localeCompare(b))
 
 const filterFields = computed(() => {

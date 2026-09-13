@@ -20,6 +20,7 @@ from app.utils.errors import register_error_handlers
 from app.routers import users, apiaries, visits, inventory, treasury, sanitary, audit, honey, docs, visit_plans, notifications, events, settings as settings_router, reports, releases as releases_router
 from app.scheduler import weekly_digest_loop
 from app.utils.release_notice import announce_new_release
+from app.utils.hive_numbers import assign_missing_numbers
 
 
 @asynccontextmanager
@@ -53,6 +54,13 @@ async def lifespan(app: FastAPI):
             await seed_initial_accounts(session)
         except Exception as e:  # ne jamais empêcher le démarrage à cause du seed
             print(f"⚠️  Seed des comptes ignoré : {e}")
+
+    # Numérotation des ruches qui n'en ont pas : aucune ne doit s'afficher
+    # avec son identifiant de base.
+    try:
+        await assign_missing_numbers()
+    except Exception as e:  # ne jamais empêcher le démarrage pour cela
+        print(f"⚠️  Numérotation des ruches ignorée : {e}")
 
     # Note de version : annoncée une seule fois par version déployée.
     try:

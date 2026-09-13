@@ -15,14 +15,11 @@ from app.schemas.visit import VisitCreate, VisitUpdate, VisitOut, HiveAlertIn
 from app.utils.auth import get_current_user, get_user_roles
 from app.utils.audit import log_action
 from app.utils.push import notify, notify_users
+from app.utils.hive_numbers import hive_label
 
 
 def _hive_label(hive: Hive) -> str:
-    if not hive:
-        return "Ruche"
-    # Le NAPI reste en dernier recours : sur les bases antérieures au champ
-    # « numéro », c'est là que se trouvait l'identifiant de la ruche.
-    return hive.name or hive.number or hive.napi_number or f"Ruche #{hive.id}"
+    return hive_label(hive)
 
 
 def _record_treatment(db: AsyncSession, visit: Visit, user: User) -> None:
@@ -282,12 +279,16 @@ async def update_visit(
     if not visit:
         raise HTTPException(404, "Visite introuvable")
 
-    hive = await db.get(Hive, visit.hive_id)
-    _check_hive_access(user, hive)
+    _check_visit_edit(user, visit)
 
+    hive = await db.get(Hive, visit.hive_id)
     for k, v in body.model_dump(exclude_unset=True).items():
         setattr(visit, k, v)
-    await log_action(db, user.id, "update", "visit", visit.id)
+    # Le journal distingue la correction de sa propre saisie de l'intervention
+    # d'un administrateur sur l'observation de quelqu'un d'autre.
+    own = visit.author_id == user.id
+    await log_action(db, user.id, "update", "visit", visit.id,
+                     details=None if own else "correction administrateur")
     author = await db.get(User, visit.author_id)
     return _visit_out(visit, author, hive)
 
@@ -298,15 +299,39 @@ async def delete_visit(
     db: AsyncSession = Depends(get_db),
     user: User = Depends(get_current_user),
 ):
-    """Seuls les admins peuvent supprimer une visite."""
+    """Suppression réservée aux administrateurs, sur n'importe quelle visite.
+
+    Effacer l'observation d'autrui n'est pas une correction de saisie : cela
+    fait disparaître une trace du suivi du cheptel, d'où la réserve.
+    """
     roles = get_user_roles(user)
     if RoleEnum.ADMIN.value not in roles:
         raise HTTPException(403, "Seuls les administrateurs peuvent supprimer des visites")
     visit = await db.get(Visit, visit_id)
     if not visit:
         raise HTTPException(404, "Visite introuvable")
+    hive = await db.get(Hive, visit.hive_id)
     await db.delete(visit)
-    await log_action(db, user.id, "delete", "visit", visit_id)
+    await log_action(db, user.id, "delete", "visit", visit_id,
+                     details=f"{hive_label(hive)} — {visit.visited_at:%d/%m/%Y}" if hive else None)
+
+
+def _check_visit_edit(user: User, visit: Visit) -> None:
+    """Qui peut corriger une visite.
+
+    Une visite est l'observation d'une personne à un instant donné : son auteur
+    la corrige librement, mais retoucher celle d'un autre revient à réécrire
+    son témoignage — c'est donc réservé aux administrateurs.
+    """
+    if RoleEnum.ADMIN.value in get_user_roles(user):
+        return
+    if visit.author_id == user.id:
+        return
+    raise HTTPException(
+        403,
+        "Vous ne pouvez modifier que vos propres visites. "
+        "Demandez à un administrateur pour celle-ci.",
+    )
 
 
 def _check_hive_access(user: User, hive: Hive):
@@ -336,4 +361,5 @@ def _visit_out(v: Visit, author: User = None, hive: Hive = None) -> VisitOut:
         author_name=(f"{author.first_name or ''} {author.last_name or ''}".strip()
                      if author else None),
         hive_name=_hive_label(hive) if hive else None,
+        hive_number=(hive.number or hive.napi_number) if hive else None,
     )
