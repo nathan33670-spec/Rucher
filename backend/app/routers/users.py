@@ -2,6 +2,7 @@
 
 import csv
 import io
+import secrets
 from datetime import timedelta
 from fastapi import APIRouter, Depends, HTTPException, UploadFile, File
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -505,16 +506,46 @@ async def import_csv(
     db: AsyncSession = Depends(get_db),
     current: User = Depends(require_roles(RoleEnum.ADMIN)),
 ):
-    """Import CSV : colonnes attendues = email, first_name, last_name, phone,
-    roles (séparés par |), et facultativement contact_email (adresse réelle).
+    """Import CSV de comptes.
+
+    Colonnes : ``email`` (identifiant de connexion, obligatoire),
+    ``first_name``, ``last_name``, ``contact_email`` (adresse réelle),
+    ``phone``, ``roles`` (séparés par ``|``).
 
     Rappel : la colonne « email » porte l'**identifiant de connexion**, pas
     l'adresse. C'est « contact_email » qui reçoit l'adresse e-mail.
+
+    Chaque compte reçoit un **mot de passe provisoire tiré au hasard**, renvoyé
+    une seule fois à l'administrateur. Auparavant tous les comptes importés
+    partageaient le même mot de passe connu (« changeme ») : n'importe qui
+    pouvant deviner un identifiant entrait dans le compte.
     """
     content = await file.read()
-    reader = csv.DictReader(io.StringIO(content.decode("utf-8-sig")))
+    text = content.decode("utf-8-sig")
+
+    # Excel en configuration française enregistre avec des points-virgules, et
+    # certains tableurs avec des tabulations : détecter le séparateur évite que
+    # tout le fichier atterrisse dans une seule colonne.
+    first_line = text.splitlines()[0] if text.strip() else ""
+    delimiter = max(";,\t", key=first_line.count) if first_line else ","
+    if first_line.count(delimiter) == 0:
+        delimiter = ","
+
+    reader = csv.DictReader(io.StringIO(text), delimiter=delimiter)
+    if reader.fieldnames:
+        # Les en-têtes sont normalisés : « Email » ou « first_name » avec une
+        # espace parasite ne doivent pas faire échouer tout le fichier.
+        reader.fieldnames = [f.strip().lower() for f in reader.fieldnames]
+    if reader.fieldnames and "email" not in reader.fieldnames:
+        raise HTTPException(
+            400,
+            "Colonne « email » absente. La première ligne du fichier doit "
+            "contenir les noms de colonnes : email, first_name, last_name, "
+            "contact_email, phone, roles.",
+        )
     created = 0
     errors = []
+    credentials = []
     for i, row in enumerate(reader, start=2):
         try:
             email = row["email"].strip()
@@ -535,10 +566,11 @@ async def import_csv(
                     errors.append(f"Ligne {i}: l'adresse {contact} est déjà utilisée")
                     continue
 
+            provisoire = secrets.token_urlsafe(9)
             user = User(
                 email=email,
                 contact_email=contact,
-                hashed_password=hash_password("changeme"),
+                hashed_password=hash_password(provisoire),
                 first_name=row.get("first_name", "").strip(),
                 last_name=row.get("last_name", "").strip(),
                 phone=row.get("phone", "").strip() or None,
@@ -550,11 +582,19 @@ async def import_csv(
                 db.add(UserRole(user_id=user.id, role=role))
 
             created += 1
+            credentials.append({
+                "name": f"{user.first_name} {user.last_name}".strip() or email,
+                "username": email,
+                "password": provisoire,
+                "contact_email": contact,
+            })
         except Exception as e:
             errors.append(f"Ligne {i}: {str(e)}")
 
     await log_action(db, current.id, "import_csv", "user", details=f"{created} créés")
-    return {"created": created, "errors": errors}
+    # Les mots de passe provisoires ne sont affichés qu'ici, une seule fois :
+    # ils ne sont stockés nulle part en clair.
+    return {"created": created, "errors": errors, "credentials": credentials}
 
 
 def _user_to_out(user: User) -> UserOut:

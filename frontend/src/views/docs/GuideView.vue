@@ -2,131 +2,83 @@
   <DocArticle
     eyebrow="Prise en main"
     title="Guide complet de l'application"
-    lead="Chaque écran de Rucher Manager, expliqué pas à pas et illustré."
+    lead="Six chapitres illustrés, du premier écran de connexion à l'administration."
   >
     <v-alert type="info" variant="tonal" density="comfortable" class="mb-6">
-      Les captures proviennent de l'application. Certains menus (Trésorerie,
-      Utilisateurs, Journal) ne sont visibles que selon votre rôle.
+      Le guide est écrit pour quelqu'un qui <b>n'a jamais utilisé l'application</b> :
+      chaque manipulation est décrite pas à pas, avec l'endroit exact où cliquer.
+      Les captures proviennent de l'application ; certains écrans ne sont
+      visibles que selon votre rôle.
     </v-alert>
 
-    <!-- Table des matières -->
-    <v-card variant="tonal" class="mb-6 pa-2">
-      <v-list density="compact" nav>
-        <v-list-item v-for="(s, i) in toc" :key="i" :href="'#' + s.id" :title="(i + 1) + '. ' + s.t" />
-      </v-list>
-    </v-card>
+    <v-row class="mb-2">
+      <v-col v-for="c in chapitres" :key="c.n" cols="12" sm="6">
+        <v-card :to="c.to" class="h-100" variant="tonal" color="primary" hover>
+          <v-card-item>
+            <template v-slot:prepend>
+              <v-avatar color="primary" size="38" class="font-weight-bold">{{ c.n }}</v-avatar>
+            </template>
+            <v-card-title class="text-subtitle-1 font-weight-bold">{{ c.t }}</v-card-title>
+          </v-card-item>
+          <v-card-text class="pt-0">
+            <p class="mb-2">{{ c.d }}</p>
+            <div class="text-caption text-medium-emphasis">{{ c.items }}</div>
+          </v-card-text>
+        </v-card>
+      </v-col>
+    </v-row>
 
-    <section v-for="s in sections" :key="s.id" :id="s.id" class="mb-8">
-      <h2>{{ s.t }}</h2>
-      <p v-for="(p, i) in s.p" :key="i" v-html="p"></p>
-      <ul v-if="s.li">
-        <li v-for="(l, i) in s.li" :key="i" v-html="l"></li>
-      </ul>
-      <figure v-if="s.img">
-        <img :src="'/docs-img/' + s.img" :alt="s.t" loading="lazy" />
-        <figcaption>{{ s.cap || s.t }}</figcaption>
-      </figure>
-    </section>
+    <h2>Par où commencer ?</h2>
+    <ul>
+      <li><b>Vous venez de recevoir vos identifiants</b> : chapitre 1, puis chapitre 3 avant votre première visite.</li>
+      <li><b>Vous partez au rucher</b> : le <RouterLink :to="{ name: 'docs-memo' }">mémo rapide</RouterLink> tient en une page.</li>
+      <li><b>Vous montez le rucher dans l'application</b> : chapitre 2.</li>
+      <li><b>Vous créez les comptes des adhérents</b> : chapitre 6, section « Importer les adhérents par fichier CSV ».</li>
+    </ul>
+
+    <h2>Le vocabulaire de l'application</h2>
+    <v-table density="compact" class="mb-4">
+      <thead><tr><th>Terme</th><th>Ce qu'il désigne</th></tr></thead>
+      <tbody>
+        <tr v-for="m in lexique" :key="m[0]"><td v-html="m[0]"></td><td v-html="m[1]"></td></tr>
+      </tbody>
+    </v-table>
   </DocArticle>
 </template>
 
 <script setup>
-import { computed } from 'vue'
+import { RouterLink } from 'vue-router'
 import DocArticle from '../../components/DocArticle.vue'
 
-const sections = [
-  {
-    id: 'accueil', t: "Page d'accueil publique",
-    p: ["À l'adresse du site, une page grand public présente l'association et la protection des abeilles. Le bouton <b>« Accéder à l'application »</b> (en haut à droite et au centre) mène à la connexion."],
-    img: 'accueil.jpg',
-  },
-  {
-    id: 'connexion', t: 'Connexion',
-    p: ['Saisissez votre <b>nom d\'utilisateur</b> (un identifiant simple, ex. <code>paulin</code>, fourni par un administrateur) et votre <b>mot de passe</b>, puis <b>Se connecter</b>.'],
-    li: ['Depuis un téléphone, un bouton <b>« Ajouter à l\'écran d\'accueil »</b> permet d\'installer l\'app.', 'Vous pouvez changer votre mot de passe à tout moment en cliquant sur votre nom (en haut à droite).', 'Mot de passe oublié ? Un administrateur peut le réinitialiser.'],
-    img: 'login.jpg',
-  },
-  {
-    id: 'dashboard', t: 'Tableau de bord',
-    p: ["L'écran d'accueil de l'application donne une vue d'ensemble immédiate."],
-    li: ['Bouton <b>Visite rapide de mes ruches</b> (voir plus bas).', '<b>Prochains événements</b> de l\'association et votre réponse.', '<b>Alertes actives</b> signalées lors des visites.', '<b>Visites du mois</b> et statistiques du rucher.', '<b>Stocks bas</b> (matériel sous le seuil).'],
-    img: 'dashboard.jpg',
-  },
-  {
-    id: 'visite-rapide', t: 'Visite rapide',
-    p: ['Un bouton <b>« Visite rapide de mes ruches »</b> est présent sur le tableau de bord et dans la barre de navigation du téléphone (onglet <b>Visite</b>). Il lance le Mode Live mais ne fait défiler <b>que les ruches dont vous êtes propriétaire</b>, tous ruchers confondus — idéal pour faire le tour de vos propres colonies sans chercher.'],
-    li: ['Même interface terrain que le Mode Live (curseurs, gros boutons, hors-ligne).', 'La visite par rucher reste disponible depuis l\'onglet <b>Ruchers</b>.'],
-  },
-  {
-    id: 'evenements', t: 'Événements',
-    p: ['L\'onglet <b>Événements</b> liste les sorties, réunions et récoltes de l\'association, séparées en <b>« À venir »</b> et <b>« Passés »</b>.'],
-    li: ['Indiquez si vous venez : <b>Je viens / Peut-être / Absent</b> — réponse <b>modifiable</b> à tout moment.', 'Bouton <b>Calendrier</b> pour ajouter l\'événement à votre agenda (<b>Apple/Android .ics</b> ou <b>Google Agenda</b>).', '<b>Admins</b> : créer un événement (public ou privé), notifier tous les adhérents, et consulter la <b>liste des participants</b>.'],
-  },
-  {
-    id: 'notifications', t: 'Notifications',
-    p: ['Recevez des notifications <b>sur votre téléphone</b> pour ce qui vous intéresse. L\'activation vous est <b>proposée au premier lancement</b> de l\'app installée ; vous pouvez la régler à tout moment dans l\'onglet <b>Notifications</b>.'],
-    li: ['Choisissez vos <b>catégories</b> : événements, nouvelle visite, matériel, alerte, sanitaire, trésorerie.', 'Bouton <b>« Envoyer une notification de test »</b> pour vérifier sur votre appareil.', '<b>Android</b> : fonctionne dans le navigateur ou l\'app installée. <b>iPhone</b> : l\'app doit d\'abord être <b>installée sur l\'écran d\'accueil</b>.'],
-  },
-  {
-    id: 'ruchers', t: 'Ruchers',
-    p: ['La liste de vos ruchers. Chaque carte ouvre le détail ; le bouton <b>Mode Live</b> lance une visite terrain.'],
-    li: ['Créer / modifier / supprimer un rucher (selon droits).', 'Adresse et géolocalisation.'],
-    img: 'ruchers.jpg',
-  },
-  {
-    id: 'detail', t: 'Détail d\'un rucher & plan des ruches',
-    p: ['Le détail d\'un rucher affiche le <b>plan visuel</b> des ruches, que l\'on peut <b>déplacer par glisser-déposer</b> pour reproduire l\'implantation réelle.'],
-    li: ['Ajouter une ruche (numéro NAPI, nom, propriété associative/privée).', 'Ajouter une <b>photo</b> de ruche.', 'Voir la dernière visite et l\'état sanitaire de chaque ruche.'],
-    img: 'rucher-detail.jpg',
-  },
-  {
-    id: 'live', t: 'Mode Live (visite terrain)',
-    p: ['Interface simplifiée, pensée pour le terrain avec des <b>gants</b> : gros boutons, curseurs, enchaînement automatique des ruches.'],
-    li: ['<b>Reine</b> vue ou non, <b>couvain</b> et <b>réserves</b> (0-9), <b>hausses</b>, <b>nourrissement</b>.', '<b>Dictée vocale</b> pour les commentaires.', 'Bouton <b>Alerte</b> pour signaler un problème.', '<b>Mode hors-ligne</b> : saisie sans réseau, synchronisation automatique au retour.'],
-    img: 'visite-live.jpg',
-  },
-  {
-    id: 'inventaire', t: 'Inventaire',
-    p: ['Gestion du matériel : entrées et sorties, seuils d\'alerte de stock, lien avec la trésorerie.'],
-    img: 'inventaire.jpg',
-  },
-  {
-    id: 'tresorerie', t: 'Trésorerie',
-    p: ['Recettes et dépenses catégorisées, dépôt de <b>factures</b>, bilan annuel. Réservé aux rôles trésorier/administrateur.'],
-    img: 'tresorerie.jpg',
-  },
-  {
-    id: 'miellee', t: 'Miellée',
-    p: ['Suivi des récoltes de miel, des pots (stock) et des ventes, avec statistiques.'],
-    img: 'miellee.jpg',
-  },
-  {
-    id: 'sanitaire', t: 'Sanitaire',
-    p: ['Suivi des traitements (varroa…), comptages et calendrier sanitaire par ruche.'],
-    img: 'sanitaire.jpg',
-  },
-  {
-    id: 'meteo', t: 'Météo',
-    p: ['Météo locale (Bois-d\'Arcy) : température, hygrométrie, probabilité de pluie et vent, plus le <b>créneau optimal de visite</b> calculé automatiquement (journée douce, sèche, peu ventée).'],
-    img: 'meteo.jpg',
-  },
-  {
-    id: 'utilisateurs', t: 'Utilisateurs (admin)',
-    p: ['Gestion des comptes : création, modification, <b>suppression</b>, réinitialisation de mot de passe, import CSV, attribution des rôles.'],
-    li: ['Rôles : administrateur, responsable de rucher, trésorier, usager, lecture seule.'],
-    img: 'utilisateurs.jpg',
-  },
-  {
-    id: 'journal', t: 'Journal (admin)',
-    p: ['Historique complet des actions (audit) : qui a fait quoi et quand.'],
-    img: 'journal.jpg',
-  },
-  {
-    id: 'installation', t: 'Installer l\'app & travailler hors-ligne',
-    p: ['Rucher Manager est une <b>application installable</b> (PWA).'],
-    li: ['<b>Android / Chrome</b> : bouton « Installer l\'app ».', '<b>iPhone / Safari</b> : Partager → « Sur l\'écran d\'accueil ».', 'Une fois installée, elle s\'ouvre en plein écran et fonctionne <b>hors-ligne</b> pour la saisie des visites.'],
-  },
+const chapitres = [
+  { n: 1, t: 'Premiers pas', to: { name: 'docs-guide-premiers-pas' },
+    d: "Se connecter, comprendre l'écran, installer l'application sur son téléphone.",
+    items: "Connexion · Mot de passe oublié · Barre du haut · Menu · Rôles · Installation" },
+  { n: 2, t: 'Ruchers et ruches', to: { name: 'docs-guide-ruchers' },
+    d: "Créer un rucher, y ajouter des ruches, les numéroter et les placer sur le plan.",
+    items: "Numéro de ruche · NAPI · Plan · Déplacer une ruche · Photos" },
+  { n: 3, t: 'Visiter ses ruches', to: { name: 'docs-guide-visites' },
+    d: "Le Mode Live sur le terrain, l'historique, les corrections et les alertes.",
+    items: "Visite rapide · Hors-ligne · Filtres · Corriger une visite · Signaler" },
+  { n: 4, t: 'Miellée, sanitaire, stocks', to: { name: 'docs-guide-gestion' },
+    d: "Récoltes et pots, traitements et comptages, matériel, recettes et dépenses.",
+    items: "Récolte · Mise en pot · Pertes · Varroa · Inventaire · Trésorerie" },
+  { n: 5, t: 'Notifications, météo, événements', to: { name: 'docs-guide-suivi' },
+    d: "Être prévenu au bon moment, choisir son créneau, répondre aux sorties.",
+    items: "Cloche · Notifications push · Critères météo · Participation" },
+  { n: 6, t: 'Administration', to: { name: 'docs-guide-admin' },
+    d: "Comptes, import CSV des adhérents, réglages de l'association, journal.",
+    items: "Créer un compte · Format du fichier CSV · SMTP · Journal" },
 ]
 
-const toc = computed(() => sections.map((s) => ({ id: s.id, t: s.t })))
+const lexique = [
+  ['<b>Rucher</b>', "Le lieu où sont posées les ruches."],
+  ['<b>Ruche</b>', "Une colonie. Elle porte un <b>numéro</b> que vous choisissez, unique dans l'application."],
+  ['<b>N° NAPI</b>', "Le numéro d'apiculteur du propriétaire — le même pour toutes ses ruches. À ne pas confondre avec le numéro de ruche."],
+  ['<b>Visite</b>', "Un passage devant une ruche : état du couvain, des réserves, des hausses, commentaire."],
+  ['<b>Mode Live</b>', "L'écran de saisie terrain, qui enchaîne les ruches une par une."],
+  ['<b>Alerte</b>', "Un problème signalé sur une ruche, qui notifie ses responsables."],
+  ['<b>Miellée</b>', "Le suivi du miel : récoltes en kg, pots, ventes, pertes."],
+  ['<b>Rôle</b>', "Ce que vous avez le droit de faire : administrateur, responsable de rucher, trésorier, usager, lecture seule."],
+]
 </script>

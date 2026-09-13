@@ -10,6 +10,17 @@ Convention : la version la plus récente en tête.
 
 RELEASES = [
     {
+        "version": "1.8.0",
+        "date": "2026-09-13",
+        "title": "Documentation refaite en six chapitres",
+        "highlights": [
+            "Le guide de l'application est découpé en six chapitres illustrés, écrits pas à pas pour quelqu'un qui découvre l'outil : où cliquer, dans quel ordre, et ce que fait chaque champ.",
+            "Le format du fichier CSV d'import des adhérents est enfin documenté, colonne par colonne, avec un exemple complet et la liste des messages d'erreur.",
+            "L'écran Utilisateurs propose un bouton « Modèle CSV » : un fichier prêt à remplir, réimportable tel quel.",
+            "Les comptes créés par import reçoivent chacun un mot de passe tiré au hasard, affiché une seule fois — ils partageaient auparavant le même mot de passe connu.",
+        ],
+    },
+    {
         "version": "1.7.1",
         "date": "2026-09-13",
         "title": "Suppression de compte expliquée",

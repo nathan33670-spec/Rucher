@@ -20,6 +20,21 @@
       </v-col>
     </v-row>
 
+    <h2 class="text-h6 font-weight-bold mb-2">Guide de l'application</h2>
+    <p class="text-body-2 text-medium-emphasis mb-3">
+      Six chapitres illustrés, écrits pour quelqu'un qui découvre l'application.
+    </p>
+    <v-list lines="two" density="comfortable" class="rounded border mb-6">
+      <v-list-item
+        v-for="c in chapitres" :key="c.n" :to="c.to"
+        :title="c.n + '. ' + c.t" :subtitle="c.d"
+      >
+        <template v-slot:prepend>
+          <v-avatar color="primary" size="32" class="text-body-2 font-weight-bold">{{ c.n }}</v-avatar>
+        </template>
+      </v-list-item>
+    </v-list>
+
     <h2 class="text-h6 font-weight-bold mb-2">Formation apicole</h2>
     <v-row class="mb-4">
       <v-col v-for="c in formation" :key="c.title" cols="12" sm="6">
@@ -63,8 +78,16 @@ const dynamic = ref([])
 
 const prise = [
   { title: 'Mémo rapide', desc: "L'essentiel en 1 page pour saisir et suivre vos ruches.", icon: 'mdi-lightning-bolt', to: { name: 'docs-memo' } },
-  { title: "Guide complet", desc: 'Chaque écran de l\'application expliqué, captures à l\'appui.', icon: 'mdi-book-open-page-variant', to: { name: 'docs-guide' } },
+  { title: "Guide complet", desc: 'Six chapitres pas à pas, captures à l\'appui — sommaire ci-dessous.', icon: 'mdi-book-open-page-variant', to: { name: 'docs-guide' } },
   { title: 'Versions et nouveautés', desc: 'Ce qui change à chaque mise à jour de l\'application.', icon: 'mdi-rocket-launch-outline', to: { name: 'docs-versions' } },
+]
+const chapitres = [
+  { n: 1, t: 'Premiers pas', d: "Se connecter, comprendre l'écran, installer l'app sur son téléphone.", to: { name: 'docs-guide-premiers-pas' } },
+  { n: 2, t: 'Ruchers et ruches', d: 'Créer un rucher, numéroter les ruches, le plan, les déplacements.', to: { name: 'docs-guide-ruchers' } },
+  { n: 3, t: 'Visiter ses ruches', d: "Mode Live, hors-ligne, historique, corrections et alertes.", to: { name: 'docs-guide-visites' } },
+  { n: 4, t: 'Miellée, sanitaire, stocks', d: 'Récoltes, pots, pertes, traitements, inventaire, trésorerie.', to: { name: 'docs-guide-gestion' } },
+  { n: 5, t: 'Notifications, météo, événements', d: 'Être prévenu, choisir son créneau, répondre aux sorties.', to: { name: 'docs-guide-suivi' } },
+  { n: 6, t: 'Administration', d: "Comptes, import CSV des adhérents, réglages, journal.", to: { name: 'docs-guide-admin' } },
 ]
 const formation = [
   { title: "Cycle de vie de l'abeille", desc: "De l'œuf à la butineuse : castes, durées, rôles.", icon: 'mdi-bee', to: { name: 'docs-cycle' } },
