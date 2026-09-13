@@ -2,6 +2,8 @@
 
 from datetime import datetime, timezone
 from typing import Annotated, Optional
+import re
+
 from pydantic import StringConstraints, AfterValidator
 
 # Chaîne obligatoire réellement non vide : les espaces sont retirés et une
@@ -30,3 +32,21 @@ def _to_naive_utc(v):
 # Date/heure d'entrée : accepte une valeur avec ou sans fuseau, stocke sans.
 NaiveDateTime = Annotated[datetime, AfterValidator(_to_naive_utc)]
 OptNaiveDateTime = Optional[NaiveDateTime]
+
+
+# Adresse e-mail : contrôle volontairement simple et tolérant. Le but n'est pas
+# de valider la RFC 5322 — impossible en pratique — mais d'écarter les fautes de
+# frappe évidentes avant d'envoyer un lien de réinitialisation dans le vide.
+# Pydantic propose EmailStr, mais il exige la dépendance « email-validator » ;
+# s'en passer évite un paquet de plus à installer sur le NAS.
+_EMAIL_RE = re.compile(r"^[^@\s]+@[^@\s.]+(\.[^@\s.]+)+$")
+
+
+def _check_email(v: str) -> str:
+    cleaned = (v or "").strip().lower()
+    if not _EMAIL_RE.match(cleaned):
+        raise ValueError("adresse e-mail invalide")
+    return cleaned
+
+
+EmailAddress = Annotated[str, AfterValidator(_check_email)]

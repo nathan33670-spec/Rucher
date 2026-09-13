@@ -10,6 +10,16 @@ Convention : la version la plus récente en tête.
 
 RELEASES = [
     {
+        "version": "1.6.0",
+        "date": "2026-09-13",
+        "title": "Adresse e-mail et mot de passe oublié",
+        "highlights": [
+            "Chaque adhérent enregistre son adresse e-mail depuis « Mes coordonnées ».",
+            "Un lien « Mot de passe oublié ? » permet de le réinitialiser soi-même : un e-mail arrive avec un lien valable une heure, utilisable une seule fois.",
+            "Changer son mot de passe par ce lien déconnecte tous les autres appareils.",
+        ],
+    },
+    {
         "version": "1.5.0",
         "date": "2026-09-05",
         "title": "Numéro de ruche et transhumance",

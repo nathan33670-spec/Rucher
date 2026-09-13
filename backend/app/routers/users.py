@@ -8,12 +8,12 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select, func, update
 
 from app.database import get_db
-from app.models.user import User, UserRole, RoleEnum
+from app.models.user import User, UserRole, RoleEnum, PasswordResetToken
 from app.models.visit import Visit
 from app.models.audit import AuditLog
 from app.schemas.user import (
     UserCreate, UserUpdate, UserOut, LoginRequest, Token, PasswordReset, SelfPasswordChange,
-    SwitchRoleIn,
+    SwitchRoleIn, MyProfileUpdate, ForgotPasswordIn, ResetPasswordIn,
 )
 from app.utils.auth import (
     hash_password, verify_password, create_access_token,
@@ -21,6 +21,8 @@ from app.utils.auth import (
     get_selectable_roles,
 )
 from app.utils.audit import log_action
+from app.utils import mailer, password_reset as pwreset
+from app.routers.settings import load_mail
 
 router = APIRouter(prefix="/api/users", tags=["users"])
 
@@ -113,6 +115,150 @@ async def change_my_password(
     return {"detail": "Mot de passe modifié", "access_token": token, "token_type": "bearer"}
 
 
+# ═══════════════════════════════════════════════════════════════════
+# Mot de passe oublié — réinitialisation en autonomie
+# ═══════════════════════════════════════════════════════════════════
+
+# Réponse volontairement identique dans tous les cas : un message différent
+# selon que le compte existe ou non transformerait ce formulaire en annuaire
+# des adhérents.
+_NEUTRAL = ("Si un compte correspond, un e-mail contenant un lien de "
+            "réinitialisation vient d'être envoyé. Pensez à regarder vos "
+            "courriers indésirables.")
+
+
+@router.post("/password-reset/request")
+async def request_password_reset(
+    body: ForgotPasswordIn,
+    db: AsyncSession = Depends(get_db),
+):
+    """Envoie un lien de réinitialisation à l'adresse du compte.
+
+    Accessible sans être connecté — c'est tout l'intérêt. L'identifiant de
+    connexion comme l'adresse e-mail sont acceptés : personne ne se souvient
+    lequel des deux il a donné.
+    """
+    cfg = await load_mail(db)
+    if not mailer.mail_enabled(cfg):
+        # Ici on peut être explicite : l'information ne concerne pas un compte
+        # en particulier, et laisser l'adhérent attendre un e-mail qui ne
+        # partira jamais serait pire.
+        raise HTTPException(
+            503,
+            "L'envoi d'e-mails n'est pas configuré sur ce serveur : demandez à "
+            "un administrateur de réinitialiser votre mot de passe.",
+        )
+
+    user = await pwreset.find_account(db, body.identifier)
+    if not user or not user.is_active or not user.contact_email:
+        # Compte inconnu, désactivé, ou sans adresse enregistrée : on ne dit
+        # rien de plus, mais on laisse une trace côté serveur pour que
+        # l'administrateur puisse comprendre un appel à l'aide.
+        print(f"ℹ️  Réinitialisation demandée sans suite pour « {body.identifier} »")
+        return {"detail": _NEUTRAL}
+
+    if await pwreset.too_many_requests(db, user):
+        print(f"⚠️  Réinitialisation : trop de demandes pour {user.email}")
+        return {"detail": _NEUTRAL}
+
+    token = await pwreset.create_token(db, user)
+    base = (cfg.get("app_base_url") or "").rstrip("/")
+    link = f"{base}/reinitialiser-mot-de-passe?token={token}"
+    subject, html, text = pwreset.build_email(user, link)
+
+    await log_action(db, user.id, "password_reset_request", "user", user.id)
+    await db.flush()
+
+    try:
+        await mailer.send_mail(subject, html, text, [user.contact_email], cfg)
+    except Exception as e:
+        # L'échec d'envoi ne doit pas révéler que le compte existe ; il est en
+        # revanche visible dans les journaux du serveur.
+        print(f"❌ Réinitialisation : envoi impossible à {user.contact_email} — {e}")
+    return {"detail": _NEUTRAL}
+
+
+@router.get("/password-reset/check")
+async def check_password_reset(
+    token: str,
+    db: AsyncSession = Depends(get_db),
+):
+    """Dit si un lien est encore utilisable, sans le consommer.
+
+    Permet d'afficher tout de suite « ce lien a expiré » plutôt que de laisser
+    saisir un mot de passe pour rien.
+    """
+    return {"valid": await pwreset.token_is_valid(db, token)}
+
+
+@router.post("/password-reset/confirm", response_model=Token)
+async def confirm_password_reset(
+    body: ResetPasswordIn,
+    db: AsyncSession = Depends(get_db),
+):
+    """Applique le nouveau mot de passe et connecte immédiatement l'adhérent."""
+    if len(body.new_password or "") < 6:
+        raise HTTPException(400, "Le nouveau mot de passe doit faire au moins 6 caractères")
+
+    user = await pwreset.consume_token(db, body.token)
+    if not user:
+        raise HTTPException(
+            400,
+            "Ce lien n'est plus valable : il a expiré ou a déjà été utilisé. "
+            "Demandez-en un nouveau.",
+        )
+
+    user.hashed_password = hash_password(body.new_password)
+    # Déconnecte tous les appareils : si le mot de passe avait été compromis,
+    # les sessions ouvertes ailleurs doivent tomber.
+    user.token_version = (user.token_version or 0) + 1
+    await log_action(db, user.id, "password_reset", "user", user.id)
+    await db.flush()
+
+    # L'adhérent qui vient de prouver l'accès à sa boîte mail est connecté
+    # directement : le renvoyer vers la mire pour ressaisir ce qu'il vient de
+    # choisir n'apporte rien.
+    selectable = get_selectable_roles(user)
+    active = user.default_role if user.default_role in selectable else None
+    token = create_access_token({
+        "sub": user.id, "username": user.email, "active_role": active,
+        "tv": user.token_version,
+    })
+    return {"access_token": token, "token_type": "bearer"}
+
+
+@router.put("/me/profile", response_model=UserOut)
+async def update_my_profile(
+    body: MyProfileUpdate,
+    db: AsyncSession = Depends(get_db),
+    user: User = Depends(get_current_user),
+):
+    """Chacun tient à jour son adresse e-mail et son téléphone."""
+    data = body.model_dump(exclude_unset=True)
+    if data.get("contact_email"):
+        await _check_contact_email_free(db, data["contact_email"], exclude_id=user.id)
+    for k, v in data.items():
+        setattr(user, k, v)
+    await log_action(db, user.id, "update", "user", user.id, details="profil")
+    await db.flush()
+    await db.refresh(user)
+    return _user_to_out(user)
+
+
+async def _check_contact_email_free(db: AsyncSession, email: str, exclude_id: int = None):
+    """Une adresse ne doit désigner qu'un compte : sinon la réinitialisation
+    deviendrait ambiguë et pourrait viser le mauvais adhérent."""
+    q = select(User).where(func.lower(User.contact_email) == email.lower())
+    if exclude_id:
+        q = q.where(User.id != exclude_id)
+    other = (await db.execute(q.limit(1))).scalar_one_or_none()
+    if other:
+        raise HTTPException(
+            409,
+            f"L'adresse « {email} » est déjà associée au compte « {other.email} ».",
+        )
+
+
 @router.get("/", response_model=list[UserOut])
 async def list_users(
     db: AsyncSession = Depends(get_db),
@@ -133,9 +279,12 @@ async def create_user(
     existing = await db.execute(select(User).where(func.lower(User.email) == ident.lower()))
     if existing.scalar_one_or_none():
         raise HTTPException(status_code=400, detail="Identifiant déjà utilisé")
+    if body.contact_email:
+        await _check_contact_email_free(db, body.contact_email)
 
     user = User(
         email=ident,
+        contact_email=body.contact_email,
         hashed_password=hash_password(body.password),
         first_name=body.first_name,
         last_name=body.last_name,
@@ -165,7 +314,10 @@ async def update_user(
     if not user:
         raise HTTPException(status_code=404, detail="Utilisateur introuvable")
 
-    for field, value in body.model_dump(exclude_unset=True).items():
+    changes = body.model_dump(exclude_unset=True)
+    if changes.get("contact_email"):
+        await _check_contact_email_free(db, changes["contact_email"], exclude_id=user.id)
+    for field, value in changes.items():
         if field == "roles":
             # Supprimer les anciens rôles et recréer
             for r in list(user.roles):
@@ -251,7 +403,12 @@ async def import_csv(
     db: AsyncSession = Depends(get_db),
     current: User = Depends(require_roles(RoleEnum.ADMIN)),
 ):
-    """Import CSV: colonnes attendues = email, first_name, last_name, phone, roles (séparées par |)."""
+    """Import CSV : colonnes attendues = email, first_name, last_name, phone,
+    roles (séparés par |), et facultativement contact_email (adresse réelle).
+
+    Rappel : la colonne « email » porte l'**identifiant de connexion**, pas
+    l'adresse. C'est « contact_email » qui reçoit l'adresse e-mail.
+    """
     content = await file.read()
     reader = csv.DictReader(io.StringIO(content.decode("utf-8-sig")))
     created = 0
@@ -267,8 +424,18 @@ async def import_csv(
             roles_str = row.get("roles", "user").strip()
             role_list = [RoleEnum(r.strip()) for r in roles_str.split("|") if r.strip()]
 
+            contact = (row.get("contact_email") or "").strip().lower() or None
+            if contact:
+                dup = await db.execute(
+                    select(User).where(func.lower(User.contact_email) == contact)
+                )
+                if dup.scalar_one_or_none():
+                    errors.append(f"Ligne {i}: l'adresse {contact} est déjà utilisée")
+                    continue
+
             user = User(
                 email=email,
+                contact_email=contact,
                 hashed_password=hash_password("changeme"),
                 first_name=row.get("first_name", "").strip(),
                 last_name=row.get("last_name", "").strip(),
@@ -292,6 +459,7 @@ def _user_to_out(user: User) -> UserOut:
     return UserOut(
         id=user.id,
         email=user.email,
+        contact_email=user.contact_email,
         first_name=user.first_name,
         last_name=user.last_name,
         phone=user.phone,

@@ -1,14 +1,27 @@
 """Schémas Pydantic — Utilisateurs."""
 
-from pydantic import BaseModel, Field, AliasChoices
+from pydantic import BaseModel, Field, AliasChoices, field_validator
 from datetime import datetime
 from typing import Optional
 from app.models.user import RoleEnum
-from app.schemas.common import NonEmptyStr
+from app.schemas.common import NonEmptyStr, EmailAddress
 
 
-class UserCreate(BaseModel):
-    email: NonEmptyStr
+class EmailMixin(BaseModel):
+    """Normalise l'adresse e-mail : minuscules, espaces retirés, vide = absente."""
+
+    @field_validator("contact_email", mode="before", check_fields=False)
+    @classmethod
+    def _clean_contact_email(cls, v):
+        if v is None:
+            return None
+        v = str(v).strip().lower()
+        return v or None
+
+
+class UserCreate(EmailMixin):
+    email: NonEmptyStr                       # identifiant de connexion
+    contact_email: Optional[EmailAddress] = None  # adresse e-mail réelle
     password: str
     first_name: NonEmptyStr
     last_name: NonEmptyStr
@@ -16,17 +29,25 @@ class UserCreate(BaseModel):
     roles: list[RoleEnum] = [RoleEnum.USER]
 
 
-class UserUpdate(BaseModel):
+class UserUpdate(EmailMixin):
     first_name: Optional[str] = None
     last_name: Optional[str] = None
+    contact_email: Optional[EmailAddress] = None
     phone: Optional[str] = None
     is_active: Optional[bool] = None
     roles: Optional[list[RoleEnum]] = None
 
 
+class MyProfileUpdate(EmailMixin):
+    """Ce que chacun peut modifier sur son propre compte."""
+    contact_email: Optional[EmailAddress] = None
+    phone: Optional[str] = None
+
+
 class UserOut(BaseModel):
     id: int
-    email: str
+    email: str                          # identifiant de connexion
+    contact_email: Optional[str] = None  # adresse e-mail réelle
     first_name: str
     last_name: str
     phone: Optional[str] = None
@@ -45,6 +66,17 @@ class SwitchRoleIn(BaseModel):
 
 
 class PasswordReset(BaseModel):
+    new_password: str
+
+
+class ForgotPasswordIn(BaseModel):
+    """Demande de réinitialisation : identifiant de connexion ou adresse e-mail."""
+    identifier: NonEmptyStr
+
+
+class ResetPasswordIn(BaseModel):
+    """Validation d'une réinitialisation à partir du lien reçu par e-mail."""
+    token: NonEmptyStr
     new_password: str
 
 

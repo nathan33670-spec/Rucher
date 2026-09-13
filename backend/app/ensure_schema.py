@@ -87,6 +87,13 @@ COLUMN_MIGRATIONS = [
         "number",
         "ALTER TABLE hives ADD COLUMN IF NOT EXISTS number VARCHAR(50)",
     ),
+    # Adresse e-mail réelle de l'adhérent (la colonne « email » porte, elle,
+    # l'identifiant de connexion).
+    (
+        "users",
+        "contact_email",
+        "ALTER TABLE users ADD COLUMN IF NOT EXISTS contact_email VARCHAR(255)",
+    ),
 ]
 
 

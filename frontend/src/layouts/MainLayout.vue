@@ -135,7 +135,7 @@
         <v-list density="compact" min-width="230">
           <v-list-item
             :title="`${auth.user?.first_name || ''} ${auth.user?.last_name || ''}`.trim() || auth.user?.email"
-            :subtitle="auth.user?.email"
+            :subtitle="auth.user?.contact_email || auth.user?.email"
             prepend-icon="mdi-account-circle"
           />
           <template v-if="orderedRoles.length > 1">
@@ -154,6 +154,12 @@
             </v-list-item>
           </template>
           <v-divider />
+          <v-list-item
+            prepend-icon="mdi-account-edit-outline"
+            title="Mes coordonnées"
+            :subtitle="auth.user?.contact_email ? null : 'Adresse e-mail manquante'"
+            @click="showProfile = true"
+          />
           <v-list-item
             prepend-icon="mdi-lock-reset"
             title="Changer mon mot de passe"
@@ -193,6 +199,7 @@
 
     <!-- Changer son propre mot de passe -->
     <ChangePasswordDialog v-model="showChangePw" @done="syncMsg = 'Mot de passe modifié'" />
+    <MyProfileDialog v-model="showProfile" />
 
     <!-- Demande d'activation des notifications au 1er lancement (après installation) -->
     <v-dialog v-model="showNotifPrompt" max-width="420" persistent>
@@ -299,6 +306,7 @@ import { canInstall } from '../services/pwa'
 import InstallButton from '../components/InstallButton.vue'
 import HiveAlertDialog from '../components/HiveAlertDialog.vue'
 import ChangePasswordDialog from '../components/ChangePasswordDialog.vue'
+import MyProfileDialog from '../components/MyProfileDialog.vue'
 
 const auth = useAuthStore()
 const notif = useNotifStore()
@@ -425,6 +433,7 @@ async function clearNotifications() {
 
 // Signalement d'un problème sur une ruche (menu latéral et barre supérieure).
 const showHiveAlert = ref(false)
+const showProfile = ref(false)
 function openAlertDialog() {
   drawer.value = false
   showHiveAlert.value = true
