@@ -3,6 +3,18 @@
     <div class="d-flex flex-wrap align-center justify-space-between ga-2 mb-4">
       <h2>Utilisateurs</h2>
       <div class="d-flex flex-wrap ga-2">
+        <v-btn variant="tonal" prepend-icon="mdi-file-download-outline" @click="downloadTemplate">
+          Modèle CSV
+        </v-btn>
+        <!-- Le format attendu est documenté : un lien à l'endroit même où la
+             question se pose évite de chercher dans le menu. -->
+        <v-btn
+          variant="text" icon size="small"
+          :to="{ name: 'docs-guide-admin', hash: '#csv' }" target="_blank"
+          title="Format du fichier CSV attendu"
+        >
+          <v-icon>mdi-help-circle-outline</v-icon>
+        </v-btn>
         <v-btn color="secondary" prepend-icon="mdi-upload" @click="csvInput.click()">Import CSV</v-btn>
         <v-btn color="primary" prepend-icon="mdi-plus" @click="openNewUser">Nouvel utilisateur</v-btn>
       </div>
@@ -10,8 +22,34 @@
     <input ref="csvInput" type="file" accept=".csv" style="display:none" @change="importCSV" />
 
     <v-alert v-if="csvResult" :type="csvResult.errors?.length ? 'warning' : 'success'" closable @click:close="csvResult = null" class="mb-3">
-      {{ csvResult.created }} utilisateurs importés.
+      <b>{{ csvResult.created }}</b> compte(s) importé(s).
       <div v-for="e in csvResult.errors" :key="e" class="text-caption">{{ e }}</div>
+
+      <!-- Les mots de passe provisoires ne sont montrés qu'ici, une seule
+           fois : ils ne sont conservés en clair nulle part. -->
+      <template v-if="csvResult.credentials?.length">
+        <v-divider class="my-3" />
+        <div class="text-body-2 font-weight-medium mb-1">
+          Mots de passe provisoires — notez-les maintenant, ils ne seront plus affichés.
+        </div>
+        <v-table density="compact" class="cred-table mb-2">
+          <thead><tr><th>Adhérent</th><th>Identifiant</th><th>Mot de passe</th></tr></thead>
+          <tbody>
+            <tr v-for="c in csvResult.credentials" :key="c.username">
+              <td>{{ c.name }}</td>
+              <td><code>{{ c.username }}</code></td>
+              <td><code>{{ c.password }}</code></td>
+            </tr>
+          </tbody>
+        </v-table>
+        <v-btn size="small" variant="tonal" prepend-icon="mdi-content-copy" @click="copyCredentials">
+          Copier la liste
+        </v-btn>
+        <div class="text-caption mt-2">
+          Les adhérents dont l'adresse e-mail figure dans le fichier peuvent
+          aussi utiliser « Mot de passe oublié ? » pour choisir le leur.
+        </div>
+      </template>
     </v-alert>
 
     <FilterBar
@@ -336,6 +374,44 @@ async function askDelete(u) {
   }
 }
 
+/**
+ * Modèle CSV prêt à remplir.
+ *
+ * Généré ici plutôt que servi par le serveur : le fichier ne dépend que du
+ * format attendu, et l'administrateur l'obtient sans aller chercher ailleurs.
+ * Le point-virgule et le BOM sont volontaires — c'est ce qu'attend Excel en
+ * configuration française, sinon tout atterrit dans une seule colonne.
+ */
+function downloadTemplate() {
+  const lignes = [
+    'email;first_name;last_name;contact_email;phone;roles',
+    'paulin;Paulin;Durand;paulin.durand@example.fr;0612345678;admin',
+    'marie;Marie;Lefevre;marie.lefevre@example.fr;;user',
+    'claude;Claude;Martin;;;yard_manager|treasurer',
+  ]
+  const blob = new Blob(['\ufeff' + lignes.join('\r\n') + '\r\n'],
+                        { type: 'text/csv;charset=utf-8' })
+  const url = URL.createObjectURL(blob)
+  const a = document.createElement('a')
+  a.href = url
+  a.download = 'modele-adherents.csv'
+  a.click()
+  URL.revokeObjectURL(url)
+  toastSuccess('Modèle téléchargé : remplissez-le puis utilisez « Import CSV »')
+}
+
+async function copyCredentials() {
+  const txt = (csvResult.value?.credentials || [])
+    .map((c) => `${c.name}\t${c.username}\t${c.password}`)
+    .join('\n')
+  try {
+    await navigator.clipboard.writeText(txt)
+    toastSuccess('Liste copiée')
+  } catch {
+    toastError('Copie impossible : sélectionnez le tableau à la main.')
+  }
+}
+
 /** Désactivation : la personne ne se connecte plus, son historique reste. */
 async function deactivateUser() {
   deleting.value = true
@@ -380,3 +456,10 @@ async function importCSV(e) {
 
 onMounted(load)
 </script>
+
+<style scoped>
+/* Le tableau des identifiants provisoires reste lisible dans le bandeau. */
+.cred-table :deep(td),
+.cred-table :deep(th) { padding-inline: 8px; }
+.cred-table :deep(code) { font-size: .92em; }
+</style>
