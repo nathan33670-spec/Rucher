@@ -10,6 +10,16 @@ Convention : la version la plus récente en tête.
 
 RELEASES = [
     {
+        "version": "1.7.0",
+        "date": "2026-09-13",
+        "title": "Numéros de ruche libres et correction des visites",
+        "highlights": [
+            "Chaque ruche porte un numéro que vous choisissez, modifiable à tout moment — plus aucun numéro technique à l'écran.",
+            "Chacun peut corriger ses propres visites depuis l'historique.",
+            "Un administrateur peut corriger ou supprimer n'importe quelle visite ; la correction est inscrite au journal.",
+        ],
+    },
+    {
         "version": "1.6.0",
         "date": "2026-09-13",
         "title": "Adresse e-mail et mot de passe oublié",

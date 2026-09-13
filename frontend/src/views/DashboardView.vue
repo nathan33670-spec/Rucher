@@ -160,7 +160,7 @@
       </v-card-title>
       <v-list>
         <v-list-item v-for="a in activeAlerts" :key="a.id">
-          <v-list-item-title>{{ a.alert_message || 'Alerte' }} — Ruche #{{ a.hive_id }}</v-list-item-title>
+          <v-list-item-title>{{ a.alert_message || 'Alerte' }} — {{ hiveLabelFromRow(a) }}</v-list-item-title>
           <v-list-item-subtitle>{{ new Date(a.visited_at).toLocaleDateString('fr-FR') }} par {{ a.author_name }}</v-list-item-subtitle>
         </v-list-item>
       </v-list>
@@ -201,6 +201,7 @@
 <script setup>
 import { ref, computed, onMounted } from 'vue'
 import api from '../services/api'
+import { hiveLabelFromRow } from '../services/hive'
 import { toastError, apiError } from '../services/toast'
 
 const stats = ref([])

@@ -52,7 +52,7 @@
     <v-card v-if="selectedHive" class="mb-4" variant="outlined" color="primary">
       <v-card-title class="d-flex align-center">
         <v-icon class="mr-2" color="primary">mdi-hexagon</v-icon>
-        {{ selectedHive.name || selectedHive.number || selectedHive.napi_number || 'Ruche #' + selectedHive.id }}
+        {{ hiveLabel(selectedHive) }}
         <v-chip :color="selectedHive.status === 'active' ? 'success' : 'error'" size="small" class="ml-2">
           {{ selectedHive.status }}
         </v-chip>
@@ -244,7 +244,7 @@
             emporte tout son historique — visites, traitements, récoltes.
           </p>
           <v-alert v-if="moveHiveTarget" density="compact" variant="tonal" class="mb-4">
-            <b>{{ moveHiveTarget.name || moveHiveTarget.number || moveHiveTarget.napi_number || 'Ruche #' + moveHiveTarget.id }}</b>
+            <b>{{ hiveLabel(moveHiveTarget) }}</b>
             <div class="text-caption">Actuellement au rucher « {{ apiary?.name }} »</div>
           </v-alert>
           <v-select
@@ -277,7 +277,7 @@
       <v-card>
         <v-card-title class="d-flex align-center">
           <v-icon class="mr-2" color="green-darken-2">mdi-clipboard-check</v-icon>
-          Visite — {{ visitHive?.name || visitHive?.number || visitHive?.napi_number || 'Ruche #' + visitHive?.id }}
+          Visite — {{ hiveLabel(visitHive) }}
         </v-card-title>
         <v-card-text>
           <!-- Hausses -->
@@ -335,6 +335,7 @@
 <script setup>
 import { ref, computed, watch, onMounted } from 'vue'
 import { apiError } from '../services/toast'
+import { hiveLabel } from '../services/hive'
 import { useRoute } from 'vue-router'
 import api from '../services/api'
 import { confirmAction } from '../services/confirm'

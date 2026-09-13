@@ -13,6 +13,7 @@ from app.schemas.sanitary import SanitaryCreate, SanitaryUpdate, SanitaryOut
 from app.utils.auth import get_current_user, require_roles, get_user_roles
 from app.utils.audit import log_action
 from app.utils.push import notify
+from app.utils.hive_numbers import hive_label
 
 router = APIRouter(prefix="/api/sanitary", tags=["sanitary"])
 
@@ -32,8 +33,7 @@ def _record_out(r: SanitaryRecord) -> SanitaryOut:
         notes=r.notes,
         performed_by=r.performed_by,
         created_at=r.created_at,
-        hive_name=(hive.name or hive.number or hive.napi_number
-                   or f"Ruche #{hive.id}") if hive else None,
+        hive_name=hive_label(hive) if hive else None,
     )
 
 

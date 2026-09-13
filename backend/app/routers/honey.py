@@ -24,6 +24,7 @@ from app.schemas.honey import (
 )
 from app.utils.auth import get_current_user, require_roles, get_user_roles
 from app.utils.audit import log_action
+from app.utils.hive_numbers import hive_label
 
 router = APIRouter(prefix="/api/honey", tags=["honey"])
 
@@ -845,8 +846,7 @@ def _harvest_out(h: HoneyHarvest) -> HoneyHarvestOut:
         created_at=h.created_at,
         category_name=h.category.name if h.category else None,
         apiary_name=h.apiary.name if h.apiary else None,
-        hive_name=(h.hive.name or h.hive.number or h.hive.napi_number
-                   or f"Ruche #{h.hive.id}") if h.hive else None,
+        hive_name=hive_label(h.hive) if h.hive else None,
         jars=[{"id": j.id, "jar_weight_g": j.jar_weight_g, "quantity": j.quantity,
                "initial_quantity": j.initial_quantity,
                "lost_quantity": j.lost_quantity or 0, "unit_price": j.unit_price}

@@ -71,5 +71,6 @@ class VisitOut(BaseModel):
     created_at: datetime
     author_name: Optional[str] = None
     hive_name: Optional[str] = None
+    hive_number: Optional[str] = None
     class Config:
         from_attributes = True

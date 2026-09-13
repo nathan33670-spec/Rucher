@@ -15,10 +15,15 @@
 
     <v-data-table :headers="headers" :items="filteredVisits" density="compact">
       <template v-slot:item.visited_at="{ item }">
-        {{ new Date(item.visited_at).toLocaleString('fr-FR') }}
+        <span class="text-no-wrap">{{ shortDate(item.visited_at) }}</span>
       </template>
       <template v-slot:item.hive_name="{ item }">
-        {{ item.hive_name || ('Ruche #' + item.hive_id) }}
+        <!-- Pas de « no-wrap » ici : un nom long élargirait la colonne au point
+             de repousser les actions hors de l'écran. -->
+        <span class="hive-cell">{{ hiveLabelFromRow(item) }}</span>
+        <v-chip v-if="item.hive_number" size="x-small" variant="tonal" class="ml-1">
+          n° {{ item.hive_number }}
+        </v-chip>
       </template>
       <template v-slot:item.treatment_type="{ item }">
         <v-chip v-if="item.treatment_type" size="x-small" variant="tonal" color="info"
@@ -39,9 +44,23 @@
       <template v-slot:item.is_alert="{ item }">
         <v-icon v-if="item.is_alert" color="error">mdi-alert</v-icon>
       </template>
-      <template v-slot:item.actions="{ item }" v-if="canEdit">
-        <v-btn icon size="small" variant="text" @click="editVisit(item)"><v-icon>mdi-pencil</v-icon></v-btn>
-        <v-btn v-if="auth.isAdmin" icon size="small" @click="deleteVisit(item.id)"><v-icon color="error">mdi-delete</v-icon></v-btn>
+      <template v-slot:item.actions="{ item }">
+        <div class="actions-cell">
+        <v-btn
+          v-if="canEditVisit(item)" icon size="small" variant="text"
+          :title="item.author_id === auth.user?.id ? 'Corriger ma visite' : 'Corriger cette visite (administrateur)'"
+          @click="editVisit(item)"
+        >
+          <v-icon>mdi-pencil</v-icon>
+        </v-btn>
+        <v-btn
+          v-if="auth.isAdmin" icon size="small" variant="text" title="Supprimer cette visite"
+          @click="deleteVisit(item)"
+        >
+          <v-icon color="error">mdi-delete</v-icon>
+        </v-btn>
+        <span v-if="!canEditVisit(item) && !auth.isAdmin" class="r-muted">—</span>
+        </div>
       </template>
     </v-data-table>
 
@@ -50,6 +69,13 @@
       <v-card>
         <v-card-title>Modifier la visite</v-card-title>
         <v-card-text>
+          <!-- Retoucher l'observation d'un autre n'est pas anodin : on le dit. -->
+          <v-alert
+            v-if="editingOther" type="warning" variant="tonal" density="compact" class="mb-4"
+          >
+            Vous corrigez la visite de <b>{{ editingOther }}</b> en tant
+            qu'administrateur. La correction est inscrite au journal.
+          </v-alert>
           <!-- Section Hausses et cadres -->
           <v-card variant="outlined" class="mb-4 pa-3">
             <div class="text-subtitle-2 font-weight-bold mb-2">
@@ -104,13 +130,26 @@
 <script setup>
 import { ref, computed, onMounted } from 'vue'
 import FilterBar from '../components/FilterBar.vue'
+import { hiveLabelFromRow } from '../services/hive'
 import api from '../services/api'
 import { toastError, toastSuccess, apiError } from '../services/toast'
 import { confirmAction } from '../services/confirm'
 import { useAuthStore } from '../stores/auth'
 
 const auth = useAuthStore()
-const canEdit = computed(() => auth.isAdmin || auth.hasRole('yard_manager'))
+/**
+ * Qui peut corriger une visite.
+ *
+ * Une visite est l'observation d'une personne à un instant donné : son auteur
+ * la corrige librement, un administrateur peut intervenir sur n'importe
+ * laquelle. Le serveur applique exactement la même règle.
+ */
+function canEditVisit(v) {
+  return auth.isAdmin || v.author_id === auth.user?.id
+}
+// Au moins une action est possible sur certaines lignes : la colonne sert
+// toujours, ne serait-ce que pour ses propres visites.
+const canEdit = computed(() => true)
 const visits = ref([])
 
 // ─── Filtres ──────────────────────────────────────────────
@@ -119,7 +158,7 @@ const visits = ref([])
 const filters = ref({ hive: null, author: null, from: null, to: null, alert: null, q: null })
 
 const uniq = (list) => [...new Set(list.filter(Boolean))].sort((a, b) => a.localeCompare(b))
-const hiveName = (v) => v.hive_name || ('Ruche #' + v.hive_id)
+const hiveName = hiveLabelFromRow
 
 const filterFields = computed(() => [
   { key: 'hive', label: 'Ruche', type: 'select', icon: 'mdi-beehive-outline',
@@ -163,6 +202,8 @@ const legacyExtras = ref([])
 const headers = computed(() => {
   const h = [
     { title: 'Date', key: 'visited_at' },
+    // Le numéro est affiché dans la cellule « Ruche » plutôt que dans une
+    // colonne à lui : une colonne de plus repoussait les actions hors écran.
     { title: 'Ruche', key: 'hive_name' },
     { title: 'Auteur', key: 'author_name' },
     { title: 'Reine', key: 'queen_seen' },
@@ -170,11 +211,15 @@ const headers = computed(() => {
     { title: 'Réserves', key: 'reserves_score' },
     { title: 'Hausses', key: 'supers_count' },
     { title: 'Cadres', key: 'frames_count' },
-    { title: 'Traitement', key: 'treatment_type' },
-    { title: 'Commentaire', key: 'comment', sortable: false },
-    { title: 'Alerte', key: 'is_alert' },
   ]
-  if (canEdit.value) h.push({ title: 'Actions', key: 'actions', sortable: false })
+  // Le traitement ne se saisit plus depuis une visite : la colonne n'a de sens
+  // que s'il reste des valeurs enregistrées avec l'ancienne version.
+  if (visits.value.some((v) => v.treatment_type)) {
+    h.push({ title: 'Traitement', key: 'treatment_type' })
+  }
+  h.push({ title: 'Commentaire', key: 'comment', sortable: false })
+  h.push({ title: 'Alerte', key: 'is_alert' })
+  h.push({ title: 'Actions', key: 'actions', sortable: false, width: 110 })
   return h
 })
 
@@ -187,8 +232,18 @@ async function load() {
   }
 }
 
+const editingOther = ref('')
+
+/** Date compacte : la seconde près n'apporte rien et mange une colonne. */
+function shortDate(iso) {
+  const d = new Date(iso)
+  return d.toLocaleDateString('fr-FR', { day: '2-digit', month: '2-digit', year: '2-digit' })
+    + ' ' + d.toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' })
+}
+
 function editVisit(v) {
   formEditId.value = v.id
+  editingOther.value = v.author_id === auth.user?.id ? '' : (v.author_name || 'un autre adhérent')
   form.value = {
     queen_seen: v.queen_seen,
     brood_score: v.brood_score,
@@ -219,18 +274,24 @@ async function saveVisit() {
     await load()
     toastSuccess('Visite modifiée')
   } catch (e) {
-    toastError(apiError(e, "Erreur lors de l'enregistrement"))
+    toastError(apiError(e, "Enregistrement impossible"))
   }
 }
 
-async function deleteVisit(id) {
-  if (!(await confirmAction('Supprimer cette visite ?'))) return
+async function deleteVisit(v) {
+  // La confirmation rappelle de quoi il s'agit : sur un historique filtré, un
+  // « Supprimer cette visite ? » anonyme ne dit pas laquelle.
+  const quand = new Date(v.visited_at).toLocaleDateString('fr-FR')
+  const qui = v.author_name ? ` saisie par ${v.author_name}` : ''
+  if (!(await confirmAction(
+    `Supprimer la visite du ${quand} sur ${hiveLabelFromRow(v)}${qui} ?`
+  ))) return
   try {
-    await api.delete(`/visits/${id}`)
+    await api.delete(`/visits/${v.id}`)
     await load()
     toastSuccess('Visite supprimée')
   } catch (e) {
-    toastError(apiError(e, 'Erreur lors de la suppression'))
+    toastError(apiError(e, 'Suppression impossible'))
   }
 }
 
@@ -238,9 +299,29 @@ onMounted(load)
 </script>
 
 <style scoped>
+/* Les deux boutons doivent tenir sur une ligne : empilés, ils doublaient la
+   hauteur de chaque ligne du tableau. */
+.actions-cell {
+  display: flex;
+  align-items: center;
+  gap: 2px;
+  flex-wrap: nowrap;
+}
+
+/* La colonne des actions doit rester visible sans défilement horizontal :
+   on borne donc ce qui peut s'étirer. */
+.hive-cell {
+  display: inline-block;
+  max-width: 150px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  vertical-align: middle;
+}
+
 .comment-cell {
   display: inline-block;
-  max-width: 240px;
+  max-width: 200px;
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;

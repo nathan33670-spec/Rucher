@@ -64,6 +64,13 @@ Légende : ✅ autorisé · ⛔ refusé (403) · 🔶 conditionnel (voir notes)
 ¹ Uniquement si l'utilisateur est **gestionnaire déclaré** de cette ruche.
 En lecture seule, l'écriture reste refusée quoi qu'il arrive.
 
+> **Le numéro affiché n'est jamais l'identifiant de base.** Une ruche sans
+> numéro s'affichait auparavant « Ruche #37 » : un numéro que personne n'a
+> choisi et que l'on ne peut pas modifier. Toute ruche créée sans numéro en
+> reçoit désormais un (le premier entier libre), modifiable ensuite ; au
+> démarrage, les ruches existantes qui n'avaient ni numéro ni NAPI sont
+> numérotées de la même façon.
+>
 > **Deux numéros à ne pas confondre :**
 >
 > - le **numéro de ruche** identifie *une* ruche (souvent peint dessus). Il doit
@@ -87,13 +94,26 @@ En lecture seule, l'écriture reste refusée quoi qu'il arrive.
 | Action | admin | treasurer | yard_manager | user | readonly |
 |---|:--:|:--:|:--:|:--:|:--:|
 | Consulter les visites | ✅ | ✅ | ✅ | ✅ | ✅ |
-| Saisir une visite | ✅ | 🔶 ¹ | ✅ | 🔶 ¹ | 🔶 ¹ |
-| Modifier une visite | ✅ | 🔶 ¹ | ✅ | 🔶 ¹ | 🔶 ¹ |
-| Supprimer une visite | ✅ | ⛔ | ⛔ | ⛔ | ⛔ |
+| Saisir une visite | ✅ | 🔶 ¹ | ✅ | 🔶 ¹ | ⛔ |
+| Modifier **sa propre** visite | ✅ | ✅ | ✅ | ✅ | ⛔ |
+| Modifier la visite **d'un autre** | ✅ | ⛔ | ⛔ | ⛔ | ⛔ |
+| Supprimer une visite (n'importe laquelle) | ✅ | ⛔ | ⛔ | ⛔ | ⛔ |
 | Planifier ses visites (météo) | ✅ | ✅ | ✅ | ✅ | ✅ |
 
-¹ `_check_hive_access` : admin et yard_manager passent partout ; les autres
-doivent être **gestionnaires de la ruche** concernée.
+¹ `_check_hive_access` (saisie) : admin et yard_manager passent partout ; les
+autres doivent être **gestionnaires de la ruche** concernée.
+
+> **Modifier une visite ne suit pas la même règle que la saisir.** Une visite
+> est l'observation d'une personne à un instant donné : son auteur la corrige
+> librement, même sur une ruche dont il n'a pas la charge. Retoucher celle d'un
+> autre revient à réécrire son témoignage — c'est donc réservé aux
+> administrateurs, et la correction est inscrite au journal comme telle. Le
+> responsable de rucher, qui pouvait auparavant modifier les visites d'autrui
+> sur ses ruches, ne le peut plus.
+>
+> La **suppression** reste administrateur uniquement, y compris pour sa propre
+> visite : effacer une observation fait disparaître une trace du suivi du
+> cheptel, ce n'est pas une correction de saisie.
 
 ### Suivi sanitaire
 

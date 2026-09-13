@@ -357,6 +357,7 @@
 <script setup>
 import { ref, computed, onMounted, onUnmounted } from 'vue'
 import { apiError } from '../services/toast'
+import { hiveLabel } from '../services/hive'
 import { useRoute, useRouter } from 'vue-router'
 import api from '../services/api'
 import { savePendingVisit, syncPendingVisits } from '../services/offline'
@@ -433,7 +434,7 @@ function formatVisitDate(iso) {
 const currentHive = computed(() => hives.value[currentIndex.value] || null)
 const currentHiveLabel = computed(() => {
   const h = currentHive.value
-  return h ? (h.name || h.number || h.napi_number || 'Ruche #' + h.id) : ''
+  return h ? hiveLabel(h) : ''
 })
 // Nom affiché de la personne qui saisit la visite.
 const authorName = computed(() => {
@@ -446,7 +447,7 @@ const progress = computed(() => hives.value.length ? ((currentIndex.value) / hiv
 const hiveOptions = computed(() =>
   hives.value.map((h, i) => ({
     index: i,
-    label: (i + 1) + '. ' + (h.name || h.number || h.napi_number || 'Ruche #' + h.id) + (h.ownership === 'private' ? ' · privée' : ''),
+    label: (i + 1) + '. ' + hiveLabel(h) + (h.ownership === 'private' ? ' · privée' : ''),
   }))
 )
 
@@ -630,7 +631,7 @@ async function saveAndNext() {
       // Trace immédiate dans la cloche : hors connexion, le serveur n'a encore
       // rien enregistré et la notification n'arriverait qu'à la synchronisation.
       notif.addAlert({
-        title: '⚠️ ' + (currentHive.value.name || 'Ruche #' + currentHive.value.id),
+        title: '⚠️ ' + hiveLabel(currentHive.value),
         body: form.value.comment || 'Alerte terrain',
       })
     }

@@ -202,6 +202,30 @@ async def list_all_hives(
     return out
 
 
+async def next_free_number(db: AsyncSession) -> str:
+    """Prochain numéro de ruche libre.
+
+    Une ruche doit toujours porter un numéro **choisi**, jamais son identifiant
+    technique : afficher « Ruche #37 » exposait la clé primaire de la base, un
+    numéro que personne n'a décidé et qui ne correspond à rien sur le terrain.
+    On attribue donc d'office le premier entier disponible, que l'on reste
+    libre de corriger ensuite.
+    """
+    res = await db.execute(select(Hive.number).where(Hive.number.isnot(None)))
+    used = set()
+    for (value,) in res.all():
+        try:
+            used.add(int(str(value).strip()))
+        except (TypeError, ValueError):
+            # Les numéros non numériques (« A12 ») sont conservés tels quels et
+            # n'entrent simplement pas dans la numérotation automatique.
+            continue
+    n = 1
+    while n in used:
+        n += 1
+    return str(n)
+
+
 def _clean_number(value) -> str | None:
     """Numéro normalisé ; une saisie vide vaut « pas de numéro »."""
     if value is None:
@@ -231,7 +255,7 @@ async def _check_number_available(db: AsyncSession, number: str | None,
     if not other:
         return
     apiary = await db.get(Apiary, other.apiary_id)
-    label = other.name or f"Ruche #{other.id}"
+    label = other.name or (f"n° {other.number}" if other.number else "sans nom")
     where = f" du rucher « {apiary.name} »" if apiary else ""
     raise HTTPException(
         409,
@@ -250,7 +274,12 @@ async def create_hive(
     data = body.model_dump(exclude={"manager_ids", "photo"})
     data["number"] = _clean_number(data.get("number"))
     data["napi_number"] = _clean_number(data.get("napi_number"))
-    await _check_number_available(db, data["number"])
+    if data["number"]:
+        await _check_number_available(db, data["number"])
+    else:
+        # Sans numéro saisi, la ruche en reçoit un : sinon elle s'afficherait
+        # avec son identifiant de base, modifiable par personne.
+        data["number"] = await next_free_number(db)
     hive = Hive(**data)
     db.add(hive)
     await db.flush()

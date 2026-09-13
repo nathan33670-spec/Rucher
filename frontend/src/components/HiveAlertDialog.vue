@@ -53,6 +53,7 @@
 import { ref, computed, watch } from 'vue'
 import api from '../services/api'
 import { toastError, toastSuccess, apiError } from '../services/toast'
+import { hiveLabel } from '../services/hive'
 
 const open = defineModel({ type: Boolean, default: false })
 
@@ -67,7 +68,7 @@ const messageError = ref('')
 const hiveOptions = computed(() =>
   hives.value.map((h) => ({
     id: h.id,
-    label: [h.name || h.number || h.napi_number || `Ruche #${h.id}`, h.apiary_name]
+    label: [hiveLabel(h), h.apiary_name]
       .filter(Boolean)
       .join(' — '),
     managers: h.managers || [],
