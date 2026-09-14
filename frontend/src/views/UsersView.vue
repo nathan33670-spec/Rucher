@@ -66,6 +66,19 @@
       </template>
       <template v-slot:item.actions="{ item }">
         <v-btn icon size="small" variant="text" @click="editUser(item)"><v-icon>mdi-pencil</v-icon></v-btn>
+        <!-- Envoi des identifiants : sans adresse enregistrée, le bouton reste
+             visible mais inactif, et dit pourquoi — le masquer laisserait
+             chercher une fonction qui existe pourtant. -->
+        <v-btn
+          icon size="small" variant="text"
+          :disabled="!item.contact_email"
+          :title="item.contact_email
+            ? `Envoyer ses identifiants et le lien de l'application à ${item.contact_email}`
+            : 'Aucune adresse e-mail enregistrée sur ce compte'"
+          @click="askSendCredentials(item)"
+        >
+          <v-icon>mdi-email-fast-outline</v-icon>
+        </v-btn>
         <v-btn icon size="small" variant="text" @click="resetPw(item)"><v-icon>mdi-lock-reset</v-icon></v-btn>
         <v-btn v-if="item.id !== auth.user?.id" icon size="small" variant="text" color="error" @click="askDelete(item)"><v-icon>mdi-delete</v-icon></v-btn>
       </template>
@@ -176,6 +189,44 @@
       </v-card>
     </v-dialog>
 
+    <!-- Dialog : envoi des identifiants par e-mail -->
+    <v-dialog v-model="showCredDialog" max-width="500">
+      <v-card>
+        <v-card-title class="d-flex align-center">
+          <v-icon class="mr-2" color="primary">mdi-email-fast-outline</v-icon>
+          Envoyer les identifiants
+        </v-card-title>
+        <v-card-text>
+          <p class="mb-3">
+            <b>{{ credUser?.first_name }} {{ credUser?.last_name }}</b>
+            recevra à <b>{{ credUser?.contact_email }}</b> son nom d'utilisateur
+            (<code>{{ credUser?.email }}</code>), un mot de passe et le lien de
+            l'application.
+          </p>
+          <!-- Dire franchement que le mot de passe est remplacé : l'adhérent
+               sera déconnecté, ce n'est pas une surprise à découvrir après coup. -->
+          <v-alert type="info" variant="tonal" density="compact" class="mb-3">
+            Le mot de passe enregistré est chiffré : il est illisible, même pour
+            un administrateur. L'e-mail contiendra donc un <b>nouveau mot de
+            passe provisoire</b>, et l'ancien cessera de fonctionner
+            immédiatement.
+          </v-alert>
+          <p class="text-body-2 r-muted">
+            {{ credUser?.first_name }} sera déconnecté de ses appareils et
+            pourra choisir son propre mot de passe une fois connecté.
+          </p>
+          <v-alert v-if="credError" type="error" density="compact" class="mt-3">{{ credError }}</v-alert>
+        </v-card-text>
+        <v-card-actions>
+          <v-spacer />
+          <v-btn @click="showCredDialog = false">Annuler</v-btn>
+          <v-btn color="primary" :loading="sendingCred" @click="confirmSendCredentials">
+            Envoyer l'e-mail
+          </v-btn>
+        </v-card-actions>
+      </v-card>
+    </v-dialog>
+
     <!-- Dialog reset password -->
     <v-dialog v-model="showPwDialog" max-width="400">
       <v-card>
@@ -211,6 +262,34 @@ const emailError = ref('')
 watch(() => form.value.contact_email, () => { emailError.value = '' })
 const csvInput = ref(null)
 const csvResult = ref(null)
+
+// Envoi des identifiants par e-mail
+const showCredDialog = ref(false)
+const credUser = ref(null)
+const credError = ref('')
+const sendingCred = ref(false)
+
+function askSendCredentials(u) {
+  credUser.value = u
+  credError.value = ''
+  showCredDialog.value = true
+}
+
+async function confirmSendCredentials() {
+  sendingCred.value = true
+  credError.value = ''
+  try {
+    const { data } = await api.post(`/users/${credUser.value.id}/send-credentials`)
+    showCredDialog.value = false
+    toastSuccess(data.detail || `Identifiants envoyés à ${credUser.value.contact_email}`)
+  } catch (e) {
+    // Le message reste dans la boîte de dialogue : il explique quoi corriger
+    // (adresse manquante, SMTP non configuré) sans la refermer.
+    credError.value = apiError(e, "Envoi impossible")
+  } finally {
+    sendingCred.value = false
+  }
+}
 
 const showPwDialog = ref(false)
 const pwUser = ref(null)

@@ -27,7 +27,7 @@ from app.utils.auth import (
     get_selectable_roles,
 )
 from app.utils.audit import log_action
-from app.utils import mailer, password_reset as pwreset
+from app.utils import mailer, password_reset as pwreset, credentials_mail
 from app.routers.settings import load_mail
 
 router = APIRouter(prefix="/api/users", tags=["users"])
@@ -358,6 +358,75 @@ async def reset_password(
     user.token_version = (user.token_version or 0) + 1
     await log_action(db, current.id, "password_reset", "user", user.id)
     return {"detail": "Mot de passe modifié — le compte a été déconnecté de tous ses appareils"}
+
+
+@router.post("/{user_id}/send-credentials")
+async def send_credentials(
+    user_id: int,
+    db: AsyncSession = Depends(get_db),
+    current: User = Depends(require_roles(RoleEnum.ADMIN)),
+):
+    """Envoie à l'adhérent ses identifiants et le lien de l'application.
+
+    Le mot de passe en base est une empreinte Argon2 : celui que la personne
+    avait choisi est **illisible**, y compris pour un administrateur. « Lui
+    envoyer son mot de passe » veut donc dire lui en attribuer un nouveau et
+    le lui transmettre — ce que fait cette route, en une seule manipulation
+    plutôt que « réinitialiser », noter, puis rédiger un e-mail à la main.
+
+    L'ordre compte : on envoie d'abord, on enregistre ensuite. Si le serveur
+    de messagerie refuse le message, le compte garde son mot de passe actuel
+    au lieu de se retrouver avec un mot de passe que personne n'a reçu.
+    """
+    result = await db.execute(select(User).where(User.id == user_id))
+    user = result.scalar_one_or_none()
+    if not user:
+        raise HTTPException(404, "Utilisateur introuvable")
+    if not user.contact_email:
+        raise HTTPException(
+            400,
+            f"Aucune adresse e-mail enregistrée pour {user.first_name or user.email} : "
+            "renseignez-la d'abord avec le crayon, puis réessayez.",
+        )
+
+    cfg = await load_mail(db)
+    if not mailer.mail_enabled(cfg):
+        raise HTTPException(
+            503,
+            "L'envoi d'e-mails n'est pas configuré : renseignez le serveur SMTP "
+            "dans Réglages → Configuration.",
+        )
+
+    app_url = (cfg.get("app_base_url") or "").strip()
+    if not app_url:
+        raise HTTPException(
+            400,
+            "L'adresse de l'application n'est pas renseignée : sans elle, "
+            "l'e-mail ne pourrait pas contenir de lien. Complétez « Adresse de "
+            "l'application » dans Réglages → Configuration.",
+        )
+
+    provisoire = secrets.token_urlsafe(9)
+    subject, html, text = credentials_mail.build_email(user, provisoire, app_url)
+    try:
+        await mailer.send_mail(subject, html, text, [user.contact_email], cfg)
+    except Exception as e:
+        print(f"❌ Identifiants : envoi impossible à {user.contact_email} — {e}")
+        raise HTTPException(
+            502,
+            f"L'e-mail n'a pas pu être envoyé à {user.contact_email}. "
+            "Le mot de passe du compte n'a pas été modifié.",
+        )
+
+    user.hashed_password = hash_password(provisoire)
+    # Le mot de passe change : les jetons émis auparavant sont périmés.
+    user.token_version = (user.token_version or 0) + 1
+    await log_action(db, current.id, "send_credentials", "user", user.id)
+
+    return {
+        "detail": f"Identifiants envoyés à {user.contact_email}",
+        "sent_to": user.contact_email,
+    }
 
 
 # Ce qu'un compte laisse derrière lui. Ces enregistrements décrivent la vie de
