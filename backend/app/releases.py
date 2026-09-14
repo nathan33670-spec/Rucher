@@ -10,6 +10,16 @@ Convention : la version la plus récente en tête.
 
 RELEASES = [
     {
+        "version": "1.8.1",
+        "date": "2026-09-14",
+        "title": "Envoyer ses identifiants à un adhérent",
+        "highlights": [
+            "Un bouton « enveloppe » sur l'écran Utilisateurs envoie à un adhérent son nom d'utilisateur, un mot de passe et le lien de l'application, en une seule manipulation.",
+            "Le mot de passe enregistré étant chiffré, l'e-mail contient un nouveau mot de passe provisoire : l'ancien cesse de fonctionner et la personne choisit le sien une fois connectée.",
+            "Si le serveur de messagerie refuse le message, le compte garde son mot de passe : rien ne change tant que l'e-mail n'est pas parti.",
+        ],
+    },
+    {
         "version": "1.8.0",
         "date": "2026-09-13",
         "title": "Documentation refaite en six chapitres",

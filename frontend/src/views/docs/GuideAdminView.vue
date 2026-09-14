@@ -25,7 +25,8 @@ const sections = [
       { img: 'g-utilisateurs-boutons.jpg', cap: "Les trois boutons d'action (agrandis)." },
       { table: { head: ['Icône', 'Action'], rows: [
         ['✏️ <b>crayon</b>', "Modifier la fiche : nom, e-mail, téléphone, rôles, état actif."],
-        ['🔑 <b>cadenas</b>', "Définir un nouveau mot de passe pour cette personne."],
+        ['✉️ <b>enveloppe</b>', "Envoyer à la personne ses identifiants et le lien de l'application (section suivante)."],
+        ['🔑 <b>cadenas</b>', "Définir soi-même un nouveau mot de passe, à transmettre de vive voix."],
         ['🗑️ <b>corbeille</b>', "Supprimer le compte — ou le désactiver, voir plus bas."],
       ] } },
     ],
@@ -48,6 +49,35 @@ const sections = [
         ['<b>Actif</b>', "Décoché, le compte existe mais ne peut plus se connecter."],
       ] } },
       { warn: "<b>Nom d'utilisateur ≠ adresse e-mail.</b> C'est la confusion la plus fréquente : l'identifiant sert à se connecter, l'adresse à recevoir les messages." },
+    ],
+  },
+  {
+    id: 'envoyer', t: 'Envoyer ses identifiants à un adhérent',
+    blocks: [
+      { p: "« Je n'arrive plus à me connecter » est l'appel le plus fréquent. Ce bouton y répond en une manipulation : la personne reçoit par e-mail son nom d'utilisateur, un mot de passe et le <b>lien de l'application</b>, sans que vous ayez à rédiger quoi que ce soit." },
+      { steps: [
+        "Sur l'écran <b>Utilisateurs</b>, retrouvez la personne (la barre de filtres aide : tapez son nom).",
+        "Cliquez sur l'icône <b>enveloppe</b> ✉️ en bout de ligne.",
+        "Relisez le récapitulatif : destinataire, identifiant, ce qui va changer.",
+        "Cliquez sur <b>Envoyer l'e-mail</b>.",
+      ] },
+      { img: 'g-envoi-identifiants.jpg', cap: "La confirmation avant envoi." },
+      { warn: "Le mot de passe enregistré est chiffré : <b>personne ne peut le relire</b>, pas même un administrateur. L'e-mail contient donc un <b>nouveau mot de passe provisoire</b> ; l'ancien cesse aussitôt de fonctionner et la personne est déconnectée de ses appareils. C'est sans gravité — elle se reconnecte avec le mot de passe reçu, puis choisit le sien." },
+      { h3: 'Ce que reçoit la personne' },
+      { ul: [
+        "Son <b>nom d'utilisateur</b> et son <b>mot de passe</b>, présentés côte à côte.",
+        "Un bouton <b>Ouvrir l'application</b> qui mène directement à l'écran de connexion.",
+        "La marche à suivre pour <b>choisir son propre mot de passe</b> une fois connectée.",
+        "Un rappel qu'elle peut installer l'application sur l'écran d'accueil de son téléphone.",
+      ] },
+      { h3: "Si le bouton est grisé" },
+      { table: { head: ['Situation', 'Ce qu\'il faut faire'], rows: [
+        ["Le bouton est <b>inactif</b>", "Le compte n'a pas d'adresse e-mail. Ouvrez la fiche avec le <b>crayon</b>, renseignez l'<b>adresse e-mail</b>, enregistrez : le bouton s'active."],
+        ["<i>L'envoi d'e-mails n'est pas configuré</i>", "Renseignez le serveur SMTP dans <b>Réglages → Configuration</b> (section plus bas)."],
+        ["<i>L'adresse de l'application n'est pas renseignée</i>", "Complétez <b>Adresse de l'application</b> dans <b>Réglages → Configuration</b> : sans elle, l'e-mail ne pourrait pas contenir de lien."],
+        ["<i>L'e-mail n'a pas pu être envoyé</i>", "Le serveur de messagerie a refusé le message. <b>Le mot de passe du compte n'a pas été modifié</b> : corrigez le réglage SMTP puis réessayez."],
+      ] } },
+      { tip: "Vous préférez transmettre le mot de passe de vive voix ? Le bouton <b>cadenas</b> 🔑 reste là pour cela : il permet de choisir le mot de passe vous-même, sans envoyer d'e-mail." },
     ],
   },
   {
