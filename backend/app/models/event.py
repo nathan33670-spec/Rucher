@@ -25,6 +25,11 @@ class Event(Base):
     created_by = Column(Integer, ForeignKey("users.id", ondelete="SET NULL"), nullable=True)
     created_at = Column(DateTime, default=datetime.utcnow)
     updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
+    # Dernière notification poussée vers les téléphones. Sert à dire à
+    # l'organisateur s'il a déjà relancé, et quand : sans ce repère, on
+    # renotifie deux fois par précaution, et les adhérents reçoivent tout
+    # en double.
+    last_notified_at = Column(DateTime, nullable=True)
 
 
 class EventRSVP(Base):

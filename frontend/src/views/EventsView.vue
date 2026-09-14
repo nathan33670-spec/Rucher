@@ -21,14 +21,69 @@
     <template v-else>
       <template v-if="upcoming.length">
         <div class="text-overline text-primary mt-2 mb-1">À venir</div>
-        <EventCardList :events="upcoming" @rsvp="doRsvp" @edit="openEdit" @remove="removeEvent" @participants="openParticipants" @calendar-ics="downloadICS" @calendar-google="openGoogle" :is-admin="auth.isAdmin" :busy-id="busyId" />
+        <EventCardList :events="upcoming" @rsvp="doRsvp" @edit="openEdit" @remove="removeEvent" @participants="openParticipants" @calendar-ics="downloadICS" @calendar-google="openGoogle" @notify="openNotify" :is-admin="auth.isAdmin" :user-id="auth.user?.id" :busy-id="busyId" />
       </template>
 
       <template v-if="past.length">
         <div class="text-overline text-medium-emphasis mt-4 mb-1">Passés</div>
-        <EventCardList :events="past" past @rsvp="doRsvp" @edit="openEdit" @remove="removeEvent" @participants="openParticipants" @calendar-ics="downloadICS" @calendar-google="openGoogle" :is-admin="auth.isAdmin" :busy-id="busyId" />
+        <EventCardList :events="past" past @rsvp="doRsvp" @edit="openEdit" @remove="removeEvent" @participants="openParticipants" @calendar-ics="downloadICS" @calendar-google="openGoogle" @notify="openNotify" :is-admin="auth.isAdmin" :user-id="auth.user?.id" :busy-id="busyId" />
       </template>
     </template>
+
+    <!-- Dialog : relancer une notification vers les téléphones -->
+    <v-dialog v-model="showNotify" max-width="520">
+      <v-card>
+        <v-card-title class="d-flex align-center">
+          <v-icon class="mr-2" color="primary">mdi-cellphone-message</v-icon>
+          Notifier les adhérents
+        </v-card-title>
+        <v-card-text>
+          <p class="mb-3">
+            <b>{{ notifyEvent?.title }}</b>
+            <span v-if="notifyEvent?.start_at" class="text-medium-emphasis">
+              — {{ formatDate(notifyEvent.start_at) }}
+            </span>
+          </p>
+
+          <!-- Dire à qui cela part : une notification se reçoit sur le
+               téléphone, on ne l'envoie pas à l'aveugle. -->
+          <v-alert type="info" variant="tonal" density="compact" class="mb-4">
+            <span v-if="notifyEvent?.is_public">
+              Part à <b>tous les adhérents</b> ayant activé les notifications
+              d'événements, sur leur téléphone.
+            </span>
+            <span v-else>
+              Événement <b>privé</b> : seuls les <b>administrateurs</b> seront
+              notifiés, puisqu'eux seuls le voient.
+            </span>
+          </v-alert>
+
+          <v-alert
+            v-if="notifyEvent?.last_notified_at"
+            type="warning" variant="tonal" density="compact" class="mb-4"
+          >
+            Une notification a déjà été envoyée le
+            <b>{{ formatDateTime(notifyEvent.last_notified_at) }}</b>.
+          </v-alert>
+
+          <v-textarea
+            v-model="notifyMessage"
+            label="Message (facultatif)"
+            hint="Laissé vide : la date, le lieu et l'invitation à répondre. Sinon, votre texte — « rendez-vous 9h au parking », « pensez à votre combinaison »."
+            persistent-hint
+            rows="3"
+            maxlength="300"
+          />
+        </v-card-text>
+        <v-card-actions>
+          <v-spacer />
+          <v-btn @click="showNotify = false">Annuler</v-btn>
+          <v-btn color="primary" :loading="notifying" prepend-icon="mdi-send" @click="sendNotify">
+            Envoyer la notification
+          </v-btn>
+        </v-card-actions>
+      </v-card>
+    </v-dialog>
 
     <!-- Dialog création / édition (admin) -->
     <v-dialog v-model="showForm" max-width="560">
@@ -112,6 +167,36 @@ const showForm = ref(false)
 const editId = ref(null)
 const saving = ref(false)
 
+// Relance de notification (organisateur ou administrateur)
+const showNotify = ref(false)
+const notifyEvent = ref(null)
+const notifyMessage = ref('')
+const notifying = ref(false)
+
+function openNotify(ev) {
+  notifyEvent.value = ev
+  notifyMessage.value = ''
+  showNotify.value = true
+}
+
+async function sendNotify() {
+  notifying.value = true
+  try {
+    const { data } = await api.post(`/events/${notifyEvent.value.id}/notify`,
+                                    { message: notifyMessage.value.trim() || null })
+    // Remplacer l'événement en place : la date du dernier envoi est à jour
+    // sans recharger toute la liste.
+    const i = events.value.findIndex((e) => e.id === data.id)
+    if (i !== -1) events.value[i] = data
+    showNotify.value = false
+    flash('Notification envoyée')
+  } catch (e) {
+    flash(apiError(e, "La notification n'a pas pu être envoyée"), 'error')
+  } finally {
+    notifying.value = false
+  }
+}
+
 const showParticipants = ref(false)
 const participants = ref([])
 
@@ -143,6 +228,16 @@ const participantGroups = computed(() => {
 })
 
 function flash(msg, color = 'success') { snackMsg.value = msg; snackColor.value = color; snack.value = true }
+
+function formatDate(dt) {
+  return new Date(dt).toLocaleDateString('fr-FR',
+    { weekday: 'long', day: 'numeric', month: 'long' })
+}
+function formatDateTime(dt) {
+  const d = new Date(dt)
+  return d.toLocaleDateString('fr-FR')
+    + ' à ' + d.toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' })
+}
 
 async function load() {
   loading.value = true

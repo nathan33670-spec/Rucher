@@ -70,6 +70,17 @@
 
           <v-spacer />
 
+          <!-- L'organisateur relance son propre événement sans dépendre d'un
+               administrateur : c'est lui qui sait quand c'est utile. -->
+          <v-btn
+            v-if="!past && canNotify(ev)"
+            size="small" variant="text" prepend-icon="mdi-cellphone-message"
+            :title="lastNotified(ev)"
+            @click="$emit('notify', ev)"
+          >
+            Notifier
+          </v-btn>
+
           <template v-if="isAdmin">
             <v-btn size="small" variant="text" prepend-icon="mdi-account-group" @click="$emit('participants', ev)">Participants</v-btn>
             <v-btn icon size="small" variant="text" @click="$emit('edit', ev)"><v-icon>mdi-pencil</v-icon></v-btn>
@@ -88,9 +99,23 @@ const props = defineProps({
   events: { type: Array, default: () => [] },
   past: { type: Boolean, default: false },
   isAdmin: { type: Boolean, default: false },
+  // Identifiant de l'utilisateur courant : l'organisateur d'un événement peut
+  // le relancer, même s'il n'est pas administrateur.
+  userId: { type: [Number, null], default: null },
   busyId: { type: [Number, null], default: null },
 })
-const emit = defineEmits(['rsvp', 'edit', 'remove', 'participants', 'calendar-ics', 'calendar-google'])
+const emit = defineEmits(['rsvp', 'edit', 'remove', 'participants', 'calendar-ics', 'calendar-google', 'notify'])
+
+function canNotify(ev) {
+  return props.isAdmin || (props.userId != null && ev.created_by === props.userId)
+}
+
+function lastNotified(ev) {
+  if (!ev.last_notified_at) return "Aucune notification envoyée pour l'instant"
+  const d = new Date(ev.last_notified_at)
+  return 'Dernière notification : ' + d.toLocaleDateString('fr-FR')
+    + ' à ' + d.toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' })
+}
 
 const pending = ref(null)
 function emitRsvp(ev, response) {
