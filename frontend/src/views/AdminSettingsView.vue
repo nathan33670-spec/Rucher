@@ -126,7 +126,8 @@
           </v-col>
           <v-col cols="12">
             <v-text-field v-model="mail.app_base_url" label="Adresse de l'application" placeholder="https://ruches.corsicajack.fr"
-              hint="Utilisée pour le bouton « Ouvrir l'application » dans l'e-mail" persistent-hint density="compact" />
+              hint="Utilisée pour le bouton « Ouvrir l'application » dans les e-mails. Laissée vide, l'adresse de consultation est utilisée."
+              persistent-hint density="compact" />
           </v-col>
         </v-row>
       </v-card-text>
@@ -213,7 +214,14 @@ async function load() {
       api.get('/settings/mail'),
     ])
     access.value = a.data
-    mail.value = { ...m.data, smtp_password: '' }
+    // Champ jamais rempli : on propose l'adresse par laquelle on est arrivé.
+    // Il ne reste qu'à enregistrer pour que le récapitulatif hebdomadaire,
+    // envoyé sans navigateur, dispose lui aussi d'un lien.
+    mail.value = {
+      ...m.data,
+      smtp_password: '',
+      app_base_url: m.data.app_base_url || m.data.detected_app_url || '',
+    }
   } catch (e) { fail(e, 'Chargement des réglages impossible') }
 }
 

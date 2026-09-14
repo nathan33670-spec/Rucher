@@ -58,6 +58,8 @@ class MailSettings(BaseModel):
     digest_weekday: int = Field(0, ge=0, le=6)
     digest_hour: int = Field(8, ge=0, le=23)
     app_base_url: str = ""
+    # Adresse déduite de la requête, proposée quand le champ est vide.
+    detected_app_url: str = ""
 
 
 class MailSettingsOut(MailSettings):
