@@ -38,3 +38,13 @@ class PrefsUpdate(BaseModel):
     sanitary: Optional[bool] = None
     treasury: Optional[bool] = None
     events: Optional[bool] = None
+
+
+class GeneralReportIn(BaseModel):
+    """Signalement qui ne porte sur aucune ruche.
+
+    ``apiary_id`` est facultatif : un signalement peut concerner un rucher
+    précis (clôture, accès, voisinage) ou l'association en général.
+    """
+    message: str
+    apiary_id: Optional[int] = None
