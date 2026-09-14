@@ -119,17 +119,32 @@ const sections = [
     ],
   },
   {
-    id: 'alerte', t: 'Signaler un problème sur une ruche',
+    id: 'alerte', t: 'Signaler un problème',
     blocks: [
-      { p: "Hors visite — un passage devant le rucher, un appel d'un voisin — le <b>triangle rouge</b> de la barre du haut permet d'alerter depuis n'importe quel écran. Les <b>responsables de la ruche</b> reçoivent aussitôt une notification." },
+      { p: "Hors visite — un passage devant le rucher, un appel d'un voisin — le <b>triangle rouge</b> de la barre du haut permet d'alerter depuis n'importe quel écran. Deux types de signalement sont proposés en haut de la fenêtre." },
+      { table: { head: ['Type', 'Pour quoi', 'Qui est prévenu'], rows: [
+        ['<b>Sur une ruche</b>', "Ce qui concerne une colonie : toit envolé, agressivité, entrée obstruée, peu d'activité au trou de vol.", "Les <b>responsables de cette ruche</b>. Le signalement est ajouté à l'<b>historique de la ruche</b> et aux <b>Alertes actives</b> du tableau de bord."],
+        ['<b>Général</b>', "Ce qui ne concerne aucune colonie : clôture, chemin d'accès, matériel commun, voisinage, point à passer au bureau.", "Les <b>administrateurs</b> et les <b>responsables de rucher</b>. <b>Rien n'est écrit dans l'historique d'une ruche.</b>"],
+      ] } },
+      { img: 'g-signaler.jpg', cap: "Signaler un problème sur une ruche." },
+      { h3: 'Signaler un problème sur une ruche' },
       { steps: [
         "Cliquez sur le <b>triangle rouge</b> ⚠ en haut de l'écran.",
+        "Laissez le type sur <b>Sur une ruche</b>.",
         "Choisissez la <b>ruche concernée</b> dans la liste.",
         "Décrivez le problème dans <b>« Que se passe-t-il ? »</b> — soyez concret : « toit envolé », « peu d'activité au trou de vol ».",
         "Cliquez sur <b>Envoyer l'alerte</b>.",
       ] },
-      { img: 'g-signaler.jpg', cap: "Signaler un problème." },
       { p: "L'alerte apparaît ensuite dans <b>Alertes actives</b> sur le tableau de bord, jusqu'à ce qu'elle soit traitée." },
+      { h3: 'Signalement général' },
+      { steps: [
+        "Cliquez sur le <b>triangle rouge</b> ⚠, puis sur <b>Général</b>.",
+        "Choisissez éventuellement le <b>rucher concerné</b> — laissez vide si cela touche l'association en général.",
+        "Décrivez la situation, puis cliquez sur <b>Envoyer le signalement</b>.",
+      ] },
+      { img: 'g-signaler-general.jpg', cap: 'Un signalement général.' },
+      { note: "Un encadré rappelle, avant l'envoi, <b>qui sera prévenu</b>. En désignant un rucher, les responsables de ses ruches le sont en plus du bureau : ce sont eux qui sont sur place." },
+      { tip: "Un signalement général n'entre dans l'historique d'aucune colonie : le suivi des ruches reste propre, et le message arrive quand même à qui de droit." },
     ],
   },
 ]

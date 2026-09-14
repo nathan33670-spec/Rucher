@@ -7,12 +7,15 @@ from datetime import datetime
 from sqlalchemy import select, delete, func, desc
 
 from app.database import get_db
-from app.models.user import User, RoleEnum
+from app.models.user import User, UserRole, RoleEnum
 from app.models.notification import PushSubscription, NotificationPref, InboxMessage
-from app.schemas.notification import SubscribeIn, UnsubscribeIn, PrefsOut, PrefsUpdate
+from app.models.apiary import Apiary, Hive, hive_managers
+from app.schemas.notification import (SubscribeIn, UnsubscribeIn, PrefsOut,
+                                      PrefsUpdate, GeneralReportIn)
 from app.utils.auth import get_current_user, require_roles
 from app.utils.push import (get_or_create_vapid, send_push_to_user,
-                            resolve_vapid_subject, LAST_RESULT)
+                            resolve_vapid_subject, notify_users, LAST_RESULT)
+from app.utils.audit import log_action
 
 router = APIRouter(prefix="/api/notifications", tags=["notifications"])
 
@@ -264,4 +267,69 @@ async def diagnostics(
         "users_without_prefs": [u["name"] for u in users if u["enabled"] is None],
         "last_send": LAST_RESULT or None,
         "users": users,
+    }
+
+
+@router.post("/report", status_code=201)
+async def general_report(
+    body: GeneralReportIn,
+    db: AsyncSession = Depends(get_db),
+    user: User = Depends(get_current_user),
+):
+    """Signalement **général** : il ne concerne aucune ruche en particulier.
+
+    Le pendant de ``/api/visits/alert`` pour tout ce qui n'est pas une
+    colonie : la clôture du rucher, une remarque d'un voisin, un point à
+    passer au bureau. Rien n'est écrit dans l'historique d'une ruche — un tel
+    message y serait faux, et polluerait le suivi de la colonie.
+
+    Prévient les **administrateurs** et les **responsables de rucher**, plus,
+    quand un rucher est désigné, celles et ceux qui ont la charge de ses
+    ruches : ce sont les personnes présentes sur place.
+    """
+    message = body.message.strip()
+    if not message:
+        raise HTTPException(400, "Décrivez le problème en quelques mots.")
+
+    # Le bureau : administrateurs et responsables de rucher.
+    res = await db.execute(
+        select(User.id)
+        .join(UserRole, UserRole.user_id == User.id)
+        .where(User.is_active.is_(True),
+               UserRole.role.in_([RoleEnum.ADMIN, RoleEnum.YARD_MANAGER]))
+    )
+    destinataires = set(res.scalars().all())
+
+    apiary = None
+    if body.apiary_id is not None:
+        apiary = await db.get(Apiary, body.apiary_id)
+        if not apiary:
+            raise HTTPException(404, "Rucher introuvable")
+        # Les responsables des ruches de ce rucher sont sur place : ils sont
+        # concernés au même titre que le bureau.
+        res = await db.execute(
+            select(hive_managers.c.user_id)
+            .join(Hive, Hive.id == hive_managers.c.hive_id)
+            .where(Hive.apiary_id == apiary.id)
+        )
+        destinataires |= set(res.scalars().all())
+
+    destinataires.discard(user.id)
+
+    qui = f"{user.first_name} {user.last_name}".strip() or user.email
+    ou = f" — {apiary.name}" if apiary else ""
+    titre = f"⚠️ Signalement général{ou}"
+    texte = f"{qui} : {message[:180]}"
+
+    await log_action(db, user.id, "general_report", "apiary",
+                     apiary.id if apiary else None, details=message[:200])
+
+    if destinataires:
+        notify_users(sorted(destinataires), titre, texte, "/app",
+                     exclude_user_id=user.id)
+
+    return {
+        "detail": "Signalement transmis",
+        "recipients": len(destinataires),
+        "apiary": apiary.name if apiary else None,
     }

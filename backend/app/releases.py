@@ -10,6 +10,16 @@ Convention : la version la plus récente en tête.
 
 RELEASES = [
     {
+        "version": "1.8.5",
+        "date": "2026-09-14",
+        "title": "Signalement général, sans passer par une ruche",
+        "highlights": [
+            "Le bouton « Signaler » propose désormais deux types : sur une ruche, comme avant, ou général — clôture, accès, matériel commun, voisinage, point à passer au bureau.",
+            "Un signalement général prévient les administrateurs et les responsables de rucher, et n'écrit rien dans l'historique d'une ruche.",
+            "En désignant un rucher, les responsables de ses ruches sont prévenus en plus : ce sont eux qui sont sur place.",
+        ],
+    },
+    {
         "version": "1.8.4",
         "date": "2026-09-14",
         "title": "Les e-mails partent sans réglage préalable",
