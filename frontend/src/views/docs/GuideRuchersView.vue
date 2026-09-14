@@ -51,8 +51,8 @@ const sections = [
       ] },
       { img: 'g-ruche-form.jpg', cap: "Le formulaire d'une ruche." },
       { table: { head: ['Champ', 'À quoi il sert'], rows: [
-        ['<b>Nom</b>', "Facultatif, pour s'y retrouver : « La bleue », « Essaim de mai »."],
-        ['<b>N° de ruche</b>', "Le numéro que <b>vous</b> choisissez et qui est peint sur la ruche. <b>Deux ruches ne peuvent pas porter le même</b>, et il est modifiable à tout moment."],
+        ['<b>N° de ruche</b>', "Le numéro que <b>vous</b> choisissez et qui est peint sur la ruche. C'est lui qui <b>identifie la colonie partout dans l'application</b>. <b>Deux ruches ne peuvent pas porter le même</b>, et il est modifiable à tout moment."],
+        ['<b>Nom</b>', "Facultatif, un surnom qui vient <b>en complément</b> du numéro : « 12 — La bleue »."],
         ['<b>N° NAPI (apiculteur)</b>', "Le numéro d'apiculteur du <b>propriétaire</b> : le même pour toutes ses ruches. Il n'a pas à être unique."],
         ['<b>Associatif / Privé</b>', "À qui appartient la colonie. Le privé reste visible, mais distingué dans les bilans."],
         ['<b>Statut</b>', "<code>active</code> (en production), <code>inactive</code> (vide, en réserve) ou <code>dead</code> (colonie morte)."],
@@ -68,10 +68,13 @@ const sections = [
       { p: "Renumérotation du rucher, ruche repeinte, erreur de saisie : le numéro se corrige sans rien perdre de l'historique." },
       { steps: [
         "Ouvrez le rucher, puis cliquez sur l'icône <b>crayon</b> de la ruche concernée.",
-        "Modifiez le champ <b>N° de ruche</b>.",
+        "Modifiez le <b>premier champ</b>, <b>N° de ruche</b>.",
         "Cliquez sur <b>Enregistrer</b>.",
       ] },
+      { p: "Le changement est <b>immédiat et visible partout</b> : plan du rucher, écran de visite, historique, suivi sanitaire, miellée." },
       { note: "Si le numéro est déjà pris, un message rouge s'affiche <b>sous le champ</b> et rien n'est enregistré : corrigez le numéro et réessayez. L'application indique quelle ruche le porte déjà." },
+      { warn: "Ne confondez pas avec le <b>N° NAPI</b>, juste en dessous : celui-là identifie l'<i>apiculteur</i> et se répète sur toutes ses ruches. Le modifier ne change pas le numéro de la colonie." },
+      { tip: "Les ruches créées avant cette fonctionnalité ont reçu un numéro automatiquement au premier démarrage : celles qui portaient déjà un repère l'ont conservé, les autres ont reçu le premier numéro libre. Tous sont modifiables ici." },
     ],
   },
   {

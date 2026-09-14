@@ -20,10 +20,9 @@
       <template v-slot:item.hive_name="{ item }">
         <!-- Pas de « no-wrap » ici : un nom long élargirait la colonne au point
              de repousser les actions hors de l'écran. -->
+        <!-- Le libellé mène déjà par le numéro : une pastille « n° X » en
+             plus ne ferait que répéter. -->
         <span class="hive-cell">{{ hiveLabelFromRow(item) }}</span>
-        <v-chip v-if="item.hive_number" size="x-small" variant="tonal" class="ml-1">
-          n° {{ item.hive_number }}
-        </v-chip>
       </template>
       <template v-slot:item.treatment_type="{ item }">
         <v-chip v-if="item.treatment_type" size="x-small" variant="tonal" color="info"
