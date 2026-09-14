@@ -50,6 +50,13 @@ export function apiError(e, fallback = 'Une erreur est survenue') {
 
   // Le serveur a formulé un message : c'est toujours le plus précis.
   if (typeof detail === 'string' && detail.trim()) return detail
+  // Détail structuré : le serveur joint de quoi proposer une suite (par
+  // exemple la ruche qui détient déjà un numéro), la phrase est dans
+  // « detail ». Sans ce cas, on retomberait sur un message générique.
+  if (detail && typeof detail === 'object' && !Array.isArray(detail)
+      && typeof detail.detail === 'string' && detail.detail.trim()) {
+    return detail.detail
+  }
   // Erreurs de validation brutes (schéma FastAPI par défaut).
   if (Array.isArray(detail) && detail.length) {
     const lines = detail

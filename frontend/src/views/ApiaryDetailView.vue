@@ -208,6 +208,26 @@
             :error-messages="numberError"
             class="mb-4"
           />
+          <!-- Renuméroter un rucher, c'est permuter : sans cette proposition,
+               aucun numéro n'étant libre, plus rien n'était modifiable. -->
+          <v-alert
+            v-if="numberConflict"
+            type="info" variant="tonal" density="compact" class="mb-4"
+          >
+            <div class="text-body-2 mb-2">
+              La ruche « <b>{{ numberConflict.conflict_hive_label }}</b> » porte
+              déjà le n° <b>{{ hiveForm.number }}</b>. Vous pouvez
+              <b>échanger</b> les deux numéros : elle prendra le
+              n° <b>{{ numeroLibere || '(le premier libre)' }}</b>.
+            </div>
+            <v-btn
+              size="small" color="primary" variant="flat"
+              prepend-icon="mdi-swap-horizontal"
+              :loading="swapping" @click="swapNumbers"
+            >
+              Échanger les numéros
+            </v-btn>
+          </v-alert>
           <v-text-field
             v-model="hiveForm.name"
             label="Nom (facultatif)"
@@ -369,6 +389,12 @@ const showHiveForm = ref(false)
 // Message d'unicité du numéro de ruche, affiché sous le champ concerné plutôt
 // qu'en bandeau : c'est là qu'il faut corriger.
 const numberError = ref('')
+// Ruche qui détient déjà le numéro demandé : de quoi proposer l'échange.
+const numberConflict = ref(null)
+const swapping = ref(false)
+// Numéro que la ruche en cours d'édition cède en échange : celui qu'elle
+// portait avant la saisie, pas celui affiché dans le champ.
+const numeroLibere = ref('')
 
 // ─── Déplacement d'une ruche vers un autre rucher ─────────
 const showMoveHive = ref(false)
@@ -402,7 +428,7 @@ const visitForm = ref({
 const showCrop = ref(false)
 const hiveForm = ref({ name: '', number: '', napi_number: '', ownership: 'associative', status: 'active', notes: '', manager_ids: [] })
 // Corriger la saisie retire le reproche.
-watch(() => hiveForm.value.number, () => { numberError.value = '' })
+watch(() => hiveForm.value.number, () => { numberError.value = ''; numberConflict.value = null })
 const hivePhotoFile = ref(null)
 const apiaryPhotoFile = ref(null)
 const photoUploading = ref(false)
@@ -531,6 +557,9 @@ function openNewHive() {
 function editHive(h) {
   hiveEditId.value = h.id
   numberError.value = ''
+  numberConflict.value = null
+  // Ce que cette ruche cédera si l'on échange : son numéro d'avant la saisie.
+  numeroLibere.value = h.number || ''
   hiveForm.value = {
     name: h.name || '',
     number: h.number || '',
@@ -560,10 +589,41 @@ async function saveHive() {
     const msg = apiError(e, "Enregistrement impossible")
     // Numéro déjà pris : le message appartient au champ, pas au bandeau —
     // sinon on ne sait pas quoi corriger.
-    if (e?.response?.status === 409) numberError.value = msg
-    else showError(msg)
+    if (e?.response?.status === 409) {
+      numberError.value = msg
+      // Renuméroter un rucher revient à permuter : on propose l'échange
+      // plutôt que de laisser sans issue, puisque aucun numéro n'est libre.
+      const d = e?.response?.data?.detail
+      numberConflict.value = (d && typeof d === 'object' && d.conflict_hive_id)
+        ? d : null
+    } else showError(msg)
   } finally {
     saving.value = false
+  }
+}
+
+// Échange des numéros avec la ruche qui portait déjà celui demandé.
+async function swapNumbers() {
+  if (!numberConflict.value || !hiveEditId.value) return
+  swapping.value = true
+  try {
+    await api.post(`/apiaries/hives/${hiveEditId.value}/renumber`,
+                   { number: hiveForm.value.number, swap: true })
+    // Le numéro est posé : le reste du formulaire s'enregistre ensuite, sans
+    // le renvoyer (il déclencherait de nouveau le contrôle d'unicité).
+    const { number, ...reste } = hiveForm.value
+    await api.put(`/apiaries/hives/${hiveEditId.value}`, reste)
+    const echangee = numberConflict.value.conflict_hive_label
+    numberConflict.value = null
+    numberError.value = ''
+    showHiveForm.value = false
+    hiveEditId.value = null
+    await load()
+    showSuccess(`Numéros échangés avec « ${echangee} »`)
+  } catch (e) {
+    numberError.value = apiError(e, "Échange impossible")
+  } finally {
+    swapping.value = false
   }
 }
 
