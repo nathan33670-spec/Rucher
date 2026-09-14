@@ -10,6 +10,16 @@ Convention : la version la plus récente en tête.
 
 RELEASES = [
     {
+        "version": "1.8.3",
+        "date": "2026-09-14",
+        "title": "Renuméroter les ruches devient possible",
+        "highlights": [
+            "Donner à une ruche un numéro déjà pris propose désormais d'échanger les deux numéros, au lieu de refuser sans issue.",
+            "Renuméroter un rucher entier se fait ainsi de proche en proche, sans avoir à libérer un numéro au préalable — c'était impossible depuis que toutes les ruches portent un numéro.",
+            "L'encadré annonce quelle ruche détient le numéro voulu et lequel elle recevra en échange.",
+        ],
+    },
+    {
         "version": "1.8.2",
         "date": "2026-09-14",
         "title": "Le numéro de ruche s'affiche enfin partout",

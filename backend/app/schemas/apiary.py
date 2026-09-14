@@ -47,6 +47,17 @@ class HiveCreate(BaseModel):
     manager_ids: list[int] = []
     photo: Optional[str] = None
 
+class HiveRenumber(BaseModel):
+    """Changement de numéro, avec permutation possible.
+
+    ``swap`` autorise explicitement l'échange avec la ruche qui porte déjà ce
+    numéro : renuméroter un rucher revient à permuter, et l'utilisateur doit
+    savoir qu'une seconde ruche change en même temps.
+    """
+    number: str
+    swap: bool = False
+
+
 class HiveMove(BaseModel):
     """Transfert d'une ruche vers un autre rucher (transhumance, réorganisation)."""
     apiary_id: int

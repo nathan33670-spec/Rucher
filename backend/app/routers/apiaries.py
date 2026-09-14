@@ -10,7 +10,7 @@ from app.models.apiary import Apiary, Hive, hive_managers
 from app.models.visit import Visit
 from app.models.user import User, RoleEnum
 from app.schemas.apiary import (ApiaryCreate, ApiaryUpdate, ApiaryOut,
-                                HiveCreate, HiveUpdate, HiveMove, HiveOut)
+                                HiveCreate, HiveUpdate, HiveMove, HiveRenumber, HiveOut)
 from app.utils.auth import get_current_user, require_roles, get_user_roles
 from app.utils.audit import log_action
 from app.config import get_settings
@@ -234,9 +234,9 @@ def _clean_number(value) -> str | None:
     return cleaned or None
 
 
-async def _check_number_available(db: AsyncSession, number: str | None,
-                                  exclude_id: int = None) -> None:
-    """Refuse un numéro de ruche déjà attribué.
+async def _hive_with_number(db: AsyncSession, number: str | None,
+                            exclude_id: int = None) -> Hive | None:
+    """Ruche portant déjà ce numéro, s'il y en a une.
 
     Attention : c'est le numéro **de la ruche** qui doit être unique, pas le
     NAPI. Le NAPI est le numéro d'apiculteur : il identifie le propriétaire
@@ -247,20 +247,40 @@ async def _check_number_available(db: AsyncSession, number: str | None,
     limité à un rucher créerait donc des doublons au premier déplacement.
     """
     if not number:
-        return
+        return None
     q = select(Hive).where(func.lower(Hive.number) == number.lower())
     if exclude_id:
         q = q.where(Hive.id != exclude_id)
-    other = (await db.execute(q.limit(1))).scalar_one_or_none()
-    if not other:
-        return
+    return (await db.execute(q.limit(1))).scalar_one_or_none()
+
+
+async def _number_conflict(db: AsyncSession, other: Hive, number: str) -> dict:
+    """Détail d'un conflit de numéro, de quoi proposer l'échange.
+
+    Renuméroter un rucher revient presque toujours à permuter des numéros
+    déjà pris : se contenter de refuser laisserait sans issue, puisque aucun
+    des numéros voulus n'est libre.
+    """
     apiary = await db.get(Apiary, other.apiary_id)
     label = other.name or (f"n° {other.number}" if other.number else "sans nom")
     where = f" du rucher « {apiary.name} »" if apiary else ""
-    raise HTTPException(
-        409,
-        f"Le numéro « {number} » est déjà utilisé par la ruche « {label} »{where}.",
-    )
+    return {
+        "detail": f"Le numéro « {number} » est déjà utilisé par la ruche "
+                  f"« {label} »{where}.",
+        "conflict_hive_id": other.id,
+        "conflict_hive_label": label,
+        "conflict_apiary": apiary.name if apiary else None,
+        "conflict_number": other.number,
+    }
+
+
+async def _check_number_available(db: AsyncSession, number: str | None,
+                                  exclude_id: int = None) -> None:
+    """Refuse un numéro de ruche déjà attribué, en disant qui le porte."""
+    other = await _hive_with_number(db, number, exclude_id)
+    if other is None:
+        return
+    raise HTTPException(409, await _number_conflict(db, other, number))
 
 
 @router.post("/hives", response_model=HiveOut, status_code=201)
@@ -335,6 +355,61 @@ async def update_hive(
     # Recharger pour obtenir les managers
     await db.refresh(hive)
     return _hive_out(hive)
+
+
+@router.post("/hives/{hive_id}/renumber", response_model=list[HiveOut])
+async def renumber_hive(
+    hive_id: int, body: HiveRenumber,
+    db: AsyncSession = Depends(get_db),
+    user: User = Depends(get_current_user),
+):
+    """Donne un numéro à une ruche, en l'échangeant au besoin.
+
+    Renuméroter un rucher, c'est presque toujours **permuter** des numéros :
+    la ruche qui devient la 3 doit céder le sien à celle qui portait la 3.
+    Refuser tout doublon laissait sans issue — aucun des numéros voulus
+    n'étant libre, plus aucun changement n'était possible.
+
+    Renvoie les ruches modifiées (une, ou deux en cas d'échange).
+    """
+    result = await db.execute(select(Hive).where(Hive.id == hive_id))
+    hive = result.scalar_one_or_none()
+    if not hive:
+        raise HTTPException(404, "Ruche introuvable")
+
+    roles = get_user_roles(user)
+    is_manager = any(m.id == user.id for m in hive.managers)
+    if (RoleEnum.ADMIN.value not in roles
+            and RoleEnum.YARD_MANAGER.value not in roles and not is_manager):
+        raise HTTPException(403, "Permissions insuffisantes")
+
+    numero = _clean_number(body.number)
+    if not numero:
+        raise HTTPException(400, "Le numéro de ruche ne peut pas être vide.")
+    if hive.number and numero.lower() == hive.number.lower():
+        return [_hive_out(hive)]
+
+    autre = await _hive_with_number(db, numero, exclude_id=hive.id)
+    modifiees = [hive]
+
+    if autre is not None:
+        if not body.swap:
+            raise HTTPException(409, await _number_conflict(db, autre, numero))
+        # L'échange : l'autre ruche reprend le numéro libéré. Si celle-ci n'en
+        # avait pas, on ne peut rien lui céder — elle reçoit le premier libre,
+        # car aucune ruche ne doit se retrouver sans numéro.
+        libere = _clean_number(hive.number)
+        autre.number = libere if libere else await next_free_number(db)
+        modifiees.append(autre)
+
+    hive.number = numero
+    await log_action(db, user.id, "renumber", "hive", hive.id,
+                     details=f"n° {numero}"
+                             + (f" échangé avec la ruche {autre.id}" if autre else ""))
+    await db.flush()
+    for h in modifiees:
+        await db.refresh(h)
+    return [_hive_out(h) for h in modifiees]
 
 
 @router.post("/hives/{hive_id}/move", response_model=HiveOut)
