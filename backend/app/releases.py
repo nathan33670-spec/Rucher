@@ -10,6 +10,17 @@ Convention : la version la plus récente en tête.
 
 RELEASES = [
     {
+        "version": "1.8.2",
+        "date": "2026-09-14",
+        "title": "Le numéro de ruche s'affiche enfin partout",
+        "highlights": [
+            "Le numéro identifie désormais la ruche sur tous les écrans — plan, visite, historique, sanitaire, miellée — et le nom vient en complément : « 12 — La bleue ».",
+            "Le numéro se modifiait déjà, mais le nom passait avant lui à l'affichage : la correction ne se voyait nulle part, on croyait la modification impossible.",
+            "Toutes les ruches ont maintenant un numéro modifiable. Celles qui n'en avaient pas parce qu'elles portaient un numéro d'apiculteur le reprennent tel quel ; les autres reçoivent le premier numéro libre.",
+            "Dans la fiche d'une ruche, le n° de ruche est passé en premier champ, devant le nom.",
+        ],
+    },
+    {
         "version": "1.8.1",
         "date": "2026-09-14",
         "title": "Envoyer ses identifiants à un adhérent",

@@ -197,21 +197,30 @@
       <v-card>
         <v-card-title>{{ hiveEditId ? 'Modifier' : 'Nouvelle' }} ruche</v-card-title>
         <v-card-text>
-          <v-text-field v-model="hiveForm.name" label="Nom" />
+          <!-- Le numéro identifie la ruche : il vient donc en premier, et le
+               nom n'est qu'un complément. -->
           <v-text-field
             v-model="hiveForm.number"
             label="N° de ruche"
             prepend-inner-icon="mdi-pound"
-            hint="Numéro propre à cette ruche : deux ruches ne peuvent pas le partager."
+            hint="C'est le numéro peint sur la ruche : il l'identifie partout dans l'application. Deux ruches ne peuvent pas le partager."
             persistent-hint
             :error-messages="numberError"
-            class="mb-2"
+            class="mb-4"
+          />
+          <v-text-field
+            v-model="hiveForm.name"
+            label="Nom (facultatif)"
+            prepend-inner-icon="mdi-tag-outline"
+            hint="Un surnom pour s'y retrouver : « La bleue », « Essaim de mai »."
+            persistent-hint
+            class="mb-4"
           />
           <v-text-field
             v-model="hiveForm.napi_number"
             label="N° NAPI (apiculteur)"
             prepend-inner-icon="mdi-card-account-details-outline"
-            hint="Numéro d'apiculteur du propriétaire — le même pour toutes ses ruches."
+            hint="Numéro d'apiculteur du propriétaire — le même pour toutes ses ruches. À ne pas confondre avec le n° de ruche."
             persistent-hint
             class="mb-2"
           />
