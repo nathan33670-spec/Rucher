@@ -7,13 +7,14 @@ from sqlalchemy import select, func, delete
 
 from app.database import get_db
 from app.models.event import Event, EventRSVP
-from app.models.user import User, RoleEnum
+from app.models.user import User, UserRole, RoleEnum
 from app.schemas.event import (
     EventCreate, EventUpdate, EventOut, RSVPCounts, RSVPIn, ParticipantOut,
+    EventNotifyIn,
 )
 from app.utils.auth import get_current_user, require_roles, get_user_roles
 from app.utils.audit import log_action
-from app.utils.push import notify
+from app.utils.push import notify, notify_users
 
 router = APIRouter(prefix="/api/events", tags=["events"])
 
@@ -104,6 +105,7 @@ async def create_event(
     # Notification push à tous les adhérents abonnés (catégorie « events »),
     # uniquement pour un événement public dont l'admin a demandé la diffusion.
     if body.notify and body.is_public:
+        ev.last_notified_at = datetime.utcnow()
         when = body.start_at.strftime("%d/%m à %Hh%M")
         lieu = f" — {body.location}" if body.location else ""
         notify(
@@ -169,6 +171,73 @@ async def delete_event(
     notify("events", "❌ Événement annulé",
            f"{title}{' — ' + when if when else ''} a été annulé.", "/app/events",
            exclude_user_id=user.id)
+
+
+@router.post("/{event_id}/notify", response_model=EventOut)
+async def notify_event(
+    event_id: int,
+    body: EventNotifyIn,
+    db: AsyncSession = Depends(get_db),
+    user: User = Depends(get_current_user),
+):
+    """Renvoie une notification sur un événement, vers les téléphones.
+
+    La notification initiale part à la création, et rien ne permettait d'en
+    déclencher une autre : impossible de relancer avant une sortie, ou de
+    prévenir d'un détail de dernière minute autrement qu'en modifiant la date.
+
+    Réservé à l'**organisateur** de l'événement et aux **administrateurs** :
+    ce sont eux qui répondent de ce qui arrive sur le téléphone des adhérents.
+
+    L'audience suit la visibilité de l'événement — un événement privé n'étant
+    visible que des administrateurs, le notifier à tous en dévoilerait le
+    contenu.
+    """
+    ev = await db.get(Event, event_id)
+    if not ev:
+        raise HTTPException(404, "Événement introuvable")
+
+    if not _is_admin(user) and ev.created_by != user.id:
+        raise HTTPException(
+            403,
+            "Seuls l'organisateur de l'événement et les administrateurs "
+            "peuvent envoyer une notification.",
+        )
+
+    message = (body.message or "").strip()
+    when = ev.start_at.strftime("%d/%m à %Hh%M") if ev.start_at else ""
+    lieu = f" — {ev.location}" if ev.location else ""
+    texte = message[:300] if message else (
+        f"{when}{lieu}. Indiquez si vous venez."
+    )
+
+    if ev.is_public:
+        # Tous les adhérents abonnés à la catégorie « événements ».
+        notify("events", "📅 " + ev.title, texte, "/app/events",
+               exclude_user_id=user.id)
+        portee = "tous les adhérents abonnés aux événements"
+    else:
+        # Événement privé : seuls les administrateurs le voient, donc seuls
+        # eux peuvent en être notifiés.
+        res = await db.execute(
+            select(User.id)
+            .join(UserRole, UserRole.user_id == User.id)
+            .where(User.is_active.is_(True), UserRole.role == RoleEnum.ADMIN)
+        )
+        cibles = [uid for uid in set(res.scalars().all()) if uid != user.id]
+        if cibles:
+            notify_users(cibles, "📅 " + ev.title, texte, "/app/events",
+                         category="events")
+        portee = "les administrateurs (événement privé)"
+
+    ev.last_notified_at = datetime.utcnow()
+    await log_action(db, user.id, "notify", "event", ev.id,
+                     details=(message[:200] or portee))
+    await db.flush()
+
+    counts = (await _counts_map(db, [ev.id]))[ev.id]
+    mine = (await _my_responses(db, [ev.id], user.id)).get(ev.id)
+    return _to_out(ev, mine, counts)
 
 
 @router.post("/{event_id}/rsvp", response_model=EventOut)

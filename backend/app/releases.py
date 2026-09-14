@@ -10,6 +10,17 @@ Convention : la version la plus récente en tête.
 
 RELEASES = [
     {
+        "version": "1.8.6",
+        "date": "2026-09-14",
+        "title": "Relancer une notification sur un événement",
+        "highlights": [
+            "Un bouton « Notifier » sur chaque événement envoie une nouvelle notification sur les téléphones, quand vous le décidez : la veille d'une sortie, ou pour un détail de dernière minute.",
+            "Ouvert à l'organisateur de l'événement — même s'il n'est pas administrateur — et aux administrateurs.",
+            "Un message libre peut accompagner la relance ; sinon la date, le lieu et l'invitation à répondre sont repris.",
+            "La date du dernier envoi est rappelée avant de relancer, pour ne pas notifier deux fois la même chose.",
+        ],
+    },
+    {
         "version": "1.8.5",
         "date": "2026-09-14",
         "title": "Signalement général, sans passer par une ruche",

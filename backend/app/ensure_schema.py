@@ -13,6 +13,13 @@ from sqlalchemy import text
 
 # (table, colonne, DDL d'ajout idempotent)
 COLUMN_MIGRATIONS = [
+    # Relance de notification sur un événement : sans cette colonne, la liste
+    # des événements renvoie 500 sur les bases antérieures.
+    (
+        "events",
+        "last_notified_at",
+        "ALTER TABLE events ADD COLUMN IF NOT EXISTS last_notified_at TIMESTAMP",
+    ),
     # Colonne « events » ajoutée avec la fonctionnalité Événements : sans cette
     # migration, /api/notifications/preferences et /subscribe renvoient 500 sur
     # les bases antérieures à cette fonctionnalité.

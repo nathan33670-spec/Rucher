@@ -45,6 +45,8 @@ class EventOut(EventBase):
     # Réponse de l'utilisateur courant ("yes"/"maybe"/"no") ou None
     my_response: Optional[str] = None
     counts: RSVPCounts = RSVPCounts()
+    # Dernière notification envoyée vers les téléphones (None = jamais).
+    last_notified_at: Optional[datetime] = None
 
     class Config:
         from_attributes = True
@@ -60,3 +62,13 @@ class ParticipantOut(BaseModel):
     email: Optional[str] = None
     response: str
     responded_at: Optional[datetime] = None
+
+
+class EventNotifyIn(BaseModel):
+    """Relance de notification sur un événement.
+
+    ``message`` remplace le texte par défaut : une relance dit rarement la même
+    chose que l'annonce initiale (« rendez-vous 9h au parking », « pensez à
+    votre combinaison »).
+    """
+    message: Optional[str] = None
