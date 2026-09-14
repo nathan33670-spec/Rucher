@@ -4,7 +4,7 @@ import csv
 import io
 import secrets
 from datetime import timedelta
-from fastapi import APIRouter, Depends, HTTPException, UploadFile, File
+from fastapi import APIRouter, Depends, HTTPException, UploadFile, File, Request
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select, func, update
 
@@ -28,6 +28,7 @@ from app.utils.auth import (
 )
 from app.utils.audit import log_action
 from app.utils import mailer, password_reset as pwreset, credentials_mail
+from app.utils.app_url import resolve_app_url
 from app.routers.settings import load_mail
 
 router = APIRouter(prefix="/api/users", tags=["users"])
@@ -136,6 +137,7 @@ _NEUTRAL = ("Si un compte correspond, un e-mail contenant un lien de "
 @router.post("/password-reset/request")
 async def request_password_reset(
     body: ForgotPasswordIn,
+    request: Request,
     db: AsyncSession = Depends(get_db),
 ):
     """Envoie un lien de réinitialisation à l'adresse du compte.
@@ -168,7 +170,7 @@ async def request_password_reset(
         return {"detail": _NEUTRAL}
 
     token = await pwreset.create_token(db, user)
-    base = (cfg.get("app_base_url") or "").rstrip("/")
+    base = resolve_app_url(request, cfg)
     link = f"{base}/reinitialiser-mot-de-passe?token={token}"
     subject, html, text = pwreset.build_email(user, link)
 
@@ -363,6 +365,7 @@ async def reset_password(
 @router.post("/{user_id}/send-credentials")
 async def send_credentials(
     user_id: int,
+    request: Request,
     db: AsyncSession = Depends(get_db),
     current: User = Depends(require_roles(RoleEnum.ADMIN)),
 ):
@@ -397,14 +400,9 @@ async def send_credentials(
             "dans Réglages → Configuration.",
         )
 
-    app_url = (cfg.get("app_base_url") or "").strip()
-    if not app_url:
-        raise HTTPException(
-            400,
-            "L'adresse de l'application n'est pas renseignée : sans elle, "
-            "l'e-mail ne pourrait pas contenir de lien. Complétez « Adresse de "
-            "l'application » dans Réglages → Configuration.",
-        )
+    # L'adresse du site n'a pas à être ressaisie : la requête vient du
+    # navigateur qui affiche justement l'application.
+    app_url = resolve_app_url(request, cfg)
 
     provisoire = secrets.token_urlsafe(9)
     subject, html, text = credentials_mail.build_email(user, provisoire, app_url)

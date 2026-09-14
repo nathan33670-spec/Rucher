@@ -5,10 +5,11 @@ ce qui évite une table dédiée (et donc une migration) par nouveau réglage.
 """
 
 import json
-from fastapi import APIRouter, Depends, HTTPException
+from fastapi import APIRouter, Depends, HTTPException, Request
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.database import get_db
+from app.utils.app_url import resolve_app_url
 from app.models.notification import AppSetting
 from app.models.user import User, RoleEnum
 from app.schemas.settings import (
@@ -246,11 +247,16 @@ async def load_mail(db: AsyncSession) -> dict:
 
 @router.get("/mail", response_model=MailSettingsOut)
 async def get_mail_settings(
+    request: Request,
     db: AsyncSession = Depends(get_db),
     user: User = Depends(require_roles(RoleEnum.ADMIN)),
 ):
     cfg = await load_mail(db)
+    # Adresse déduite de la requête : elle sert de proposition quand le champ
+    # n'a jamais été rempli, pour que le récapitulatif hebdomadaire — envoyé
+    # sans navigateur — dispose lui aussi d'un lien.
     return MailSettingsOut(
+        detected_app_url=resolve_app_url(request, None),
         smtp_host=cfg.get("smtp_host") or "",
         smtp_port=int(cfg.get("smtp_port") or 587),
         smtp_user=cfg.get("smtp_user") or "",
@@ -269,6 +275,7 @@ async def get_mail_settings(
 @router.put("/mail", response_model=MailSettingsOut)
 async def set_mail_settings(
     body: MailSettingsUpdate,
+    request: Request,
     db: AsyncSession = Depends(get_db),
     user: User = Depends(require_roles(RoleEnum.ADMIN)),
 ):
@@ -297,7 +304,7 @@ async def set_mail_settings(
         db.add(AppSetting(key=MAIL_KEY, value=payload))
     await log_action(db, user.id, "update", "settings", details=MAIL_KEY)
     await db.flush()
-    return await get_mail_settings(db=db, user=user)
+    return await get_mail_settings(request=request, db=db, user=user)
 
 
 @router.post("/mail/test")

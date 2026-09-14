@@ -10,6 +10,15 @@ Convention : la version la plus récente en tête.
 
 RELEASES = [
     {
+        "version": "1.8.4",
+        "date": "2026-09-14",
+        "title": "Les e-mails partent sans réglage préalable",
+        "highlights": [
+            "L'envoi des identifiants et le « mot de passe oublié » ne réclament plus que l'adresse du site soit saisie dans la configuration : elle est déduite de l'adresse par laquelle vous consultez l'application.",
+            "Le champ « Adresse de l'application » reste prioritaire s'il est rempli, et se propose désormais pré-rempli dans la configuration.",
+        ],
+    },
+    {
         "version": "1.8.3",
         "date": "2026-09-14",
         "title": "Renuméroter les ruches devient possible",

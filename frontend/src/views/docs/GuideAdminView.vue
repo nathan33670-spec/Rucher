@@ -74,7 +74,7 @@ const sections = [
       { table: { head: ['Situation', 'Ce qu\'il faut faire'], rows: [
         ["Le bouton est <b>inactif</b>", "Le compte n'a pas d'adresse e-mail. Ouvrez la fiche avec le <b>crayon</b>, renseignez l'<b>adresse e-mail</b>, enregistrez : le bouton s'active."],
         ["<i>L'envoi d'e-mails n'est pas configuré</i>", "Renseignez le serveur SMTP dans <b>Réglages → Configuration</b> (section plus bas)."],
-        ["<i>L'adresse de l'application n'est pas renseignée</i>", "Complétez <b>Adresse de l'application</b> dans <b>Réglages → Configuration</b> : sans elle, l'e-mail ne pourrait pas contenir de lien."],
+
         ["<i>L'e-mail n'a pas pu être envoyé</i>", "Le serveur de messagerie a refusé le message. <b>Le mot de passe du compte n'a pas été modifié</b> : corrigez le réglage SMTP puis réessayez."],
       ] } },
       { tip: "Vous préférez transmettre le mot de passe de vive voix ? Le bouton <b>cadenas</b> 🔑 reste là pour cela : il permet de choisir le mot de passe vous-même, sans envoyer d'e-mail." },
@@ -170,7 +170,7 @@ claude;Claude;Martin;;;yard_manager|treasurer` },
       { steps: [
         "Renseignez le <b>serveur SMTP</b>, le <b>port</b> et le <b>chiffrement</b> fournis par votre hébergeur de messagerie.",
         "Saisissez l'<b>identifiant</b> et le <b>mot de passe</b> du compte d'envoi.",
-        "Indiquez l'<b>adresse d'expédition</b> et l'<b>adresse de l'application</b> (elle sert à construire les liens contenus dans les e-mails).",
+        "Indiquez l'<b>adresse d'expédition</b>. L'<b>adresse de l'application</b>, juste en dessous, arrive déjà pré-remplie avec celle par laquelle vous consultez le site : laissez-la telle quelle sauf si les adhérents passent par une autre adresse.",
         "<b>Enregistrez</b>, puis utilisez <b>Message de test</b> pour envoyer un courriel à votre propre adresse et vérifier que tout passe.",
       ] },
       { h3: 'Récapitulatif hebdomadaire' },
