@@ -145,6 +145,68 @@
       </v-card-actions>
     </v-card>
 
+    <!-- Liaison SumUp -->
+    <v-card class="mb-4">
+      <v-card-title class="d-flex align-center">
+        <v-icon class="mr-2" color="primary">mdi-bank-outline</v-icon>
+        Liaison SumUp
+      </v-card-title>
+      <v-card-text>
+        <!-- Dire d'emblée ce que l'API sait faire, et ce qu'elle ne sait pas :
+             sans ce rappel, on attend des dépenses qui n'arriveront jamais. -->
+        <v-alert type="info" variant="tonal" density="compact" class="mb-4">
+          L'API SumUp ne donne accès qu'aux <b>encaissements</b> — c'est une API
+          d'encaisseur, elle ne connaît ni le compte professionnel, ni ses
+          relevés, ni les factures SumUp Invoice. Les <b>dépenses</b> s'importent
+          depuis l'écran Trésorerie, avec l'export CSV de votre relevé.
+        </v-alert>
+
+        <v-row dense>
+          <v-col cols="12" md="6">
+            <v-text-field
+              v-model="sumup.api_key"
+              label="Clé d'API SumUp"
+              type="password"
+              autocomplete="new-password"
+              :placeholder="sumup.api_key_set ? '•••••••• (déjà enregistrée)' : 'sup_sk_…'"
+              hint="Tableau de bord SumUp → Développeurs → Clés d'API. Portée « transactions.history »."
+              persistent-hint density="compact"
+            />
+          </v-col>
+          <v-col cols="12" md="6">
+            <v-text-field
+              v-model="sumup.merchant_code"
+              label="Code marchand (facultatif)"
+              hint="Laissé vide, il est demandé à SumUp automatiquement."
+              persistent-hint density="compact"
+            />
+          </v-col>
+          <v-col cols="12" md="6">
+            <v-text-field
+              v-model.number="sumup.lookback_days"
+              label="Profondeur de synchronisation"
+              type="number" min="1" max="3650" suffix="jours"
+              hint="Ancienneté maximale des encaissements repris à chaque synchronisation."
+              persistent-hint density="compact"
+            />
+          </v-col>
+          <v-col cols="12" md="6" class="d-flex align-center">
+            <span v-if="sumup.last_sync_at" class="text-body-2 text-medium-emphasis">
+              Dernière synchronisation : {{ formatDateTime(sumup.last_sync_at) }}
+            </span>
+            <span v-else class="text-body-2 text-medium-emphasis">
+              Aucune synchronisation pour le moment.
+            </span>
+          </v-col>
+        </v-row>
+      </v-card-text>
+      <v-card-actions class="px-4 pb-4">
+        <v-btn color="primary" :loading="savingSumUp" prepend-icon="mdi-content-save" @click="saveSumUp">
+          Enregistrer
+        </v-btn>
+      </v-card-actions>
+    </v-card>
+
     <!-- Dialog test -->
     <v-dialog v-model="showTest" max-width="440">
       <v-card>
@@ -181,6 +243,40 @@ const mail = ref({
   digest_enabled: true, digest_weekday: 0, digest_hour: 8,
   app_base_url: '', password_set: false,
 })
+// Liaison SumUp : la clé n'est jamais relue depuis le serveur, le champ
+// reste donc vide et ne remplace la clé enregistrée que s'il est rempli.
+const sumup = ref({ api_key: '', merchant_code: '', lookback_days: 90,
+                    enabled: false, api_key_set: false, last_sync_at: null })
+const savingSumUp = ref(false)
+
+async function loadSumUp() {
+  try {
+    const { data } = await api.get('/treasury/sumup/settings')
+    sumup.value = { ...data, api_key: '' }
+  } catch { /* liaison non configurée */ }
+}
+
+async function saveSumUp() {
+  savingSumUp.value = true
+  try {
+    const { data } = await api.put('/treasury/sumup/settings', {
+      api_key: sumup.value.api_key || null,
+      merchant_code: sumup.value.merchant_code,
+      lookback_days: sumup.value.lookback_days,
+      enabled: true,
+    })
+    sumup.value = { ...data, api_key: '' }
+    ok('Liaison SumUp enregistrée')
+  } catch (e) { fail(e, 'Enregistrement impossible') }
+  finally { savingSumUp.value = false }
+}
+
+function formatDateTime(dt) {
+  const d = new Date(dt)
+  return d.toLocaleDateString('fr-FR')
+    + ' à ' + d.toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' })
+}
+
 const savingMail = ref(false)
 const testing = ref(false)
 const sendingDigest = ref(false)
@@ -223,6 +319,7 @@ async function load() {
       app_base_url: m.data.app_base_url || m.data.detected_app_url || '',
     }
   } catch (e) { fail(e, 'Chargement des réglages impossible') }
+  await loadSumUp()
 }
 
 async function saveAccess() {

@@ -126,5 +126,44 @@ const sections = [
       { tip: "Prenez la facture en photo au moment de l'achat et joignez-la tout de suite : c'est une demi-journée de retrouvailles de papiers en moins à la clôture." },
     ],
   },
+  {
+    id: 'sumup', t: 'Liaison avec SumUp',
+    blocks: [
+      { p: "La trésorerie peut se remplir depuis votre compte SumUp, par deux chemins différents. Ce n'est pas un caprice de réglage : <b>l'API de SumUp est celle d'un encaisseur, pas d'une banque</b>." },
+      { table: { head: ['Ce que vous voulez', 'Comment', 'Automatique ?'], rows: [
+        ['<b>Recettes</b> (encaissements par carte)', "Bouton <b>Synchroniser SumUp</b>", "✅ Oui, d'un clic"],
+        ['<b>Dépenses</b> (achats avec la carte du compte pro)', "Bouton <b>Importer un relevé</b> (fichier CSV)", "❌ Non — SumUp n'expose pas le compte professionnel"],
+        ['<b>Factures SumUp Invoice</b>', "À joindre à la main dans l'application", "❌ Non — SumUp Invoice n'a pas d'API"],
+      ] } },
+      { img: 'g-tresorerie-sumup.jpg', cap: 'La trésorerie après une synchronisation SumUp.' },
+      { h3: '1. Enregistrer la clé (une seule fois)' },
+      { steps: [
+        "Dans votre <b>tableau de bord SumUp</b>, ouvrez <b>Développeurs → Clés d'API</b> et créez une clé avec la portée <b>« transactions.history »</b>.",
+        "Dans l'application : menu <b>Réglages → Configuration</b>, section <b>Liaison SumUp</b>.",
+        "Collez la clé, laissez le <b>code marchand</b> vide (il est demandé à SumUp automatiquement), puis <b>Enregistrer</b>.",
+      ] },
+      { img: 'g-sumup-reglages.jpg', cap: 'Les réglages de la liaison.' },
+      { note: "La clé n'est <b>jamais réaffichée</b> : le champ reste vide et indique seulement qu'une clé est enregistrée. Le laisser vide en enregistrant conserve la clé en place." },
+      { h3: '2. Récupérer les recettes' },
+      { steps: [
+        "Écran <b>Trésorerie</b> → bouton <b>Synchroniser SumUp</b>.",
+        "Les encaissements deviennent des <b>recettes</b>, les remboursements des <b>dépenses</b> ; les paiements échoués sont ignorés.",
+        "Un bandeau indique combien d'écritures ont été ajoutées et combien étaient déjà connues.",
+      ] },
+      { tip: "Cliquez autant de fois que vous voulez : chaque écriture garde la référence SumUp dont elle provient, une seconde synchronisation ne recrée donc rien." },
+      { h3: '3. Récupérer les dépenses' },
+      { steps: [
+        "Dans votre tableau de bord SumUp, téléchargez le <b>relevé du compte</b> au format <b>CSV</b> (pas PDF).",
+        "Écran <b>Trésorerie</b> → bouton <b>Importer un relevé</b> → choisissez le fichier.",
+        "Les montants <b>négatifs</b> deviennent des dépenses, les positifs des recettes.",
+        "Joignez ensuite les <b>factures</b> aux dépenses concernées, avec le trombone.",
+      ] },
+      { note: "Les en-têtes du relevé sont reconnus en français comme en anglais, avec point-virgule, virgule ou tabulation, et une colonne <i>Montant</i> signée ou deux colonnes <i>Débit</i> / <i>Crédit</i>. Si le fichier n'est pas reconnu, le message d'erreur <b>liste les colonnes trouvées</b> — transmettez-la pour qu'on ajoute le format." },
+      { tip: "Réimporter le même relevé, ou un relevé qui chevauche le précédent, ne crée aucun doublon. Vous pouvez donc importer chaque mois sans faire attention aux dates." },
+      { h3: 'Reconnaître une écriture importée' },
+      { p: "Une petite <b>flèche circulaire</b> apparaît à côté de la date des écritures venues de SumUp. Les écritures saisies à la main n'en portent pas." },
+      { warn: "La liaison est réservée aux rôles <b>trésorier</b> et <b>administrateur</b>, comme le reste de l'écriture en trésorerie." },
+    ],
+  },
 ]
 </script>

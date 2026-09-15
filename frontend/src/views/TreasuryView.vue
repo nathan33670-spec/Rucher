@@ -2,8 +2,35 @@
   <div>
     <div class="d-flex flex-wrap align-center justify-space-between ga-2 mb-4">
       <h2>Trésorerie</h2>
-      <v-btn color="primary" prepend-icon="mdi-plus" @click="openNewTx">Nouvelle écriture</v-btn>
+      <div class="d-flex flex-wrap ga-2">
+        <!-- La liaison SumUp n'apparaît qu'une fois la clé enregistrée : un
+             bouton qui ne peut pas fonctionner n'a rien à faire là. -->
+        <v-btn
+          v-if="canWrite && sumup.api_key_set"
+          variant="tonal" prepend-icon="mdi-sync"
+          :loading="syncing" :title="lastSyncLabel"
+          @click="syncSumUp"
+        >
+          Synchroniser SumUp
+        </v-btn>
+        <v-btn
+          v-if="canWrite"
+          variant="tonal" prepend-icon="mdi-file-upload-outline"
+          @click="releveInput.click()"
+        >
+          Importer un relevé
+        </v-btn>
+        <v-btn v-if="canWrite" color="primary" prepend-icon="mdi-plus" @click="openNewTx">Nouvelle écriture</v-btn>
+      </div>
     </div>
+    <input ref="releveInput" type="file" accept=".csv,text/csv" style="display:none" @change="importReleve" />
+
+    <v-alert
+      v-if="importResult" :type="importResult.created ? 'success' : 'info'"
+      closable class="mb-3" @click:close="importResult = null"
+    >
+      {{ importResult.detail }}
+    </v-alert>
 
     <!-- Résumé annuel — même traitement que les tuiles du tableau de bord -->
     <v-row dense class="mb-4">
@@ -67,6 +94,14 @@
       </template>
       <template v-slot:item.date="{ item }">
         {{ new Date(item.date).toLocaleDateString('fr-FR') }}
+        <!-- Distinguer ce qui vient de SumUp de ce qui a été saisi : on ne
+             corrige pas de la même façon une écriture importée. -->
+        <v-icon
+          v-if="item.source" size="14" class="ml-1" color="secondary"
+          :title="item.source === 'sumup-api'
+            ? 'Importée automatiquement depuis SumUp'
+            : 'Importée du relevé SumUp'"
+        >mdi-sync</v-icon>
       </template>
       <template v-slot:item.supplier="{ item }">
         {{ item.supplier || '—' }}
@@ -133,6 +168,64 @@ import { apiError } from '../services/toast'
 import api from '../services/api'
 import { money } from '../services/format'
 import { confirmAction } from '../services/confirm'
+import { useAuthStore } from '../stores/auth'
+
+const auth = useAuthStore()
+// La trésorerie s'ouvre en lecture à tous les membres selon les réglages :
+// les actions d'écriture, elles, restent au bureau.
+const canWrite = computed(() => auth.isAdmin || auth.hasRole('treasurer'))
+
+// ─── Liaison SumUp ───────────────────────────────────────────────────
+const sumup = ref({ api_key_set: false, last_sync_at: null })
+const syncing = ref(false)
+const releveInput = ref(null)
+const importResult = ref(null)
+
+const lastSyncLabel = computed(() => {
+  if (!sumup.value.last_sync_at) return 'Aucune synchronisation pour le moment'
+  const d = new Date(sumup.value.last_sync_at)
+  return 'Dernière synchronisation : ' + d.toLocaleDateString('fr-FR')
+    + ' à ' + d.toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' })
+})
+
+async function loadSumUp() {
+  if (!canWrite.value) return
+  try {
+    const { data } = await api.get('/treasury/sumup/settings')
+    sumup.value = data
+  } catch { /* liaison simplement absente */ }
+}
+
+async function syncSumUp() {
+  syncing.value = true
+  importResult.value = null
+  try {
+    const { data } = await api.post('/treasury/sumup/sync')
+    importResult.value = data
+    await Promise.all([load(), loadSumUp()])
+  } catch (e) {
+    showError(apiError(e, 'Synchronisation SumUp impossible'))
+  } finally {
+    syncing.value = false
+  }
+}
+
+async function importReleve(e) {
+  const fichier = e.target.files?.[0]
+  if (!fichier) return
+  e.target.value = ''
+  importResult.value = null
+  const fd = new FormData()
+  fd.append('file', fichier)
+  try {
+    const { data } = await api.post('/treasury/sumup/import-csv', fd,
+      { headers: { 'Content-Type': 'multipart/form-data' } })
+    importResult.value = data
+    await load()
+  } catch (err) {
+    showError(apiError(err, "Le relevé n'a pas pu être importé"))
+  }
+}
 
 const transactions = ref([])
 const summary = ref({ income: 0, expense: 0, balance: 0 })
@@ -328,7 +421,7 @@ async function downloadInvoice(invoiceId, filename) {
   }
 }
 
-onMounted(load)
+onMounted(() => { load(); loadSumUp() })
 </script>
 
 <style scoped>
