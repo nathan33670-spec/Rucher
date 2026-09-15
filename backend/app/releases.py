@@ -15,7 +15,9 @@ RELEASES = [
         "title": "La trésorerie se remplit depuis SumUp",
         "highlights": [
             "Un bouton « Synchroniser SumUp » récupère les encaissements par carte et les inscrit en recettes, les remboursements en dépenses.",
-            "Les dépenses du compte professionnel s'importent depuis l'export CSV du relevé : SumUp n'expose pas le compte pro par son API, c'est la seule voie possible.",
+            "Les commissions prélevées par SumUp, les ajustements de solde et les retours de prélèvement remontent aussi tout seuls, en dépenses.",
+            "Un remboursement figure des deux côtés chez SumUp — transactions et retenue sur virement — et n'est compté qu'une fois : les dépenses ne sont pas gonflées.",
+            "Les achats réglés avec la carte du compte professionnel s'importent depuis l'export CSV du relevé : SumUp n'expose pas le compte pro par son API, c'est la seule voie possible.",
             "Les deux imports sont rejouables : chaque écriture garde la référence SumUp dont elle provient, rien n'est jamais créé en double.",
             "Les écritures venues de SumUp portent un repère dans la liste, pour les distinguer de la saisie à la main.",
         ],

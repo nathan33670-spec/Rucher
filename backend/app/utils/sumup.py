@@ -4,11 +4,19 @@ Ce que l'API SumUp permet, et ce qu'elle ne permet pas — la distinction
 commande toute l'organisation de ce module :
 
 - ``/v2.1/merchants/{code}/transactions/history`` liste les **paiements
-  entrants** (encaissements, remboursements, impayés). C'est une API
-  d'encaisseur : elle ne connaît ni les achats réglés avec la carte du compte
-  professionnel, ni les relevés bancaires, ni les factures SumUp Invoice ;
-- les **dépenses** n'ont donc aucune API. Elles n'arrivent que par l'export
-  CSV du relevé, d'où le second lecteur de ce module.
+  entrants** (encaissements, remboursements, impayés) ;
+- ``/v1.0/merchants/{code}/payouts`` liste les **virements et les retenues** :
+  on y trouve les **commissions** prélevées par SumUp (champ ``fee``), les
+  retours de prélèvement et les ajustements de solde. Ce sont de vraies
+  sorties d'argent, et elles sont bien accessibles par l'API ;
+- en revanche, les **achats réglés avec la carte du compte professionnel**
+  n'ont aucune API : ni relevé, ni compte pro, ni facture SumUp Invoice dans
+  la spécification. Ils n'arrivent que par l'export CSV du relevé, d'où le
+  second lecteur de ce module.
+
+Le partage entre les deux sources évite le double compte : un remboursement
+figure à la fois dans l'historique des transactions et comme retenue sur un
+virement. Il n'est retenu qu'une fois, côté transactions.
 
 Chaque écriture importée garde la référence SumUp dont elle provient : c'est
 ce qui rend les deux voies rejouables sans jamais créer de doublon.
@@ -318,3 +326,123 @@ def parse_statement_csv(contenu: bytes) -> list[dict]:
             "ligne": i,
         })
     return lignes
+
+
+# ── Virements et retenues ─────────────────────────────────────────────
+#
+# Ce que chaque enregistrement devient, et pourquoi :
+#
+# - ``fee``                   → dépense. C'est la commission SumUp, elle
+#                               n'apparaît nulle part ailleurs ;
+# - ``BALANCE_DEDUCTION``     → dépense. Ajustement de solde, sans contrepartie
+#                               dans l'historique des transactions ;
+# - ``DD_RETURN_DEDUCTION``   → dépense. Un retour de prélèvement n'est pas une
+#                               transaction carte, il n'est donc pas déjà compté ;
+# - ``PAYOUT``                → ignoré. C'est le virement du solde vers la
+#                               banque : l'encaissement a déjà été compté, le
+#                               réinscrire doublerait les recettes ;
+# - ``REFUND_DEDUCTION`` et
+#   ``CHARGE_BACK_DEDUCTION`` → ignorés. Ce sont les retenues correspondant aux
+#                               remboursements et impayés déjà repris de
+#                               l'historique des transactions.
+
+RETENUES_A_COMPTER = ("BALANCE_DEDUCTION", "DD_RETURN_DEDUCTION")
+RETENUES_DEJA_COMPTEES = ("REFUND_DEDUCTION", "CHARGE_BACK_DEDUCTION")
+
+LIBELLES_RETENUE = {
+    "BALANCE_DEDUCTION": "Ajustement de solde SumUp",
+    "DD_RETURN_DEDUCTION": "Retour de prélèvement SumUp",
+}
+
+
+async def fetch_payouts(cfg: dict, debut: datetime, fin: datetime) -> list[dict]:
+    """Commissions et retenues SumUp, normalisées comme des dépenses.
+
+    ``start_date`` et ``end_date`` sont obligatoires côté SumUp, d'où les deux
+    bornes plutôt qu'une simple ancienneté.
+    """
+    code = (cfg.get("merchant_code") or "").strip()
+    if not code:
+        code = await fetch_merchant_code(cfg)
+
+    url = f"{API_BASE}/v1.0/merchants/{code}/payouts"
+    params = {
+        "start_date": debut.strftime("%Y-%m-%d"),
+        "end_date": fin.strftime("%Y-%m-%d"),
+        "format": "json",
+        "limit": PAGE_SIZE,
+        "order": "asc",
+    }
+    async with httpx.AsyncClient(timeout=30) as client:
+        r = await client.get(url, headers=_headers(cfg), params=params)
+    if r.status_code == 401:
+        raise SumUpError("Clé d'API SumUp refusée : vérifiez-la dans votre tableau de bord SumUp.")
+    if r.status_code == 403:
+        raise SumUpError(
+            "La clé d'API SumUp n'a pas le droit de lire les virements "
+            "(portée « payouts.read »)."
+        )
+    if r.status_code >= 400:
+        raise SumUpError(f"SumUp a répondu {r.status_code} : {r.text[:200]}")
+
+    data = r.json() or []
+    # SumUp renvoie une liste ; certains environnements l'enveloppent.
+    if isinstance(data, dict):
+        data = data.get("items") or data.get("payouts") or []
+
+    lignes = []
+    for item in data:
+        lignes.extend(_normalise_payout(item))
+    return lignes
+
+
+def _normalise_payout(item: dict) -> list[dict]:
+    """Un enregistrement de virement → zéro, une ou deux dépenses."""
+    if (item.get("status") or "SUCCESSFUL").upper() == "FAILED":
+        return []
+
+    identifiant = item.get("id")
+    if identifiant is None:
+        return []
+    type_ = (item.get("type") or "PAYOUT").upper()
+    quand = _parse_date(item.get("date")) or datetime.utcnow()
+    sorties = []
+
+    # La commission accompagne aussi bien un virement qu'une retenue.
+    frais = item.get("fee")
+    try:
+        frais = float(frais) if frais is not None else 0.0
+    except (TypeError, ValueError):
+        frais = 0.0
+    if frais > 0:
+        sorties.append({
+            "external_ref": f"sumup-fee:{identifiant}",
+            "amount": round(frais, 2),
+            "is_expense": True,
+            "date": quand,
+            "description": "Commission SumUp",
+            "supplier": "SumUp",
+            "source": "sumup-api",
+        })
+
+    if type_ in RETENUES_A_COMPTER:
+        montant = item.get("amount")
+        try:
+            montant = abs(float(montant)) if montant is not None else 0.0
+        except (TypeError, ValueError):
+            montant = 0.0
+        if montant > 0:
+            libelle = LIBELLES_RETENUE.get(type_, "Retenue SumUp")
+            ref_op = item.get("transaction_code") or item.get("reference")
+            if ref_op:
+                libelle = f"{libelle} ({ref_op})"
+            sorties.append({
+                "external_ref": f"sumup-payout:{identifiant}",
+                "amount": round(montant, 2),
+                "is_expense": True,
+                "date": quand,
+                "description": libelle[:500],
+                "supplier": "SumUp",
+                "source": "sumup-api",
+            })
+    return sorties
