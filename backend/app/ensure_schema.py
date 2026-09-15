@@ -13,6 +13,18 @@ from sqlalchemy import text
 
 # (table, colonne, DDL d'ajout idempotent)
 COLUMN_MIGRATIONS = [
+    # Rapprochement SumUp : provenance et référence de l'opération d'origine.
+    # Sans elles, la liste des écritures renvoie 500 sur les bases antérieures.
+    (
+        "transactions",
+        "source",
+        "ALTER TABLE transactions ADD COLUMN IF NOT EXISTS source VARCHAR(50)",
+    ),
+    (
+        "transactions",
+        "external_ref",
+        "ALTER TABLE transactions ADD COLUMN IF NOT EXISTS external_ref VARCHAR(255)",
+    ),
     # Relance de notification sur un événement : sans cette colonne, la liste
     # des événements renvoie 500 sur les bases antérieures.
     (

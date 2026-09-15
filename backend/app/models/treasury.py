@@ -29,6 +29,12 @@ class Transaction(Base):
     description = Column(Text)
     supplier = Column(String(300))  # fournisseur (optionnel)
     date = Column(DateTime, default=datetime.utcnow)
+    # Provenance d'une écriture importée : « sumup-api », « sumup-csv », ou
+    # vide pour une saisie à la main.
+    source = Column(String(50), nullable=True)
+    # Référence de l'opération chez SumUp. C'est elle qui rend les imports
+    # rejouables : réimporter le même relevé ne recrée rien.
+    external_ref = Column(String(255), nullable=True, index=True)
     created_by = Column(Integer, ForeignKey("users.id"), nullable=False)
     created_at = Column(DateTime, default=datetime.utcnow)
     updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)

@@ -10,6 +10,17 @@ Convention : la version la plus récente en tête.
 
 RELEASES = [
     {
+        "version": "1.9.0",
+        "date": "2026-09-15",
+        "title": "La trésorerie se remplit depuis SumUp",
+        "highlights": [
+            "Un bouton « Synchroniser SumUp » récupère les encaissements par carte et les inscrit en recettes, les remboursements en dépenses.",
+            "Les dépenses du compte professionnel s'importent depuis l'export CSV du relevé : SumUp n'expose pas le compte pro par son API, c'est la seule voie possible.",
+            "Les deux imports sont rejouables : chaque écriture garde la référence SumUp dont elle provient, rien n'est jamais créé en double.",
+            "Les écritures venues de SumUp portent un repère dans la liste, pour les distinguer de la saisie à la main.",
+        ],
+    },
+    {
         "version": "1.8.6",
         "date": "2026-09-14",
         "title": "Relancer une notification sur un événement",
