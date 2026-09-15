@@ -310,34 +310,63 @@ async def sync_sumup(
     db: AsyncSession = Depends(get_db),
     user: User = Depends(require_roles(RoleEnum.ADMIN, RoleEnum.TREASURER)),
 ):
-    """Récupère les encaissements SumUp et crée les écritures manquantes.
+    """Récupère encaissements et commissions SumUp, puis crée le manquant.
 
-    Ne concerne que les **recettes** : l'API SumUp ne connaît pas les achats
-    réglés avec la carte du compte professionnel. Pour les dépenses, c'est
+    Deux sources, parce qu'une seule ne suffit pas :
+
+    - l'historique des **transactions** donne les encaissements (recettes) et
+      les remboursements ;
+    - les **virements** donnent les **commissions SumUp** et les retenues, qui
+      sont des dépenses et n'apparaissent nulle part ailleurs.
+
+    Restent hors de portée les achats réglés avec la carte du compte
+    professionnel : SumUp n'expose ni le compte pro ni ses relevés. C'est
     l'import du relevé (« /sumup/import-csv ») qui prend le relais.
 
     Rejouable : chaque écriture porte la référence SumUp dont elle provient,
     une seconde synchronisation ne recrée donc rien.
     """
     cfg = await load_sumup(db)
-    depuis = datetime.utcnow() - timedelta(
+    maintenant = datetime.utcnow()
+    depuis = maintenant - timedelta(
         days=int(cfg.get("lookback_days") or sumup.DEFAULT_LOOKBACK_DAYS))
     try:
-        lignes = await sumup.fetch_transactions(cfg, depuis)
+        ventes = await sumup.fetch_transactions(cfg, depuis)
     except sumup.SumUpError as e:
         raise HTTPException(502, str(e))
     except Exception as e:
         raise HTTPException(502, f"SumUp injoignable : {e}")
 
-    res = await _enregistre(db, user, lignes, TransactionCategory.HONEY_SALE)
-    cfg["last_sync_at"] = datetime.utcnow().isoformat()
+    # Les commissions ne doivent pas faire échouer la reprise des recettes :
+    # une clé sans la portée « payouts » reste utile pour les encaissements.
+    frais: list[dict] = []
+    avertissement = ""
+    try:
+        frais = await sumup.fetch_payouts(cfg, depuis, maintenant)
+    except sumup.SumUpError as e:
+        avertissement = f" Commissions non reprises : {e}"
+    except Exception as e:
+        avertissement = f" Commissions non reprises : {e}"
+
+    res = await _enregistre(db, user, ventes, TransactionCategory.HONEY_SALE)
+    res_frais = await _enregistre(db, user, frais, TransactionCategory.OTHER)
+    res.created += res_frais.created
+    res.skipped += res_frais.skipped
+    res.income += res_frais.income
+    res.expense += res_frais.expense
+    if avertissement:
+        res.errors.append(avertissement.strip())
+
+    cfg["last_sync_at"] = maintenant.isoformat()
     await _save_sumup(db, cfg)
     await log_action(db, user.id, "sumup_sync", "transaction", None,
                      details=f"{res.created} créée(s), {res.skipped} déjà connue(s)")
     res.detail = (
-        f"{res.created} écriture(s) ajoutée(s), {res.skipped} déjà connue(s). "
-        "L'API SumUp ne fournit que les encaissements : importez le relevé "
-        "pour les dépenses."
+        f"{res.created} écriture(s) ajoutée(s) — {res.income} recette(s), "
+        f"{res.expense} dépense(s) dont les commissions SumUp. "
+        f"{res.skipped} déjà connue(s)." + avertissement +
+        " Les achats réglés avec la carte du compte professionnel ne sont pas "
+        "accessibles par l'API : importez le relevé pour les récupérer."
     )
     return res
 
