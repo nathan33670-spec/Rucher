@@ -14,6 +14,7 @@ from app.database import async_session
 from app.models.notification import AppSetting
 from app.utils import digest as digest_mod
 from app.utils.mailer import send_mail, mail_enabled, recipients
+from app.utils import reconciliation_reminder
 
 CHECK_INTERVAL = 900          # 15 minutes
 MARKER_KEY = "weekly_digest_last_sent"   # valeur : identifiant de semaine ISO
@@ -82,4 +83,12 @@ async def weekly_digest_loop() -> None:
             raise
         except Exception as e:  # pragma: no cover
             print(f"⚠️  Planificateur du récapitulatif : {e}")
+        # Rappel du rapprochement bancaire : indépendant du récapitulatif,
+        # son échec ne doit pas emporter la boucle.
+        try:
+            await reconciliation_reminder.check_once()
+        except asyncio.CancelledError:
+            raise
+        except Exception as e:  # pragma: no cover
+            print(f"⚠️  Rappel de rapprochement : {e}")
         await asyncio.sleep(CHECK_INTERVAL)

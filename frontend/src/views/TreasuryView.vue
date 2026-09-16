@@ -75,6 +75,23 @@
       </v-col>
     </v-row>
 
+    <v-tabs v-model="onglet" color="primary" class="mb-4">
+      <v-tab value="ecritures" prepend-icon="mdi-format-list-bulleted">Écritures</v-tab>
+      <v-tab v-if="canWrite" value="rapprochement" prepend-icon="mdi-bank-check">
+        Rapprochement
+        <v-badge v-if="moisARapprocher" :content="moisARapprocher" color="warning" inline />
+      </v-tab>
+    </v-tabs>
+
+    <BankReconciliation
+      v-if="onglet === 'rapprochement' && canWrite"
+      ref="rapprochement"
+      :can-write="canWrite" :is-admin="auth.isAdmin"
+      @changed="onRapprochementChange"
+      @message="showSuccess"
+    />
+
+    <template v-if="onglet === 'ecritures'">
     <FilterBar
       v-model="filters" :fields="filterFields"
       :total="transactions.length" :shown="filteredTransactions.length" item-label="écriture"
@@ -123,6 +140,7 @@
         <v-btn icon size="small" variant="text" @click="deleteTx(item.id)"><v-icon color="error">mdi-delete</v-icon></v-btn>
       </template>
     </v-data-table>
+    </template>
 
     <!-- Dialog écriture -->
     <v-dialog v-model="showForm" max-width="550">
@@ -169,8 +187,28 @@ import api from '../services/api'
 import { money } from '../services/format'
 import { confirmAction } from '../services/confirm'
 import { useAuthStore } from '../stores/auth'
+import BankReconciliation from '../components/BankReconciliation.vue'
 
 const auth = useAuthStore()
+
+// Onglets : la liste des écritures d'un côté, le rapprochement de l'autre.
+const onglet = ref('ecritures')
+const rapprochement = ref(null)
+// Nombre de mois qui portent des écritures et ne sont pas rapprochés : c'est
+// ce chiffre, visible en permanence, qui empêche d'oublier un mois.
+const moisARapprocher = ref(0)
+
+async function chargerRetard() {
+  if (!canWrite.value) return
+  try {
+    const { data } = await api.get('/treasury/reconciliation?months=12')
+    moisARapprocher.value = data.filter((m) => !m.validated && m.total > 0).length
+  } catch { /* onglet simplement sans pastille */ }
+}
+
+async function onRapprochementChange() {
+  await Promise.all([load(), chargerRetard()])
+}
 // La trésorerie s'ouvre en lecture à tous les membres selon les réglages :
 // les actions d'écriture, elles, restent au bureau.
 const canWrite = computed(() => auth.isAdmin || auth.hasRole('treasurer'))
@@ -421,7 +459,7 @@ async function downloadInvoice(invoiceId, filename) {
   }
 }
 
-onMounted(() => { load(); loadSumUp() })
+onMounted(() => { load(); loadSumUp(); chargerRetard() })
 </script>
 
 <style scoped>

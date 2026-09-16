@@ -13,6 +13,19 @@ from sqlalchemy import text
 
 # (table, colonne, DDL d'ajout idempotent)
 COLUMN_MIGRATIONS = [
+    # Rapprochement bancaire : pointage d'une écriture et mois auquel elle est
+    # rattachée. Sans elles, la liste des écritures renvoie 500 sur les bases
+    # antérieures.
+    (
+        "transactions",
+        "reconciled_at",
+        "ALTER TABLE transactions ADD COLUMN IF NOT EXISTS reconciled_at TIMESTAMP",
+    ),
+    (
+        "transactions",
+        "reconciliation_id",
+        "ALTER TABLE transactions ADD COLUMN IF NOT EXISTS reconciliation_id INTEGER",
+    ),
     # Rapprochement SumUp : provenance et référence de l'opération d'origine.
     # Sans elles, la liste des écritures renvoie 500 sur les bases antérieures.
     (
