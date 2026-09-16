@@ -11,11 +11,13 @@ from sqlalchemy import select, func
 
 from app.database import get_db
 from app.models.treasury import (Transaction, Invoice, TransactionType,
-                                 TransactionCategory)
+                                 TransactionCategory, BankReconciliation)
 from app.models.notification import AppSetting
-from app.models.user import User, RoleEnum
+from app.models.user import User, UserRole, RoleEnum
 from app.schemas.treasury import (TransactionCreate, TransactionUpdate, TransactionOut,
-                                  SumUpSettings, SumUpSettingsUpdate, ImportResult)
+                                  SumUpSettings, SumUpSettingsUpdate, ImportResult,
+                                  ReconciliationOut, ReconciliationMonth,
+                                  ReconciliationUpdate, ReconciliationToggle)
 from app.utils.auth import get_current_user, require_roles, get_user_roles
 from app.utils.audit import log_action
 from app.utils import sumup
@@ -35,7 +37,7 @@ async def _check_read_access(db, user) -> None:
             "La trésorerie est réservée au bureau. Un administrateur peut "
             "l'ouvrir en lecture à tous les membres dans les réglages.",
         )
-from app.utils.push import notify
+from app.utils.push import notify, notify_users
 from app.config import get_settings
 
 router = APIRouter(prefix="/api/treasury", tags=["treasury"])
@@ -188,6 +190,7 @@ def _tx_out(t: Transaction) -> TransactionOut:
         supplier=t.supplier,
         date=t.date,
         source=t.source,
+        reconciled_at=t.reconciled_at,
         created_by=t.created_by,
         invoices=[{"id": inv.id, "filename": inv.filename} for inv in t.invoices],
         created_at=t.created_at,
@@ -408,3 +411,378 @@ async def import_sumup_statement(
         "Pensez à joindre les factures aux dépenses concernées."
     )
     return res
+
+
+# ─── Rapprochement bancaire ───────────────────────────────────────────
+#
+# Rapprocher, c'est confronter ce que dit l'association à ce que dit la
+# banque. Une écriture « pointée » a été retrouvée sur le relevé ; le solde
+# des écritures pointées doit tomber sur le solde du relevé. Tout écart
+# signale une écriture manquante d'un côté ou de l'autre — c'est justement ce
+# qu'on cherche.
+
+MOIS_FR = ("janvier", "février", "mars", "avril", "mai", "juin", "juillet",
+           "août", "septembre", "octobre", "novembre", "décembre")
+
+
+def _libelle_mois(annee: int, mois: int) -> str:
+    return f"{MOIS_FR[mois - 1]} {annee}"
+
+
+def _bornes(annee: int, mois: int) -> tuple[datetime, datetime]:
+    debut = datetime(annee, mois, 1)
+    fin = datetime(annee + (mois == 12), (mois % 12) + 1, 1)
+    return debut, fin
+
+
+def _signe(t: Transaction) -> float:
+    """Montant signé : une dépense diminue le solde."""
+    return -t.amount if t.transaction_type == TransactionType.EXPENSE else t.amount
+
+
+def _valide_periode(annee: int, mois: int) -> None:
+    if not 1 <= mois <= 12:
+        raise HTTPException(400, "Mois invalide (1 à 12).")
+    if not 2000 <= annee <= 2100:
+        raise HTTPException(400, "Année invalide.")
+
+
+async def _get_or_create_reconciliation(db: AsyncSession, annee: int, mois: int) -> BankReconciliation:
+    res = await db.execute(
+        select(BankReconciliation).where(BankReconciliation.year == annee,
+                                         BankReconciliation.month == mois)
+    )
+    rec = res.scalar_one_or_none()
+    if rec is None:
+        rec = BankReconciliation(year=annee, month=mois)
+        db.add(rec)
+        await db.flush()
+    return rec
+
+
+async def _solde_anterieur(db: AsyncSession, debut: datetime) -> float:
+    """Solde des écritures pointées antérieures au mois.
+
+    C'est le point de départ du rapprochement : sans lui, on comparerait le
+    mouvement du mois à un solde de relevé qui, lui, est cumulé.
+    """
+    res = await db.execute(
+        select(Transaction).where(Transaction.date < debut,
+                                  Transaction.reconciled_at.isnot(None))
+    )
+    return round(sum(_signe(t) for t in res.scalars().all()), 2)
+
+
+@router.get("/reconciliation", response_model=list[ReconciliationMonth])
+async def list_reconciliations(
+    months: int = 12,
+    db: AsyncSession = Depends(get_db),
+    user: User = Depends(require_roles(RoleEnum.ADMIN, RoleEnum.TREASURER)),
+):
+    """Suivi mois par mois : où en est le rapprochement ?
+
+    Renvoie les derniers mois, **plus tout mois antérieur qui porte des
+    écritures sans être validé**. Sans ce rattrapage, un mois oublié
+    sortirait de la fenêtre et ne se rappellerait plus jamais à personne —
+    exactement ce qu'un suivi de rapprochement doit empêcher.
+    """
+    months = max(1, min(int(months or 12), 60))
+    aujourdhui = datetime.utcnow()
+    res = await db.execute(select(BankReconciliation))
+    connus = {(r.year, r.month): r for r in res.scalars().all()}
+
+    # Fenêtre récente.
+    periodes: list[tuple[int, int]] = []
+    annee, mois = aujourdhui.year, aujourdhui.month
+    for _ in range(months):
+        periodes.append((annee, mois))
+        mois -= 1
+        if mois == 0:
+            annee, mois = annee - 1, 12
+
+    # Rattrapage : les mois plus anciens qui portent des écritures et ne sont
+    # pas validés. Un mois validé, lui, peut sortir de la vue sans dommage.
+    r = await db.execute(
+        select(func.extract("year", Transaction.date),
+               func.extract("month", Transaction.date))
+        .group_by(func.extract("year", Transaction.date),
+                  func.extract("month", Transaction.date))
+    )
+    for an, mo in r.all():
+        cle = (int(an), int(mo))
+        if cle in periodes:
+            continue
+        rec = connus.get(cle)
+        if rec and rec.validated:
+            continue
+        periodes.append(cle)
+
+    periodes.sort(reverse=True)
+
+    sorties = []
+    for annee, mois in periodes:
+        debut, fin = _bornes(annee, mois)
+        r = await db.execute(
+            select(Transaction).where(Transaction.date >= debut, Transaction.date < fin)
+        )
+        lignes = list(r.scalars().all())
+        pointees = [t for t in lignes if t.reconciled_at is not None]
+        rec = connus.get((annee, mois))
+        sorties.append(ReconciliationMonth(
+            year=annee, month=mois, label=_libelle_mois(annee, mois),
+            validated=bool(rec and rec.validated),
+            validated_at=rec.validated_at if rec else None,
+            total=len(lignes), reconciled=len(pointees),
+            pending=len(lignes) - len(pointees),
+        ))
+    return sorties
+
+
+@router.get("/reconciliation/{annee}/{mois}", response_model=ReconciliationOut)
+async def get_reconciliation(
+    annee: int, mois: int,
+    db: AsyncSession = Depends(get_db),
+    user: User = Depends(require_roles(RoleEnum.ADMIN, RoleEnum.TREASURER)),
+):
+    """Le mois à rapprocher : ses écritures, ses soldes, son écart."""
+    _valide_periode(annee, mois)
+    debut, fin = _bornes(annee, mois)
+
+    res = await db.execute(
+        select(BankReconciliation).where(BankReconciliation.year == annee,
+                                         BankReconciliation.month == mois)
+    )
+    rec = res.scalar_one_or_none()
+
+    r = await db.execute(
+        select(Transaction)
+        .where(Transaction.date >= debut, Transaction.date < fin)
+        .order_by(Transaction.date.asc(), Transaction.id.asc())
+    )
+    lignes = list(r.scalars().all())
+    pointees = [t for t in lignes if t.reconciled_at is not None]
+    attente = [t for t in lignes if t.reconciled_at is None]
+
+    ouverture = await _solde_anterieur(db, debut)
+    total_pointe = round(sum(_signe(t) for t in pointees), 2)
+    solde_pointe = round(ouverture + total_pointe, 2)
+
+    nom_valideur = None
+    if rec and rec.validated_by:
+        u = await db.get(User, rec.validated_by)
+        if u:
+            nom_valideur = f"{u.first_name} {u.last_name}".strip() or u.email
+
+    releve = rec.statement_balance if rec else None
+    return ReconciliationOut(
+        year=annee, month=mois, label=_libelle_mois(annee, mois),
+        validated=bool(rec and rec.validated),
+        validated_at=rec.validated_at if rec else None,
+        validated_by_name=nom_valideur,
+        statement_balance=releve,
+        notes=rec.notes if rec else None,
+        opening_balance=ouverture,
+        reconciled_total=total_pointe,
+        reconciled_balance=solde_pointe,
+        pending_total=round(sum(_signe(t) for t in attente), 2),
+        difference=round(releve - solde_pointe, 2) if releve is not None else None,
+        counts={"total": len(lignes), "reconciled": len(pointees), "pending": len(attente)},
+        transactions=[_tx_out(t) for t in lignes],
+    )
+
+
+@router.put("/reconciliation/{annee}/{mois}", response_model=ReconciliationOut)
+async def update_reconciliation(
+    annee: int, mois: int, body: ReconciliationUpdate,
+    db: AsyncSession = Depends(get_db),
+    user: User = Depends(require_roles(RoleEnum.ADMIN, RoleEnum.TREASURER)),
+):
+    """Enregistre le solde du relevé bancaire et les remarques du mois."""
+    _valide_periode(annee, mois)
+    rec = await _get_or_create_reconciliation(db, annee, mois)
+    if rec.validated:
+        raise HTTPException(
+            409,
+            f"Le rapprochement de {_libelle_mois(annee, mois)} est validé : "
+            "rouvrez-le avant de le modifier.",
+        )
+    donnees = body.model_dump(exclude_unset=True)
+    for champ, valeur in donnees.items():
+        setattr(rec, champ, valeur)
+    await db.flush()
+    return await get_reconciliation(annee, mois, db, user)
+
+
+@router.post("/reconciliation/{annee}/{mois}/pointer", response_model=ReconciliationOut)
+async def toggle_reconciliation(
+    annee: int, mois: int, body: ReconciliationToggle,
+    db: AsyncSession = Depends(get_db),
+    user: User = Depends(require_roles(RoleEnum.ADMIN, RoleEnum.TREASURER)),
+):
+    """Pointe ou dépointe des écritures du mois."""
+    _valide_periode(annee, mois)
+    debut, fin = _bornes(annee, mois)
+
+    res = await db.execute(
+        select(BankReconciliation).where(BankReconciliation.year == annee,
+                                         BankReconciliation.month == mois)
+    )
+    rec = res.scalar_one_or_none()
+    if rec and rec.validated:
+        raise HTTPException(
+            409,
+            f"Le rapprochement de {_libelle_mois(annee, mois)} est validé : "
+            "rouvrez-le pour modifier le pointage.",
+        )
+
+    if not body.transaction_ids:
+        raise HTTPException(400, "Aucune écriture désignée.")
+
+    r = await db.execute(
+        select(Transaction).where(Transaction.id.in_(body.transaction_ids))
+    )
+    lignes = list(r.scalars().all())
+    maintenant = datetime.utcnow()
+    for t in lignes:
+        # Une écriture d'un autre mois n'a rien à faire dans ce rapprochement :
+        # la pointer ici fausserait le solde des deux mois.
+        if not (debut <= t.date < fin):
+            raise HTTPException(
+                400,
+                f"L'écriture « {t.description or t.id} » n'appartient pas à "
+                f"{_libelle_mois(annee, mois)}.",
+            )
+        t.reconciled_at = maintenant if body.reconciled else None
+    await db.flush()
+    return await get_reconciliation(annee, mois, db, user)
+
+
+@router.post("/reconciliation/{annee}/{mois}/valider", response_model=ReconciliationOut)
+async def validate_reconciliation(
+    annee: int, mois: int,
+    db: AsyncSession = Depends(get_db),
+    user: User = Depends(require_roles(RoleEnum.ADMIN, RoleEnum.TREASURER)),
+):
+    """Valide le rapprochement du mois et prévient les administrateurs.
+
+    Refusé tant qu'un écart subsiste ou qu'une écriture reste à pointer : un
+    rapprochement validé avec un écart ne vaut rien, et laisserait croire que
+    les comptes sont justes.
+    """
+    _valide_periode(annee, mois)
+    debut, fin = _bornes(annee, mois)
+    rec = await _get_or_create_reconciliation(db, annee, mois)
+    if rec.validated:
+        raise HTTPException(409, f"Le rapprochement de {_libelle_mois(annee, mois)} est déjà validé.")
+    if rec.statement_balance is None:
+        raise HTTPException(
+            400,
+            "Renseignez d'abord le solde du relevé bancaire à la fin du mois : "
+            "sans lui, il n'y a rien à rapprocher.",
+        )
+
+    r = await db.execute(
+        select(Transaction).where(Transaction.date >= debut, Transaction.date < fin)
+    )
+    lignes = list(r.scalars().all())
+    attente = [t for t in lignes if t.reconciled_at is None]
+    if attente:
+        raise HTTPException(
+            400,
+            f"{len(attente)} écriture(s) ne sont pas encore pointées : "
+            "retrouvez-les sur le relevé, ou corrigez-les, avant de valider.",
+        )
+
+    ouverture = await _solde_anterieur(db, debut)
+    solde_pointe = round(ouverture + sum(_signe(t) for t in lignes), 2)
+    ecart = round(rec.statement_balance - solde_pointe, 2)
+    if abs(ecart) >= 0.01:
+        raise HTTPException(
+            400,
+            f"Écart de {ecart:+.2f} € entre le relevé ({rec.statement_balance:.2f} €) "
+            f"et les écritures pointées ({solde_pointe:.2f} €). Il manque une "
+            "écriture d'un côté ou de l'autre : le rapprochement ne peut pas "
+            "être validé tant qu'il subsiste.",
+        )
+
+    rec.validated = True
+    rec.validated_by = user.id
+    rec.validated_at = datetime.utcnow()
+    rec.reconciled_balance = solde_pointe
+    for t in lignes:
+        t.reconciliation_id = rec.id
+    await db.flush()
+
+    qui = f"{user.first_name} {user.last_name}".strip() or user.email
+    libelle = _libelle_mois(annee, mois)
+    await log_action(db, user.id, "reconciliation_validated", "treasury", rec.id,
+                     details=f"{libelle} — solde {solde_pointe:.2f} €")
+
+    # Les administrateurs répondent des comptes : ils doivent savoir qu'un
+    # mois est arrêté, sans avoir à aller le vérifier.
+    res = await db.execute(
+        select(User.id)
+        .join(UserRole, UserRole.user_id == User.id)
+        .where(User.is_active.is_(True), UserRole.role == RoleEnum.ADMIN)
+    )
+    admins = [uid for uid in set(res.scalars().all()) if uid != user.id]
+    if admins:
+        notify_users(
+            admins,
+            f"✅ Rapprochement bancaire validé — {libelle}",
+            f"{qui} a validé le rapprochement de {libelle} : "
+            f"{len(lignes)} écriture(s) pointée(s), solde {solde_pointe:.2f} € "
+            "conforme au relevé.",
+            "/app/treasury",
+            category="treasury",
+        )
+
+    return await get_reconciliation(annee, mois, db, user)
+
+
+@router.post("/reconciliation/{annee}/{mois}/rouvrir", response_model=ReconciliationOut)
+async def reopen_reconciliation(
+    annee: int, mois: int,
+    db: AsyncSession = Depends(get_db),
+    user: User = Depends(require_roles(RoleEnum.ADMIN)),
+):
+    """Rouvre un mois validé — réservé aux administrateurs.
+
+    Un mois arrêté ne se rouvre pas à la légère : la réouverture est inscrite
+    au journal, et les administrateurs en sont avertis.
+    """
+    _valide_periode(annee, mois)
+    res = await db.execute(
+        select(BankReconciliation).where(BankReconciliation.year == annee,
+                                         BankReconciliation.month == mois)
+    )
+    rec = res.scalar_one_or_none()
+    if not rec or not rec.validated:
+        raise HTTPException(400, f"Le rapprochement de {_libelle_mois(annee, mois)} n'est pas validé.")
+
+    rec.validated = False
+    rec.validated_by = None
+    rec.validated_at = None
+    debut, fin = _bornes(annee, mois)
+    r = await db.execute(
+        select(Transaction).where(Transaction.date >= debut, Transaction.date < fin)
+    )
+    for t in r.scalars().all():
+        t.reconciliation_id = None
+    await db.flush()
+
+    qui = f"{user.first_name} {user.last_name}".strip() or user.email
+    libelle = _libelle_mois(annee, mois)
+    await log_action(db, user.id, "reconciliation_reopened", "treasury", rec.id,
+                     details=libelle)
+    res = await db.execute(
+        select(User.id)
+        .join(UserRole, UserRole.user_id == User.id)
+        .where(User.is_active.is_(True), UserRole.role == RoleEnum.ADMIN)
+    )
+    admins = [uid for uid in set(res.scalars().all()) if uid != user.id]
+    if admins:
+        notify_users(admins, f"⚠️ Rapprochement rouvert — {libelle}",
+                     f"{qui} a rouvert le rapprochement de {libelle}.",
+                     "/app/treasury", category="treasury")
+    return await get_reconciliation(annee, mois, db, user)

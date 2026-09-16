@@ -10,6 +10,18 @@ Convention : la version la plus récente en tête.
 
 RELEASES = [
     {
+        "version": "1.10.0",
+        "date": "2026-09-16",
+        "title": "Rapprochement bancaire",
+        "highlights": [
+            "Un onglet « Rapprochement » dans la trésorerie : on pointe les écritures retrouvées sur le relevé, on saisit le solde de la banque, et l'écart apparaît tout de suite.",
+            "La validation est refusée tant qu'une écriture n'est pas pointée ou qu'un écart subsiste — un rapprochement validé avec un écart ne vaudrait rien.",
+            "Les administrateurs sont notifiés sur leur téléphone dès qu'un mois est validé, avec le solde arrêté et le nom du valideur.",
+            "Un mois validé est figé ; seul un administrateur peut le rouvrir, et cela prévient les autres.",
+            "À partir du 5 de chaque mois, un rappel hebdomadaire signale au bureau que le mois précédent n'est pas rapproché. Un mois ancien oublié remonte toujours dans le suivi.",
+        ],
+    },
+    {
         "version": "1.9.0",
         "date": "2026-09-15",
         "title": "La trésorerie se remplit depuis SumUp",
