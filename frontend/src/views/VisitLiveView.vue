@@ -40,6 +40,55 @@
         </template>
       </v-select>
 
+      <!-- Date de la visite : pré-remplie au jour même, modifiable pour
+           consigner après coup une visite faite la veille au rucher. Elle
+           vaut pour toutes les ruches de la tournée. -->
+      <div class="d-flex align-center justify-center ga-2 mb-3">
+        <v-menu v-model="showDatePicker" :close-on-content-click="false" location="bottom">
+          <template v-slot:activator="{ props }">
+            <v-chip
+              v-bind="props" link size="small"
+              :color="dateEstAujourdhui ? 'secondary' : 'warning'"
+              :variant="dateEstAujourdhui ? 'tonal' : 'flat'"
+              prepend-icon="mdi-calendar"
+            >
+              {{ dateEstAujourdhui ? "Visite d'aujourd'hui" : 'Visite du ' + dateLisible }}
+              <v-icon end size="14">mdi-pencil</v-icon>
+            </v-chip>
+          </template>
+          <v-card min-width="300">
+            <v-card-text class="pb-2">
+              <v-text-field
+                v-model="dateVisite"
+                type="date"
+                label="Date de la visite"
+                :max="aujourdhuiISO"
+                density="compact"
+                hide-details
+                autofocus
+              />
+              <p class="text-caption r-muted mt-2 mb-0">
+                S'applique à toutes les ruches de cette tournée.
+                La date de saisie reste celle d'aujourd'hui.
+              </p>
+            </v-card-text>
+            <v-card-actions>
+              <v-btn size="small" variant="text" @click="resetDate">Aujourd'hui</v-btn>
+              <v-spacer />
+              <v-btn size="small" color="primary" @click="showDatePicker = false">Fermer</v-btn>
+            </v-card-actions>
+          </v-card>
+        </v-menu>
+      </div>
+
+      <v-alert
+        v-if="!dateEstAujourdhui"
+        type="warning" variant="tonal" density="compact" class="mb-3 text-left"
+      >
+        Saisie a posteriori : ces observations seront enregistrées au
+        <b>{{ dateLisible }}</b>, et non aujourd'hui.
+      </v-alert>
+
       <div class="d-flex align-center justify-center ga-2 mb-4">
         <p class="text-caption r-muted mb-0">{{ currentIndex + 1 }} / {{ hives.length }}</p>
         <v-chip
@@ -378,6 +427,35 @@ const auth = useAuthStore()
 const hives = ref([])
 const currentIndex = ref(0)
 const loading = ref(true)
+// ─── Date de la visite ───────────────────────────────────────────────
+// Deux dates coexistent : celle de la **visite**, choisie ici, et celle de la
+// **saisie**, posée par le serveur et jamais modifiable. Les confondre
+// empêchait de consigner une tournée faite la veille sans réseau.
+const aujourdhuiISO = new Date().toLocaleDateString('sv-SE')  // AAAA-MM-JJ local
+const dateVisite = ref(aujourdhuiISO)
+const showDatePicker = ref(false)
+
+const dateEstAujourdhui = computed(() => dateVisite.value === aujourdhuiISO)
+const dateLisible = computed(() =>
+  new Date(dateVisite.value + 'T12:00:00').toLocaleDateString('fr-FR',
+    { weekday: 'long', day: 'numeric', month: 'long' }))
+
+function resetDate() {
+  dateVisite.value = aujourdhuiISO
+  showDatePicker.value = false
+}
+
+/** Horodatage envoyé au serveur pour la visite en cours.
+ *
+ * Le jour même, on garde l'heure réelle — elle situe la visite dans la
+ * journée. Un jour passé, on retient midi : prétendre connaître l'heure
+ * d'une visite d'hier serait faux.
+ */
+function dateVisiteISO() {
+  if (dateEstAujourdhui.value) return new Date().toISOString()
+  return new Date(dateVisite.value + 'T12:00:00').toISOString()
+}
+
 const saving = ref(false)
 const savedCount = ref(0)
 const online = ref(navigator.onLine)
@@ -604,7 +682,7 @@ async function saveAndNext() {
 
   const visitData = {
     hive_id: currentHive.value.id,
-    visited_at: new Date().toISOString(),
+    visited_at: dateVisiteISO(),
     queen_seen: form.value.queen_seen,
     brood_score: bodyOpened.value ? form.value.brood_score : null,
     reserves_score: bodyOpened.value ? form.value.reserves_score : null,
