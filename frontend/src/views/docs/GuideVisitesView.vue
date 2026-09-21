@@ -35,6 +35,35 @@ const sections = [
     ],
   },
   {
+    id: 'date', t: 'Saisir une visite faite un autre jour',
+    blocks: [
+      { p: "On rentre du rucher le soir, ou le lendemain, et on saisit la tournée au calme. Sans rien faire, la visite serait datée du moment de la saisie — et l'historique de la colonie s'en trouverait faussé." },
+      { p: "L'application distingue donc <b>deux dates</b> :" },
+      { table: { head: ['Date', 'Qui la pose', 'Modifiable ?'], rows: [
+        ['<b>Date de la visite</b>', "Vous. Pré-remplie au jour même.", "✅ à la saisie et après coup"],
+        ['<b>Date de saisie</b>', "L'application, automatiquement.", "❌ jamais — c'est la trace du moment où l'information est entrée"],
+      ] } },
+      { h3: 'Changer la date pendant la tournée' },
+      { steps: [
+        "Dans la visite rapide, sous le sélecteur de ruche, touchez la pastille <b>« Visite d'aujourd'hui »</b>.",
+        "Choisissez la date à laquelle la visite a réellement eu lieu.",
+        "Touchez <b>Fermer</b>. La pastille passe en <b>orange</b> et un bandeau rappelle la date retenue.",
+        "Saisissez vos observations normalement.",
+      ] },
+      { img: 'g-visite-date.jpg', cap: "La date se change d'un geste, et l'avertissement reste visible." },
+      { note: "La date choisie vaut pour <b>toutes les ruches de la tournée</b> : on ne la saisit qu'une fois. Le bouton <b>Aujourd'hui</b> la ramène au jour même." },
+      { tip: "Le jour même, l'heure réelle est conservée — elle situe la visite dans la journée. Pour un jour passé, l'application retient midi : prétendre connaître l'heure d'une visite d'hier serait faux." },
+      { h3: 'Corriger la date après coup' },
+      { steps: [
+        "Ouvrez l'<b>historique des visites</b> et cliquez sur le <b>crayon</b> de la ligne concernée.",
+        "En tête du formulaire, corrigez <b>Date de la visite</b>.",
+        "Cliquez sur <b>Enregistrer</b>.",
+      ] },
+      { p: "Dans l'historique, la date de saisie s'affiche en petit sous la date de visite, <b>uniquement lorsqu'elle diffère</b> — « saisie le 21/09/26 ». Les visites saisies le jour même n'affichent rien de plus." },
+      { warn: "Une date <b>dans le futur est refusée</b>, à la saisie comme à la correction. Et la date de saisie ne se modifie jamais : c'est elle qui atteste de l'ordre réel des enregistrements." },
+    ],
+  },
+  {
     id: 'saisie', t: 'Remplir une visite, champ par champ',
     blocks: [
       { h3: 'Hausses' },

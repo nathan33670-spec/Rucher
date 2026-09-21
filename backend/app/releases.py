@@ -10,6 +10,17 @@ Convention : la version la plus récente en tête.
 
 RELEASES = [
     {
+        "version": "1.11.0",
+        "date": "2026-09-21",
+        "title": "Saisir une visite faite un autre jour",
+        "highlights": [
+            "La date de la visite se choisit dans la visite rapide : pré-remplie au jour même, elle se change d'un geste et vaut pour toute la tournée. On peut enfin saisir au calme, le soir, une tournée faite dans la journée.",
+            "Hors du jour même, la pastille passe en orange et un bandeau annonce la saisie a posteriori : on n'antidate pas sans le voir.",
+            "La date d'une visite se corrige après coup depuis l'historique.",
+            "Deux dates désormais distinctes : celle de la visite, que vous choisissez, et celle de la saisie, posée par l'application et jamais modifiable. La seconde ne s'affiche que lorsqu'elle diffère de la première.",
+        ],
+    },
+    {
         "version": "1.10.0",
         "date": "2026-09-16",
         "title": "Rapprochement bancaire",

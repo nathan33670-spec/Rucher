@@ -16,6 +16,13 @@
     <v-data-table :headers="headers" :items="filteredVisits" density="compact">
       <template v-slot:item.visited_at="{ item }">
         <span class="text-no-wrap">{{ shortDate(item.visited_at) }}</span>
+        <!-- Saisie a posteriori : dire quand l'observation est entrée dans
+             l'application, sinon une visite d'il y a trois semaines paraît
+             avoir été relevée ce jour-là. -->
+        <div v-if="saisieDifferee(item)" class="text-caption r-muted text-no-wrap">
+          <v-icon size="11" class="mr-1">mdi-keyboard-outline</v-icon>
+          saisie le {{ jourSeul(item.created_at) }}
+        </div>
       </template>
       <template v-slot:item.hive_name="{ item }">
         <!-- Pas de « no-wrap » ici : un nom long élargirait la colonne au point
@@ -75,6 +82,25 @@
             Vous corrigez la visite de <b>{{ editingOther }}</b> en tant
             qu'administrateur. La correction est inscrite au journal.
           </v-alert>
+          <!-- La date de visite se corrige ; celle de saisie, jamais : elle
+               atteste du moment où l'information est entrée. -->
+          <v-card variant="outlined" class="mb-4 pa-3">
+            <div class="text-subtitle-2 font-weight-bold mb-2">
+              <v-icon class="mr-1" color="primary">mdi-calendar</v-icon> Date de la visite
+            </div>
+            <v-text-field
+              v-model="form.visited_at"
+              type="datetime-local"
+              :max="maintenantLocal"
+              density="compact"
+              hide-details
+            />
+            <p v-if="saisieVisible" class="text-caption r-muted mt-2 mb-0">
+              Saisie dans l'application le {{ saisieVisible }} — cette date-là
+              n'est pas modifiable.
+            </p>
+          </v-card>
+
           <!-- Section Hausses et cadres -->
           <v-card variant="outlined" class="mb-4 pa-3">
             <div class="text-subtitle-2 font-weight-bold mb-2">
@@ -240,10 +266,35 @@ function shortDate(iso) {
     + ' ' + d.toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' })
 }
 
+/** Une saisie faite un autre jour que la visite mérite d'être signalée. */
+function saisieDifferee(v) {
+  if (!v.created_at || !v.visited_at) return false
+  return new Date(v.created_at).toDateString() !== new Date(v.visited_at).toDateString()
+}
+
+function jourSeul(iso) {
+  return new Date(iso).toLocaleDateString('fr-FR', { day: '2-digit', month: '2-digit', year: '2-digit' })
+}
+
+/** Valeur d'un champ « datetime-local » : heure locale, sans fuseau. */
+function pourChampLocal(iso) {
+  const d = new Date(iso)
+  d.setMinutes(d.getMinutes() - d.getTimezoneOffset())
+  return d.toISOString().slice(0, 16)
+}
+
+const maintenantLocal = computed(() => pourChampLocal(new Date()))
+const saisieVisible = ref('')
+
 function editVisit(v) {
   formEditId.value = v.id
   editingOther.value = v.author_id === auth.user?.id ? '' : (v.author_name || 'un autre adhérent')
+  saisieVisible.value = v.created_at
+    ? new Date(v.created_at).toLocaleDateString('fr-FR')
+      + ' à ' + new Date(v.created_at).toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' })
+    : ''
   form.value = {
+    visited_at: pourChampLocal(v.visited_at),
     queen_seen: v.queen_seen,
     brood_score: v.brood_score,
     reserves_score: v.reserves_score,
@@ -267,7 +318,14 @@ function editVisit(v) {
 
 async function saveVisit() {
   try {
-    await api.put(`/visits/${formEditId.value}`, form.value)
+    // Le champ « datetime-local » donne une heure locale sans fuseau ; envoyée
+    // telle quelle, elle serait prise pour de l'UTC et la visite se décalerait
+    // de deux heures à chaque correction.
+    const payload = { ...form.value }
+    if (payload.visited_at) {
+      payload.visited_at = new Date(payload.visited_at).toISOString()
+    }
+    await api.put(`/visits/${formEditId.value}`, payload)
     showForm.value = false
     formEditId.value = null
     await load()
