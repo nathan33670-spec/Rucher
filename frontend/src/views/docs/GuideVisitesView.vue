@@ -90,15 +90,14 @@ const sections = [
         "Quand toutes les ruches sont passées, l'écran affiche <b>« Visite terminée ! »</b>.",
       ] },
       { note: "Pendant la visite, un bouton <b>Historique</b> montre les dernières visites de la ruche en cours : utile pour comparer avec le mois dernier sans quitter l'écran." },
-      { h3: 'Ne visiter qu\'une partie du rucher' },
-      { p: "On ne visite pas toujours toutes les ruches : le temps tourne, une colonie qu'on préfère ne pas déranger, une ruche déplacée. Plutôt que de les sauter une par une, dites-le d'emblée." },
-      { steps: [
-        "En haut de l'écran, cliquez sur la pastille <b>Ruches de la tournée</b>.",
-        "<b>Décochez</b> celles que vous ne visitez pas.",
-        "Validez par <b>Visiter N ruche(s)</b>.",
+      { h3: 'Une ruche que vous ne visitez pas' },
+      { p: "On ne visite pas toutes les ruches à chaque passage : le temps tourne, une colonie qu'on préfère ne pas déranger, une ruche déplacée. Quand vous arrivez dessus, le bouton <b>Non visitée</b> passe à la suivante sans rien enregistrer." },
+      { note: "<b>Rien n'est écrit</b> : aucune visite n'est créée, la date de dernière visite ne bouge pas, la ruche reste exactement dans l'état où elle était. C'est la différence avec <b>Suivante</b>, qui enregistre." },
+      { ul: [
+        "Si vous revenez en arrière sur une ruche passée, un bandeau orange vous le rappelle.",
+        "Vous pouvez encore vous raviser : remplissez la fiche et validez par <b>Suivante</b>, la visite est enregistrée normalement.",
+        "En fin de tournée, l'écran récapitule les ruches laissées de côté, et les nomme.",
       ] },
-      { note: "Les ruches décochées sortent de la tournée : <b>rien n'y est enregistré, rien n'y est modifié</b>, et leur dernière visite reste celle d'avant. La pastille rappelle en permanence combien de ruches ont été écartées." },
-      { tip: "Différence avec le bouton <b>Passer</b> : « Passer » ne vaut que pour la ruche affichée, une par une. La pastille règle toute la tournée d'un coup — et vous évite de traverser des écrans que vous n'allez pas remplir." },
     ],
   },
   {
