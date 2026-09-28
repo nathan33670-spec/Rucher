@@ -70,6 +70,31 @@
 
           <v-spacer />
 
+          <!-- Partager : l'événement se diffuse là où les adhérents se
+               parlent déjà, plutôt que de rester dans l'application. -->
+          <v-menu>
+            <template v-slot:activator="{ props }">
+              <v-btn v-bind="props" size="small" variant="text" prepend-icon="mdi-share-variant">
+                Partager
+              </v-btn>
+            </template>
+            <v-list density="compact">
+              <!-- Le partage natif ouvre le sélecteur du téléphone (WhatsApp,
+                   SMS, Signal…). Absent sur ordinateur, d'où les entrées
+                   explicites en dessous. -->
+              <v-list-item
+                v-if="partageNatif" prepend-icon="mdi-cellphone-message"
+                title="Partager…" @click="partager(ev)"
+              />
+              <v-list-item prepend-icon="mdi-whatsapp" title="WhatsApp"
+                           @click="versWhatsApp(ev)" />
+              <v-list-item prepend-icon="mdi-email-outline" title="E-mail"
+                           @click="versEmail(ev)" />
+              <v-list-item prepend-icon="mdi-content-copy" title="Copier le texte"
+                           @click="copier(ev)" />
+            </v-list>
+          </v-menu>
+
           <!-- L'organisateur relance son propre événement sans dépendre d'un
                administrateur : c'est lui qui sait quand c'est utile. -->
           <v-btn
@@ -104,7 +129,53 @@ const props = defineProps({
   userId: { type: [Number, null], default: null },
   busyId: { type: [Number, null], default: null },
 })
-const emit = defineEmits(['rsvp', 'edit', 'remove', 'participants', 'calendar-ics', 'calendar-google', 'notify'])
+const emit = defineEmits(['rsvp', 'edit', 'remove', 'participants', 'calendar-ics',
+                          'calendar-google', 'notify', 'shared'])
+
+// Le partage natif n'existe que sur mobile et en contexte sécurisé.
+const partageNatif = typeof navigator !== 'undefined' && !!navigator.share
+
+/** Le texte partagé : tout ce qu'il faut pour décider de venir. */
+function texteEvenement(ev) {
+  const quand = new Date(ev.start_at).toLocaleDateString('fr-FR',
+    { weekday: 'long', day: 'numeric', month: 'long' })
+  const heure = new Date(ev.start_at).toLocaleTimeString('fr-FR',
+    { hour: '2-digit', minute: '2-digit' })
+  const lignes = [`🐝 ${ev.title}`, `📅 ${quand} à ${heure}`]
+  if (ev.location) lignes.push(`📍 ${ev.location}`)
+  if (ev.description) lignes.push('', ev.description)
+  lignes.push('', lienEvenement())
+  return lignes.join('\n')
+}
+
+/** Adresse publique de l'application : celle par laquelle on la consulte. */
+function lienEvenement() {
+  return typeof window !== 'undefined' ? window.location.origin + '/app/events' : ''
+}
+
+async function partager(ev) {
+  try {
+    await navigator.share({ title: ev.title, text: texteEvenement(ev) })
+  } catch { /* partage abandonné par l'utilisateur */ }
+}
+
+function versWhatsApp(ev) {
+  window.open('https://wa.me/?text=' + encodeURIComponent(texteEvenement(ev)), '_blank')
+}
+
+function versEmail(ev) {
+  window.location.href = 'mailto:?subject=' + encodeURIComponent(ev.title)
+    + '&body=' + encodeURIComponent(texteEvenement(ev))
+}
+
+async function copier(ev) {
+  try {
+    await navigator.clipboard.writeText(texteEvenement(ev))
+    emit('shared', 'Texte copié — collez-le où vous voulez')
+  } catch {
+    emit('shared', "La copie a échoué : sélectionnez le texte à la main")
+  }
+}
 
 function canNotify(ev) {
   return props.isAdmin || (props.userId != null && ev.created_by === props.userId)

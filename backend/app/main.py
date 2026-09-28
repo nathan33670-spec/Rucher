@@ -17,7 +17,7 @@ from app.seed import seed_initial_accounts
 from app.ensure_schema import ensure_schema
 from app.utils.errors import register_error_handlers
 
-from app.routers import users, apiaries, visits, inventory, treasury, sanitary, audit, honey, docs, visit_plans, notifications, events, settings as settings_router, reports, releases as releases_router
+from app.routers import users, apiaries, visits, inventory, treasury, sanitary, audit, honey, docs, visit_plans, notifications, events, settings as settings_router, reports, releases as releases_router, mailing
 from app.scheduler import weekly_digest_loop
 from app.utils.release_notice import announce_new_release
 from app.utils.hive_numbers import assign_missing_numbers
@@ -117,6 +117,7 @@ app.include_router(events.router)
 app.include_router(settings_router.router)
 app.include_router(reports.router)
 app.include_router(releases_router.router)
+app.include_router(mailing.router)
 
 
 @app.get("/api/health")

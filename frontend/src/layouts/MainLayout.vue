@@ -465,6 +465,7 @@ const navGroups = computed(() => {
   ]
   if (auth.isAdmin) {
     reglages.splice(2, 0, { to: { name: 'users' }, icon: 'mdi-account-cog', title: 'Utilisateurs' })
+    reglages.splice(3, 0, { to: { name: 'mailing' }, icon: 'mdi-email-multiple-outline', title: 'Courriels' })
     reglages.push({ to: { name: 'admin-settings' }, icon: 'mdi-cog-outline', title: 'Configuration' })
   }
 
@@ -508,6 +509,7 @@ const pageTitle = computed(() => {
     sanitary: 'Sanitaire',
     users: 'Utilisateurs',
     logs: 'Journal',
+    mailing: 'Courriels aux adhérents',
     'admin-settings': 'Configuration',
   }
   return titles[route.name] || 'Rucher Manager'

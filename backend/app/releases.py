@@ -10,6 +10,18 @@ Convention : la version la plus récente en tête.
 
 RELEASES = [
     {
+        "version": "1.12.0",
+        "date": "2026-09-28",
+        "title": "Écrire aux adhérents, partager les événements",
+        "highlights": [
+            "Un écran « Courriels » permet d'écrire à tous les adhérents — ou à un rôle, ou aux inscrits d'un événement — avec des pièces jointes, sans quitter l'application.",
+            "Chacun reçoit son propre message : personne ne voit l'adresse des autres.",
+            "Un suivi des campagnes garde la trace de chaque envoi et compte les ouvertures. Le chiffre est un minimum : beaucoup de messageries bloquent les images, d'autres les préchargent — l'application le dit plutôt que de laisser croire à une mesure exacte.",
+            "Le suivi se désactive campagne par campagne.",
+            "Chaque événement se partage d'un geste vers WhatsApp, par e-mail, ou en copiant le texte — date, lieu et lien compris.",
+        ],
+    },
+    {
         "version": "1.11.0",
         "date": "2026-09-21",
         "title": "Saisir une visite faite un autre jour",

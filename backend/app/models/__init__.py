@@ -2,7 +2,8 @@ from app.models.user import User, UserRole, RoleEnum
 from app.models.apiary import Apiary, Hive, hive_managers, OwnershipType
 from app.models.visit import Visit
 from app.models.inventory import InventoryItem, InventoryMovement, MovementType
-from app.models.treasury import Transaction, Invoice, TransactionType, TransactionCategory
+from app.models.treasury import (Transaction, Invoice, TransactionType,
+                                 TransactionCategory, BankReconciliation)
 from app.models.sanitary import SanitaryRecord
 from app.models.audit import AuditLog
 from app.models.honey import HoneyCategory, HoneyHarvest, HoneyJar, HoneySale, OwnershipFilter
@@ -10,17 +11,20 @@ from app.models.doc import DocPage
 from app.models.visit_plan import VisitPlan
 from app.models.notification import AppSetting, PushSubscription, NotificationPref
 from app.models.event import Event, EventRSVP
+from app.models.mailing import MailCampaign, MailRecipient, MailAttachment
 
 __all__ = [
     "DocPage",
     "VisitPlan",
     "AppSetting", "PushSubscription", "NotificationPref",
     "Event", "EventRSVP",
+    "MailCampaign", "MailRecipient", "MailAttachment",
     "User", "UserRole", "RoleEnum",
     "Apiary", "Hive", "hive_managers", "OwnershipType",
     "Visit",
     "InventoryItem", "InventoryMovement", "MovementType",
     "Transaction", "Invoice", "TransactionType", "TransactionCategory",
+    "BankReconciliation",
     "SanitaryRecord",
     "AuditLog",
     "HoneyCategory", "HoneyHarvest", "HoneyJar", "HoneySale", "OwnershipFilter",
