@@ -81,50 +81,13 @@
         </v-menu>
       </div>
 
-      <v-dialog v-model="showChoixRuches" max-width="520" scrollable>
-        <v-card>
-          <v-card-title class="text-subtitle-1">Ruches de la tournée</v-card-title>
-          <v-card-subtitle class="pb-2 text-left">
-            Décochez celles que vous ne visitez pas : elles sont sorties de la
-            tournée et <b>rien n'y sera modifié</b>.
-          </v-card-subtitle>
-          <v-divider />
-          <v-card-text class="pa-0">
-            <v-list density="compact">
-              <v-list-item
-                v-for="h in toutesRuches" :key="h.id"
-                @click="basculerRuche(h.id)"
-              >
-                <template v-slot:prepend>
-                  <v-checkbox-btn
-                    :model-value="!exclues.has(h.id)" color="primary"
-                    @click.stop="basculerRuche(h.id)"
-                  />
-                </template>
-                <v-list-item-title>{{ hiveLabel(h) }}</v-list-item-title>
-                <template v-slot:append>
-                  <v-icon size="16" :color="h.ownership === 'private' ? 'accent' : 'primary'">
-                    {{ h.ownership === 'private' ? 'mdi-home' : 'mdi-hexagon' }}
-                  </v-icon>
-                </template>
-              </v-list-item>
-            </v-list>
-          </v-card-text>
-          <v-divider />
-          <v-card-actions>
-            <v-btn size="small" variant="text" @click="toutCocher">Tout visiter</v-btn>
-            <v-spacer />
-            <v-btn size="small" variant="text" @click="showChoixRuches = false">Annuler</v-btn>
-            <v-btn
-              size="small" color="primary" variant="flat"
-              :disabled="exclues.size >= toutesRuches.length"
-              @click="appliquerSelection"
-            >
-              Visiter {{ toutesRuches.length - exclues.size }} ruche(s)
-            </v-btn>
-          </v-card-actions>
-        </v-card>
-      </v-dialog>
+      <v-alert
+        v-if="currentHive && nonVisitees.has(currentHive.id)"
+        type="warning" variant="tonal" density="compact" class="mb-3 text-left"
+      >
+        Cette ruche est marquée <b>non visitée</b> : rien n'y a été enregistré.
+        Remplissez la fiche et validez si vous voulez finalement la consigner.
+      </v-alert>
 
       <v-alert
         v-if="!dateEstAujourdhui"
@@ -133,20 +96,6 @@
         Saisie a posteriori : ces observations seront enregistrées au
         <b>{{ dateLisible }}</b>, et non aujourd'hui.
       </v-alert>
-
-      <div class="d-flex align-center justify-center ga-2 mb-2">
-        <v-chip
-          size="small" variant="tonal" link prepend-icon="mdi-format-list-checks"
-          :color="exclues.size ? 'warning' : undefined"
-          @click="showChoixRuches = true"
-        >
-          <template v-if="exclues.size">
-            {{ hives.length }} ruche(s) sur {{ toutesRuches.length }} —
-            {{ exclues.size }} non visitée(s)
-          </template>
-          <template v-else>Ruches de la tournée</template>
-        </v-chip>
-      </div>
 
       <div class="d-flex align-center justify-center ga-2 mb-4">
         <p class="text-caption r-muted mb-0">{{ currentIndex + 1 }} / {{ hives.length }}</p>
@@ -365,8 +314,9 @@
           <v-icon>mdi-chevron-left</v-icon>
         </v-btn>
         <v-btn variant="outlined" size="x-large" min-height="56" class="flex-grow-1 nav-skip"
-          @click="skipHive" :disabled="currentIndex >= hives.length">
-          <v-icon class="mr-1">mdi-skip-next</v-icon> Passer
+          color="warning" @click="skipHive" :disabled="currentIndex >= hives.length"
+          title="Rien ne sera enregistré pour cette ruche">
+          <v-icon class="mr-1">mdi-close-circle-outline</v-icon> Non visitée
         </v-btn>
         <v-btn color="primary" size="x-large" min-height="56" class="flex-grow-1 nav-next"
           @click="saveAndNext" :loading="saving">
@@ -382,7 +332,7 @@
 
     <div v-else class="text-center pa-8">
       <v-progress-circular indeterminate color="primary" v-if="loading" />
-      <div v-else-if="savedCount === 0">
+      <div v-else-if="savedCount === 0 && nonVisitees.size === 0">
         <v-icon size="64" color="grey-lighten-1">mdi-beehive-outline</v-icon>
         <h3 class="mt-4">Aucune ruche à visiter</h3>
         <p class="r-muted">
@@ -393,9 +343,19 @@
         </v-btn>
       </div>
       <div v-else>
-        <v-icon size="64" color="success">mdi-check-circle</v-icon>
-        <h3 class="mt-4">Visite terminée !</h3>
-        <p class="r-muted">{{ savedCount }} ruches visitées</p>
+        <v-icon size="64" :color="savedCount ? 'success' : 'warning'">
+          {{ savedCount ? 'mdi-check-circle' : 'mdi-information-outline' }}
+        </v-icon>
+        <h3 class="mt-4">
+          {{ savedCount ? 'Visite terminée !' : 'Tournée terminée, sans saisie' }}
+        </h3>
+        <p v-if="savedCount" class="r-muted mb-1">{{ savedCount }} ruche(s) visitée(s)</p>
+        <p v-else class="r-muted mb-1">Aucune visite enregistrée.</p>
+        <p v-if="nonVisitees.size" class="r-muted text-caption mb-0">
+          {{ nonVisitees.size }} ruche(s) laissée(s) de côté —
+          <b>rien n'y a été modifié</b> :
+          {{ nomsNonVisitees }}
+        </p>
         <v-btn color="primary" class="mt-4" @click="$router.push({ name: mine ? 'dashboard' : 'apiaries' })">
           {{ mine ? "Retour à l'accueil" : 'Retour aux ruchers' }}
         </v-btn>
@@ -488,9 +448,13 @@ const notif = useNotifStore()
 const auth = useAuthStore()
 
 const hives = ref([])            // ruches réellement parcourues
-const toutesRuches = ref([])     // tout ce que le rucher contient
-const exclues = ref(new Set())   // ruches déclarées non visitées
-const showChoixRuches = ref(false)
+// Ruches déclarées « non visitées » pendant la tournée : identifiant -> nom.
+// Purement local, rien n'en est envoyé au serveur — c'est bien le propos. On
+// garde le nom et pas seulement l'identifiant, car la liste des ruches est
+// vidée en fin de tournée et le bilan n'aurait plus de quoi les nommer.
+const nonVisitees = ref(new Map())
+const nomsNonVisitees = computed(() =>
+  [...nonVisitees.value.values()].join(', '))
 const currentIndex = ref(0)
 const loading = ref(true)
 // ─── Date de la visite ───────────────────────────────────────────────
@@ -790,6 +754,15 @@ async function saveAndNext() {
       savedSnack.value = true
     }
 
+    // Revenir sur une ruche écartée et l'enregistrer finalement doit lever la
+    // marque : sinon le bilan de fin la compterait à la fois visitée et non
+    // visitée.
+    if (currentHive.value && nonVisitees.value.has(currentHive.value.id)) {
+      const m = new Map(nonVisitees.value)
+      m.delete(currentHive.value.id)
+      nonVisitees.value = m
+    }
+
     if (form.value.is_alert) {
       // Trace immédiate dans la cloche : hors connexion, le serveur n'a encore
       // rien enregistré et la notification n'arriverait qu'à la synchronisation.
@@ -862,30 +835,22 @@ function prev() {
 }
 
 /**
- * Ruches à parcourir. Toutes les ruches d'un rucher ne sont pas visitées à
- * chaque passage — mauvais temps, ruche déplacée, colonie qu'on ne veut pas
- * déranger. Les décocher les sort de la tournée : aucune visite n'est
- * enregistrée pour elles et rien n'est modifié, alors que « Passer » ne vaut
- * que pour la ruche affichée, une par une.
+ * Déclare la ruche affichée « non visitée » et passe à la suivante.
+ *
+ * **Rien n'est envoyé au serveur** : pas de visite créée, pas de date de
+ * dernière visite déplacée, rien de modifié sur la ruche. C'est tout
+ * l'intérêt — on parcourt le rucher sans être obligé de consigner une
+ * observation pour une colonie qu'on n'a pas ouverte.
+ *
+ * Le marquage n'est que local, le temps de la tournée : il sert à le
+ * rappeler si l'on revient en arrière, et à en faire le bilan à la fin.
  */
-function basculerRuche(id) {
-  const s = new Set(exclues.value)
-  if (s.has(id)) s.delete(id); else s.add(id)
-  exclues.value = s
-}
-
-function toutCocher() { exclues.value = new Set() }
-
-function appliquerSelection() {
-  const gardees = toutesRuches.value.filter((h) => !exclues.value.has(h.id))
-  // Ne jamais aboutir à une tournée vide : ce serait un écran sans issue.
-  if (!gardees.length) return
-  hives.value = gardees
-  if (currentIndex.value >= gardees.length) currentIndex.value = gardees.length - 1
-  showChoixRuches.value = false
-}
-
 function skipHive() {
+  if (currentHive.value) {
+    const m = new Map(nonVisitees.value)
+    m.set(currentHive.value.id, hiveLabel(currentHive.value))
+    nonVisitees.value = m
+  }
   if (currentIndex.value < hives.value.length - 1) {
     currentIndex.value++
     resetForm()
@@ -908,7 +873,6 @@ onMounted(async () => {
       ? '/apiaries/hives/mine'
       : '/apiaries/' + (props.apiaryId || route.params.apiaryId) + '/hives/editable'
     const { data } = await api.get(url)
-    toutesRuches.value = data
     hives.value = data
     if (data.length) {
       // Un seul appel pour toute la tournée : la suite fonctionne même si le
