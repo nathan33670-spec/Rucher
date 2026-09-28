@@ -10,6 +10,18 @@ Convention : la version la plus récente en tête.
 
 RELEASES = [
     {
+        "version": "1.13.0",
+        "date": "2026-09-28",
+        "title": "Des courriels mis en forme, et un suivi qui tient debout",
+        "highlights": [
+            "Le message se compose dans un éditeur : gras, italique, souligné, titres, listes, citations et liens.",
+            "Un bouton « Prévisualiser » montre le message exactement tel qu'il partira, et « M'envoyer un essai » le fait arriver dans votre propre boîte — sans rien enregistrer ni fausser les statistiques.",
+            "Les liens du message sont désormais suivis : un clic prouve l'ouverture même quand la messagerie bloque les images. C'est nettement plus fiable que le pixel seul, et le détail d'une campagne distingue les ouvertures confirmées par un clic.",
+            "Les fichiers de plus de 5 Mo ne sont plus refusés : ils restent déposés sur l'application et le message porte un lien de téléchargement, valable 90 jours, jusqu'à 50 Mo par fichier.",
+            "Ce lien est secret mais n'exige pas de connexion : il se transmet, mieux vaut ne pas y déposer de document confidentiel.",
+        ],
+    },
+    {
         "version": "1.12.0",
         "date": "2026-09-28",
         "title": "Écrire aux adhérents, partager les événements",

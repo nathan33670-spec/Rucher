@@ -11,14 +11,14 @@ from app.models.doc import DocPage
 from app.models.visit_plan import VisitPlan
 from app.models.notification import AppSetting, PushSubscription, NotificationPref
 from app.models.event import Event, EventRSVP
-from app.models.mailing import MailCampaign, MailRecipient, MailAttachment
+from app.models.mailing import MailCampaign, MailRecipient, MailAttachment, MailLink
 
 __all__ = [
     "DocPage",
     "VisitPlan",
     "AppSetting", "PushSubscription", "NotificationPref",
     "Event", "EventRSVP",
-    "MailCampaign", "MailRecipient", "MailAttachment",
+    "MailCampaign", "MailRecipient", "MailAttachment", "MailLink",
     "User", "UserRole", "RoleEnum",
     "Apiary", "Hive", "hive_managers", "OwnershipType",
     "Visit",

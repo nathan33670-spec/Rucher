@@ -126,6 +126,47 @@ COLUMN_MIGRATIONS = [
         "contact_email",
         "ALTER TABLE users ADD COLUMN IF NOT EXISTS contact_email VARCHAR(255)",
     ),
+    # ── Courriels : mise en forme, suivi des clics, pièces jointes hébergées ──
+    (
+        "mail_campaigns",
+        "body_html",
+        "ALTER TABLE mail_campaigns ADD COLUMN IF NOT EXISTS body_html TEXT",
+    ),
+    (
+        "mail_recipients",
+        "first_clicked_at",
+        "ALTER TABLE mail_recipients ADD COLUMN IF NOT EXISTS first_clicked_at TIMESTAMP",
+    ),
+    (
+        "mail_recipients",
+        "last_clicked_at",
+        "ALTER TABLE mail_recipients ADD COLUMN IF NOT EXISTS last_clicked_at TIMESTAMP",
+    ),
+    (
+        "mail_recipients",
+        "click_count",
+        "ALTER TABLE mail_recipients ADD COLUMN IF NOT EXISTS click_count INTEGER NOT NULL DEFAULT 0",
+    ),
+    (
+        "mail_attachments",
+        "hosted",
+        "ALTER TABLE mail_attachments ADD COLUMN IF NOT EXISTS hosted BOOLEAN NOT NULL DEFAULT FALSE",
+    ),
+    (
+        "mail_attachments",
+        "token",
+        "ALTER TABLE mail_attachments ADD COLUMN IF NOT EXISTS token VARCHAR(64)",
+    ),
+    (
+        "mail_attachments",
+        "expires_at",
+        "ALTER TABLE mail_attachments ADD COLUMN IF NOT EXISTS expires_at TIMESTAMP",
+    ),
+    (
+        "mail_attachments",
+        "download_count",
+        "ALTER TABLE mail_attachments ADD COLUMN IF NOT EXISTS download_count INTEGER NOT NULL DEFAULT 0",
+    ),
 ]
 
 

@@ -22,6 +22,8 @@ class RecipientOut(BaseModel):
     first_opened_at: Optional[datetime] = None
     last_opened_at: Optional[datetime] = None
     open_count: int = 0
+    first_clicked_at: Optional[datetime] = None
+    click_count: int = 0
 
 
 class CampaignOut(BaseModel):
@@ -34,12 +36,15 @@ class CampaignOut(BaseModel):
     sent_count: int = 0
     failed_count: int = 0
     opened_count: int = 0
+    # Ouvertures dont un clic témoigne : la part certaine du chiffre ci-dessus.
+    clicked_count: int = 0
     attachments_count: int = 0
     author_name: Optional[str] = None
 
 
 class CampaignDetail(CampaignOut):
     body: str = ""
+    body_html: Optional[str] = None
     attachments: list[dict] = []
     recipients: list[RecipientOut] = []
     attachments_count: int = 0
