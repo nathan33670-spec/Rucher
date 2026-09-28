@@ -19,6 +19,7 @@ RELEASES = [
             "Les notifications de trésorerie sont réservées au bureau. Le filtre est posé à l'envoi, pas seulement dans l'écran des préférences.",
             "Les abonnements aux notifications ne se perdent plus tout seuls : quand le navigateur renouvelle le sien, l'application le reprend sans rien demander, et le rétablit à l'ouverture s'il a disparu. Fini les réabonnements à la main.",
             "Lors d'une tournée, on peut décocher les ruches que l'on ne visite pas : elles sortent du parcours et rien n'y est modifié.",
+            "Corrigé : les curseurs Couvain et Réserves s'arrêtaient à 9, ce qui interdisait de noter un corps entièrement plein — un Dadant compte 10 cadres. Ils suivent désormais le nombre de cadres de la ruche.",
         ],
     },
     {

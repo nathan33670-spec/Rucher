@@ -334,8 +334,10 @@
               </v-btn-toggle>
             </div>
             <template v-if="visitBodyOpened">
-              <v-slider v-model="visitForm.brood_score" :min="0" :max="9" :step="1" label="Couvain" thumb-label color="primary" class="mb-1" />
-              <v-slider v-model="visitForm.reserves_score" :min="0" :max="9" :step="1" label="Réserves" thumb-label color="accent" />
+              <v-slider v-model="visitForm.brood_score" :min="0" :max="maxCadres" :step="1"
+                        :label="'Couvain (/' + maxCadres + ')'" thumb-label color="primary" class="mb-1" />
+              <v-slider v-model="visitForm.reserves_score" :min="0" :max="maxCadres" :step="1"
+                        :label="'Réserves (/' + maxCadres + ')'" thumb-label color="accent" />
             </template>
             <v-chip v-else color="grey" variant="tonal" class="mt-1">N/A — corps non ouvert</v-chip>
           </v-card>
@@ -423,6 +425,15 @@ const visitForm = ref({
   queen_seen: null, brood_score: 5, reserves_score: 5,
   supers_count: 0, feeding: 'Aucun', comment: '', is_alert: false,
 })
+
+/**
+ * Borne haute des réglettes Couvain et Réserves : elles comptent des cadres
+ * occupés, et les plafonner à 9 interdisait de noter un corps entièrement
+ * plein, un Dadant en comptant 10. Cette saisie rapide ne demande pas le
+ * nombre de cadres : on retient donc la configuration la plus répandue.
+ */
+const CADRES_PAR_DEFAUT = 10
+const maxCadres = computed(() => visitForm.value.frames_count || CADRES_PAR_DEFAUT)
 
 // Recadrage photo (admin)
 const showCrop = ref(false)

@@ -265,11 +265,13 @@
 
         <!-- COUVAIN — gros slider ou N/A -->
         <div class="mb-3">
-          <p class="text-overline">Couvain : {{ bodyOpened ? form.brood_score : 'N/A' }}</p>
+          <p class="text-overline">
+            Couvain : {{ bodyOpened ? form.brood_score + ' / ' + maxCadres : 'N/A' }}
+          </p>
           <v-slider
             v-if="bodyOpened"
             v-model="form.brood_score"
-            :min="0" :max="9" :step="1"
+            :min="0" :max="maxCadres" :step="1"
             thumb-label="always"
             color="primary" track-color="primary" thumb-size="40"
           />
@@ -278,11 +280,13 @@
 
         <!-- RÉSERVES — gros slider ou N/A -->
         <div class="mb-3">
-          <p class="text-overline">Réserves : {{ bodyOpened ? form.reserves_score : 'N/A' }}</p>
+          <p class="text-overline">
+            Réserves : {{ bodyOpened ? form.reserves_score + ' / ' + maxCadres : 'N/A' }}
+          </p>
           <v-slider
             v-if="bodyOpened"
             v-model="form.reserves_score"
-            :min="0" :max="9" :step="1"
+            :min="0" :max="maxCadres" :step="1"
             thumb-label="always"
             color="accent" track-color="accent" thumb-size="40"
           />
@@ -463,7 +467,7 @@
 </template>
 
 <script setup>
-import { ref, computed, onMounted, onUnmounted } from 'vue'
+import { ref, computed, watch, onMounted, onUnmounted } from 'vue'
 import { apiError } from '../services/toast'
 import { hiveLabel } from '../services/hive'
 import { useRoute, useRouter } from 'vue-router'
@@ -570,6 +574,25 @@ function formatVisitDate(iso) {
     day: 'numeric', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit',
   })
 }
+
+/**
+ * Borne haute des réglettes Couvain et Réserves.
+ *
+ * Ces deux notes comptent des **cadres occupés** : les plafonner à 9 revenait
+ * à interdire de noter un corps entièrement occupé, un corps Dadant en
+ * comptant 10. La borne suit donc le nombre de cadres saisi juste au-dessus.
+ * Tant qu'il vaut 0 — cadres pas encore comptés — on retient 10, la
+ * configuration la plus répandue, plutôt qu'une réglette d'un seul cran.
+ */
+const CADRES_PAR_DEFAUT = 10
+const maxCadres = computed(() => form.value.frames_count || CADRES_PAR_DEFAUT)
+
+// Réduire le nombre de cadres doit ramener les notes dans la nouvelle borne :
+// sans cela, un « 10 » resterait affiché sur une réglette qui s'arrête à 8.
+watch(maxCadres, (borne) => {
+  if (form.value.brood_score > borne) form.value.brood_score = borne
+  if (form.value.reserves_score > borne) form.value.reserves_score = borne
+})
 
 const currentHive = computed(() => hives.value[currentIndex.value] || null)
 const currentHiveLabel = computed(() => {
