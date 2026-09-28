@@ -292,13 +292,22 @@ onMounted(refresh)
    d'interrupteur égales, les trois lignes des visites passaient pour des
    catégories à part entière, simplement décalées vers la droite. */
 .r-sous-categorie {
-  min-height: 38px;
+  min-height: 34px;
+  padding-top: 2px;
+  padding-bottom: 2px;
 }
 .r-sous-categorie :deep(.v-list-item-title) {
-  opacity: 0.9;
+  font-size: 0.8125rem;
+  line-height: 1.25;
+  opacity: 0.86;
+}
+.r-sous-categorie :deep(.v-list-item-subtitle) {
+  font-size: 0.7rem;
+  line-height: 1.2;
+  opacity: 0.62;
 }
 .r-sous-categorie :deep(.v-switch) {
-  transform: scale(0.78);
+  transform: scale(0.7);
   transform-origin: right center;
 }
 </style>
