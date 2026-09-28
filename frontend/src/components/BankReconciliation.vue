@@ -302,7 +302,8 @@ function valider() {
 
 async function rouvrir() {
   if (!(await confirmAction(
-    `Rouvrir le rapprochement de ${mois.value.label} ? Les administrateurs en seront avertis.`
+    `Rouvrir le rapprochement de ${mois.value.label} ? Les administrateurs en seront avertis.`,
+    { title: 'Rouvrir le mois', confirmText: 'Rouvrir', color: 'warning' }
   ))) return
   appliquer(api.post(`${base()}/rouvrir`), `${mois.value.label} rouvert`)
 }

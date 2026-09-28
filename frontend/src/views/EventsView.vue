@@ -21,12 +21,12 @@
     <template v-else>
       <template v-if="upcoming.length">
         <div class="text-overline text-primary mt-2 mb-1">À venir</div>
-        <EventCardList :events="upcoming" @rsvp="doRsvp" @edit="openEdit" @remove="removeEvent" @participants="openParticipants" @calendar-ics="downloadICS" @calendar-google="openGoogle" @notify="openNotify" :is-admin="auth.isAdmin" :user-id="auth.user?.id" :busy-id="busyId" />
+        <EventCardList :events="upcoming" @rsvp="doRsvp" @edit="openEdit" @remove="removeEvent" @participants="openParticipants" @calendar-ics="downloadICS" @calendar-google="openGoogle" @notify="openNotify" @shared="flash" :is-admin="auth.isAdmin" :user-id="auth.user?.id" :busy-id="busyId" />
       </template>
 
       <template v-if="past.length">
         <div class="text-overline text-medium-emphasis mt-4 mb-1">Passés</div>
-        <EventCardList :events="past" past @rsvp="doRsvp" @edit="openEdit" @remove="removeEvent" @participants="openParticipants" @calendar-ics="downloadICS" @calendar-google="openGoogle" @notify="openNotify" :is-admin="auth.isAdmin" :user-id="auth.user?.id" :busy-id="busyId" />
+        <EventCardList :events="past" past @rsvp="doRsvp" @edit="openEdit" @remove="removeEvent" @participants="openParticipants" @calendar-ics="downloadICS" @calendar-google="openGoogle" @notify="openNotify" @shared="flash" :is-admin="auth.isAdmin" :user-id="auth.user?.id" :busy-id="busyId" />
       </template>
     </template>
 

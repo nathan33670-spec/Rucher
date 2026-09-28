@@ -89,6 +89,15 @@ const sections = [
         "Cliquez sur le bouton <b>Calendrier</b> de l'événement.",
         "Choisissez <b>Apple / Android (.ics)</b> ou <b>Google Agenda</b> : la date se place dans votre agenda habituel, avec le lieu.",
       ] },
+      { h3: 'Partager un événement' },
+      { p: "Tous les adhérents peuvent diffuser un événement là où ils se parlent déjà, plutôt que de le laisser dans l'application." },
+      { steps: [
+        "Sur la carte de l'événement, cliquez sur <b>Partager</b>.",
+        "Choisissez <b>WhatsApp</b>, <b>E-mail</b>, ou <b>Copier le texte</b> pour le coller où vous voulez.",
+        "Sur téléphone, une entrée <b>Partager…</b> ouvre en plus le sélecteur habituel de l'appareil — SMS, Signal, Messenger…",
+      ] },
+      { img: 'g-partage-evenement.jpg', cap: "Les manières de partager un événement." },
+      { note: "Le texte partagé reprend le <b>titre</b>, la <b>date</b>, l'<b>heure</b>, le <b>lieu</b>, la description et un <b>lien vers l'application</b> — de quoi décider de venir sans rien demander à personne." },
       { h3: 'Créer un événement' },
       { p: "Réservé aux <b>administrateurs</b> et aux <b>responsables de rucher</b>." },
       { steps: [
