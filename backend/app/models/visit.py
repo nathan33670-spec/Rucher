@@ -13,8 +13,11 @@ class Visit(Base):
     author_id = Column(Integer, ForeignKey("users.id"), nullable=False)
     visited_at = Column(DateTime, default=datetime.utcnow, nullable=False)
     queen_seen = Column(Boolean)
-    brood_score = Column(Integer)       # 0-9
-    reserves_score = Column(Integer)    # 0-9, null = N/A (corps non ouvert)
+    # Nombre de cadres occupés, borné par le nombre de cadres du corps et non
+    # par une constante : un corps Dadant en compte 10, et le plafond de 9
+    # rendait impossible de noter un corps entièrement plein.
+    brood_score = Column(Integer)
+    reserves_score = Column(Integer)    # null = N/A (corps non ouvert)
     supers_count = Column(Integer)      # nombre de hausses actuel
     frames_count = Column(Integer)      # nombre de cadres de corps
     supers_delta = Column(Integer, default=0)  # +1/-1 (legacy)

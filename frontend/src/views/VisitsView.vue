@@ -122,8 +122,10 @@
               <v-icon class="mr-1" color="accent">mdi-hexagon-multiple</v-icon> Corps
             </div>
             <v-switch v-model="form.queen_seen" label="Reine vue" color="success" />
-            <v-slider v-model="form.brood_score" :min="0" :max="9" :step="1" label="Couvain" thumb-label />
-            <v-slider v-model="form.reserves_score" :min="0" :max="9" :step="1" label="Réserves" thumb-label />
+            <v-slider v-model="form.brood_score" :min="0" :max="maxCadres" :step="1"
+                      :label="'Couvain (/' + maxCadres + ')'" thumb-label />
+            <v-slider v-model="form.reserves_score" :min="0" :max="maxCadres" :step="1"
+                      :label="'Réserves (/' + maxCadres + ')'" thumb-label />
             <v-text-field v-model="form.feeding" label="Nourrissement" density="compact" />
           </v-card>
 
@@ -153,7 +155,7 @@
 </template>
 
 <script setup>
-import { ref, computed, onMounted } from 'vue'
+import { ref, computed, watch, onMounted } from 'vue'
 import FilterBar from '../components/FilterBar.vue'
 import { hiveLabelFromRow } from '../services/hive'
 import api from '../services/api'
@@ -218,6 +220,22 @@ const form = ref({
   hive_id: null, queen_seen: null, brood_score: 5, reserves_score: 5,
   supers_count: null, frames_count: null, feeding: '',
   comment: '', is_alert: false, alert_message: '',
+})
+
+/**
+ * Borne haute des réglettes Couvain et Réserves : elles comptent des cadres
+ * occupés, et les plafonner à 9 interdisait de noter un corps entièrement
+ * plein, un Dadant en comptant 10. La borne suit le nombre de cadres saisi
+ * dans la fiche ; tant qu'il est vide, on retient 10, la configuration la
+ * plus répandue.
+ */
+const CADRES_PAR_DEFAUT = 10
+const maxCadres = computed(() => form.value.frames_count || CADRES_PAR_DEFAUT)
+
+// Réduire le nombre de cadres doit ramener les notes dans la nouvelle borne.
+watch(maxCadres, (borne) => {
+  if (form.value.brood_score > borne) form.value.brood_score = borne
+  if (form.value.reserves_score > borne) form.value.reserves_score = borne
 })
 
 // Récolte et traitement ne se saisissent plus depuis une visite ; les valeurs
