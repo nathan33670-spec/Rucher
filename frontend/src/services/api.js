@@ -3,6 +3,21 @@ import { useAuthStore } from '../stores/auth'
 
 const api = axios.create({ baseURL: '/api' })
 
+// Démonstration publique : aucun serveur derrière, l'API est simulée dans le
+// navigateur. Le code n'est embarqué que si VITE_DEMO vaut 1 — en production,
+// l'import dynamique est éliminé au moment du build.
+export const MODE_DEMO = import.meta.env.VITE_DEMO === '1'
+
+// L'application attend cette promesse avant de se monter : sans cela, les
+// premières requêtes partiraient vers une API inexistante pendant que
+// l'adaptateur est encore en train de se charger.
+export const demoPrete = MODE_DEMO
+  ? import('../demo/adaptateur').then(({ adaptateurDemo, utilisateurDemo }) => {
+      api.defaults.adapter = adaptateurDemo
+      return utilisateurDemo()
+    })
+  : Promise.resolve(null)
+
 let _authStore = null
 let _router = null
 
