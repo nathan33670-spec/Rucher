@@ -19,11 +19,17 @@ from py_vapid import Vapid02, _check_sub
 from app.database import async_session
 from app.models.notification import (AppSetting, PushSubscription,
                                      NotificationPref, InboxMessage)
-from app.models.user import User
+from app.models.user import User, UserRole, RoleEnum
 from app.config import get_settings
 
 # Catégories notifiables (doivent correspondre aux colonnes de NotificationPref)
 CATEGORIES = {"visits", "inventory", "alerts", "sanitary", "treasury", "events"}
+
+# Catégories dont le contenu ne regarde pas tout le monde : même si la
+# préférence est cochée, seuls ces rôles reçoivent quoi que ce soit.
+CATEGORIES_RESERVEES = {
+    "treasury": (RoleEnum.ADMIN, RoleEnum.TREASURER),
+}
 
 
 def _generate_keys():
@@ -205,14 +211,23 @@ async def _category_recipients(db, category: str, exclude_user_id: int = None,
     jamais été écrites restait muet, en silence.
     """
     field = getattr(NotificationPref, category)
+    conditions = [
+        User.is_active.is_(True),
+        or_(NotificationPref.user_id.is_(None),
+            and_(NotificationPref.enabled.is_(True), field.is_(True))),
+    ]
+    if category in CATEGORIES_RESERVEES:
+        # Les comptes de l'association ne partent pas en notification chez
+        # tous les adhérents : le filtre est posé ici, à l'envoi, et pas
+        # seulement dans l'écran des préférences, qu'on peut contourner.
+        roles_admis = CATEGORIES_RESERVEES[category]
+        conditions.append(
+            User.id.in_(select(UserRole.user_id).where(UserRole.role.in_(roles_admis)))
+        )
     res = await db.execute(
         select(User.id)
         .outerjoin(NotificationPref, NotificationPref.user_id == User.id)
-        .where(
-            User.is_active.is_(True),
-            or_(NotificationPref.user_id.is_(None),
-                and_(NotificationPref.enabled.is_(True), field.is_(True))),
-        )
+        .where(*conditions)
     )
     excluded = set(exclude_user_ids or ())
     if exclude_user_id:
@@ -290,7 +305,108 @@ async def send_push_to_user(user_id: int, title: str, body: str, url: str = "/ap
     return await _dispatch(subs, title, body, url)
 
 
+async def _destinataires_visite(db, hive_id: int, exclude_user_id: int = None) -> list[int]:
+    """Qui doit être notifié d'une visite sur cette ruche.
+
+    Trois cas, et c'est le troisième qui compte :
+
+    - je suis **responsable** de la ruche → selon ``visits_mine`` ;
+    - la ruche est **associative** → selon ``visits_assoc`` ;
+    - la ruche est **privée et je n'en suis pas responsable** → réservé aux
+      administrateurs et aux responsables de rucher, selon
+      ``visits_private_others``. Un adhérent simple n'est jamais notifié des
+      visites sur les ruches privées d'autrui : auparavant, tout le monde
+      recevait tout.
+    """
+    from app.models.apiary import Hive, hive_managers
+
+    ruche = await db.get(Hive, hive_id)
+    if not ruche:
+        return []
+    associative = getattr(ruche.ownership, "value", ruche.ownership) != "private"
+
+    res = await db.execute(
+        select(hive_managers.c.user_id).where(hive_managers.c.hive_id == hive_id)
+    )
+    responsables = {r for (r,) in res.all()}
+
+    # Rôles : un adhérent peut en porter plusieurs, on les rassemble.
+    res = await db.execute(select(UserRole.user_id, UserRole.role))
+    roles: dict[int, set] = {}
+    for uid, role in res.all():
+        roles.setdefault(uid, set()).add(getattr(role, "value", role))
+    encadrants = {uid for uid, r in roles.items()
+                  if {"admin", "yard_manager"} & r}
+
+    res = await db.execute(
+        select(User.id, NotificationPref)
+        .outerjoin(NotificationPref, NotificationPref.user_id == User.id)
+        .where(User.is_active.is_(True))
+    )
+    retenus: list[int] = []
+    for uid, pref in res.all():
+        if uid == exclude_user_id:
+            continue
+        # Pas de ligne de préférences = tout activé, comme les valeurs par
+        # défaut du modèle.
+        if pref is not None and not (pref.enabled and pref.visits):
+            continue
+        if uid in responsables:
+            garde = True if pref is None else bool(pref.visits_mine)
+        elif associative:
+            garde = True if pref is None else bool(pref.visits_assoc)
+        elif uid in encadrants:
+            garde = True if pref is None else bool(pref.visits_private_others)
+        else:
+            garde = False
+        if garde:
+            retenus.append(uid)
+    return retenus
+
+
+async def send_push_for_visit(hive_ids, title: str, body: str,
+                              url: str = "/app", exclude_user_id: int = None):
+    """Notification de visite, filtrée selon la ou les ruches concernées.
+
+    Pour une synchronisation hors-ligne portant sur plusieurs ruches, on prend
+    la réunion des destinataires : chacun est prévenu s'il l'aurait été pour
+    au moins une des ruches, et personne au titre d'une ruche qui ne le
+    regarde pas.
+    """
+    if isinstance(hive_ids, int):
+        hive_ids = [hive_ids]
+    async with async_session() as db:
+        vus: set[int] = set()
+        for hid in dict.fromkeys(hive_ids or []):
+            vus.update(await _destinataires_visite(db, hid, exclude_user_id))
+        user_ids = sorted(vus)
+        if not user_ids:
+            return await _dispatch([], title, body, url)
+        await store_inbox(db, user_ids, "visits", title, body, url)
+        await db.commit()
+        res = await db.execute(
+            select(PushSubscription).where(PushSubscription.user_id.in_(user_ids))
+        )
+        subs = list(res.scalars().all())
+    return await _dispatch(subs, title, body, url)
+
+
 _bg_tasks = set()
+
+
+def notify_visit(hive_ids, title: str, body: str, url: str = "/app",
+                 exclude_user_id: int = None):
+    """Notification de visite, sans bloquer la requête."""
+    try:
+        loop = asyncio.get_running_loop()
+    except RuntimeError:
+        print(f"⚠️  Push : aucune boucle d'exécution, « {title} » non envoyé")
+        return
+    task = loop.create_task(
+        send_push_for_visit(hive_ids, title, body, url, exclude_user_id)
+    )
+    _bg_tasks.add(task)
+    task.add_done_callback(_bg_tasks.discard)
 
 
 def notify(category: str, title: str, body: str, url: str = "/app",

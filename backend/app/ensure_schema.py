@@ -126,6 +126,22 @@ COLUMN_MIGRATIONS = [
         "contact_email",
         "ALTER TABLE users ADD COLUMN IF NOT EXISTS contact_email VARCHAR(255)",
     ),
+    # ── Notifications de visite : sous-catégories par type de ruche ──
+    (
+        "notification_prefs",
+        "visits_mine",
+        "ALTER TABLE notification_prefs ADD COLUMN IF NOT EXISTS visits_mine BOOLEAN DEFAULT TRUE",
+    ),
+    (
+        "notification_prefs",
+        "visits_assoc",
+        "ALTER TABLE notification_prefs ADD COLUMN IF NOT EXISTS visits_assoc BOOLEAN DEFAULT TRUE",
+    ),
+    (
+        "notification_prefs",
+        "visits_private_others",
+        "ALTER TABLE notification_prefs ADD COLUMN IF NOT EXISTS visits_private_others BOOLEAN DEFAULT TRUE",
+    ),
     # ── Courriels : mise en forme, suivi des clics, pièces jointes hébergées ──
     (
         "mail_campaigns",

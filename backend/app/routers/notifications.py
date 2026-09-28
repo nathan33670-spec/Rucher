@@ -11,6 +11,7 @@ from app.models.user import User, UserRole, RoleEnum
 from app.models.notification import PushSubscription, NotificationPref, InboxMessage
 from app.models.apiary import Apiary, Hive, hive_managers
 from app.schemas.notification import (SubscribeIn, UnsubscribeIn, PrefsOut,
+                                      PrefsCapabilities, RotateIn,
                                       PrefsUpdate, GeneralReportIn)
 from app.utils.auth import get_current_user, require_roles
 from app.utils.push import (get_or_create_vapid, send_push_to_user,
@@ -51,6 +52,50 @@ async def subscribe(
     return {"detail": "abonné"}
 
 
+@router.post("/rotate", status_code=200)
+async def rotate(
+    body: RotateIn,
+    db: AsyncSession = Depends(get_db),
+):
+    """Remplace un abonnement que le navigateur vient de faire tourner.
+
+    **Sans authentification, et c'est nécessaire** : l'événement
+    « pushsubscriptionchange » survient dans le service worker, qui n'a pas
+    accès au jeton de session. C'est là que se perdaient silencieusement les
+    abonnements : le navigateur changeait de point de terminaison, l'ancien
+    devenait caduc, et l'adhérent cessait de recevoir ses notifications sans
+    que rien ne le signale — jusqu'à ce qu'il pense à se réabonner à la main.
+
+    La sécurité tient à l'ancien point de terminaison : c'est une URL secrète,
+    tirée au hasard par le service de push. Le connaître prouve qu'on est bien
+    l'appareil concerné. Un point de terminaison inconnu ne crée rien.
+    """
+    res = await db.execute(
+        select(PushSubscription).where(PushSubscription.endpoint == body.old_endpoint)
+    )
+    ancien = res.scalar_one_or_none()
+    if not ancien:
+        # Rien à reprendre : on ne crée pas d'abonnement orphelin, qui
+        # n'appartiendrait à personne et ne serait jamais notifié.
+        raise HTTPException(404, "Abonnement inconnu")
+
+    proprietaire = ancien.user_id
+    res = await db.execute(
+        select(PushSubscription).where(PushSubscription.endpoint == body.endpoint)
+    )
+    deja = res.scalar_one_or_none()
+    if deja and deja.id != ancien.id:
+        deja.user_id = proprietaire
+        deja.p256dh = body.keys.p256dh
+        deja.auth = body.keys.auth
+        await db.delete(ancien)
+    else:
+        ancien.endpoint = body.endpoint
+        ancien.p256dh = body.keys.p256dh
+        ancien.auth = body.keys.auth
+    return {"detail": "abonnement repris"}
+
+
 @router.post("/unsubscribe")
 async def unsubscribe(
     body: UnsubscribeIn,
@@ -84,6 +129,24 @@ async def get_preferences(
     return await _get_or_create_prefs(db, user.id)
 
 
+async def _droits(db: AsyncSession, user: User) -> PrefsCapabilities:
+    """Catégories réservées auxquelles cet adhérent a droit."""
+    res = await db.execute(select(UserRole.role).where(UserRole.user_id == user.id))
+    roles = {getattr(r, "value", r) for (r,) in res.all()}
+    return PrefsCapabilities(
+        treasury=bool({"admin", "treasurer"} & roles),
+        visits_private_others=bool({"admin", "yard_manager"} & roles),
+    )
+
+
+@router.get("/preferences/capabilities", response_model=PrefsCapabilities)
+async def get_capabilities(
+    db: AsyncSession = Depends(get_db),
+    user: User = Depends(get_current_user),
+):
+    return await _droits(db, user)
+
+
 @router.put("/preferences", response_model=PrefsOut)
 async def update_preferences(
     body: PrefsUpdate,
@@ -91,7 +154,23 @@ async def update_preferences(
     user: User = Depends(get_current_user),
 ):
     prefs = await _get_or_create_prefs(db, user.id)
-    for field, value in body.model_dump(exclude_unset=True).items():
+    droits = await _droits(db, user)
+    demande = body.model_dump(exclude_unset=True)
+    # Un refus muet laisserait croire que la case a été prise en compte : on
+    # dit non, et on dit pourquoi.
+    if demande.get("treasury") and not droits.treasury:
+        raise HTTPException(
+            403,
+            "Les notifications de trésorerie sont réservées au bureau "
+            "(administrateurs et trésoriers).",
+        )
+    if demande.get("visits_private_others") and not droits.visits_private_others:
+        raise HTTPException(
+            403,
+            "Les visites sur les ruches privées des autres adhérents ne sont "
+            "notifiées qu'aux administrateurs et responsables de rucher.",
+        )
+    for field, value in demande.items():
         setattr(prefs, field, value)
     await db.flush()
     await db.refresh(prefs)

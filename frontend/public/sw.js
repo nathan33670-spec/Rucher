@@ -35,6 +35,47 @@ self.addEventListener('push', (event) => {
   event.waitUntil(self.registration.showNotification(title, options))
 })
 
+// Le navigateur renouvelle parfois un abonnement push de lui-même : l'ancien
+// point de terminaison devient caduc, et l'adhérent cesse de recevoir ses
+// notifications sans que rien ne le signale. C'est la cause habituelle des
+// abonnements qui « périment » tout seuls. On reprend donc la main ici.
+self.addEventListener('pushsubscriptionchange', (event) => {
+  event.waitUntil((async () => {
+    const ancien = event.oldSubscription
+    if (!ancien) return
+    let nouveau = event.newSubscription
+    if (!nouveau) {
+      // La clé du serveur est portée par l'ancien abonnement : inutile
+      // d'aller la redemander à l'API, qui exigerait un jeton de session
+      // auquel le service worker n'a pas accès.
+      const options = ancien.options || {}
+      try {
+        nouveau = await self.registration.pushManager.subscribe({
+          userVisibleOnly: true,
+          applicationServerKey: options.applicationServerKey,
+        })
+      } catch (e) {
+        return
+      }
+    }
+    const json = nouveau.toJSON()
+    try {
+      await fetch('/api/notifications/rotate', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          old_endpoint: ancien.endpoint,
+          endpoint: nouveau.endpoint,
+          keys: json.keys,
+        }),
+      })
+    } catch (e) {
+      // Sans réseau, le rattrapage au prochain lancement de l'application
+      // fera le travail.
+    }
+  })())
+})
+
 self.addEventListener('notificationclick', (event) => {
   event.notification.close()
   const url = (event.notification.data && event.notification.data.url) || '/app'
