@@ -13,6 +13,13 @@ prendre ses chiffres pour argent comptant :
 
 On mesure donc une tendance, pas une vérité. L'interface le dit, et le suivi
 se désactive campagne par campagne.
+
+Un second mécanisme, nettement plus fiable, complète le pixel : les liens du
+message passent par une redirection propre à chaque destinataire. Un clic ne
+peut pas être préchargé par erreur et ne dépend pas des images : il prouve
+qu'un humain a ouvert le message et agi. Un clic vaut donc ouverture, même si
+le pixel n'a jamais été chargé — c'est ce qui rattrape l'essentiel des
+lectures que le pixel manque.
 """
 
 from datetime import datetime
@@ -30,7 +37,10 @@ class MailCampaign(Base):
 
     id = Column(Integer, primary_key=True, index=True)
     subject = Column(String(300), nullable=False)
-    body = Column(Text, nullable=False)          # texte saisi par l'expéditeur
+    body = Column(Text, nullable=False)          # version texte seul, toujours remplie
+    # Corps mis en forme. Vide pour les campagnes d'avant l'éditeur enrichi :
+    # leur texte est alors converti à l'affichage, sans réécrire l'historique.
+    body_html = Column(Text, nullable=True)
     audience = Column(String(50), nullable=False, default="all")
     # Suivi des ouvertures : décidé à l'envoi, jamais rétroactif.
     tracking = Column(Boolean, default=True, nullable=False)
@@ -44,6 +54,8 @@ class MailCampaign(Base):
                               cascade="all, delete-orphan", lazy="selectin")
     attachments = relationship("MailAttachment", back_populates="campaign",
                                cascade="all, delete-orphan", lazy="selectin")
+    links = relationship("MailLink", back_populates="campaign",
+                         cascade="all, delete-orphan", lazy="selectin")
 
 
 class MailRecipient(Base):
@@ -63,6 +75,10 @@ class MailRecipient(Base):
     first_opened_at = Column(DateTime, nullable=True)
     last_opened_at = Column(DateTime, nullable=True)
     open_count = Column(Integer, default=0, nullable=False)
+    # Clics : preuve d'ouverture bien plus solide que le pixel.
+    first_clicked_at = Column(DateTime, nullable=True)
+    last_clicked_at = Column(DateTime, nullable=True)
+    click_count = Column(Integer, default=0, nullable=False)
 
     campaign = relationship("MailCampaign", back_populates="recipients")
 
@@ -78,8 +94,36 @@ class MailAttachment(Base):
     mime_type = Column(String(120), nullable=False)
     size = Column(Integer, default=0, nullable=False)
     file_path = Column(String(500), nullable=False)
+    # Fichier trop lourd pour être joint : il reste sur l'application et le
+    # message ne porte qu'un lien. Au-delà d'une certaine taille, une pièce
+    # jointe fait rejeter tout le message par le serveur du destinataire.
+    hosted = Column(Boolean, default=False, nullable=False)
+    # Jeton du lien de téléchargement : long, tiré au hasard, indevinable.
+    token = Column(String(64), nullable=True, unique=True, index=True)
+    expires_at = Column(DateTime, nullable=True)
+    download_count = Column(Integer, default=0, nullable=False)
 
     campaign = relationship("MailCampaign", back_populates="attachments")
+
+
+class MailLink(Base):
+    """Un lien du message, suivi par redirection.
+
+    On garde l'adresse de destination en base plutôt que dans l'URL : un lien
+    de redirection qui transporte sa cible est une porte ouverte au
+    détournement (« open redirect »), qu'un message d'hameçonnage utiliserait
+    volontiers en se réclamant du domaine de l'association.
+    """
+    __tablename__ = "mail_links"
+
+    id = Column(Integer, primary_key=True, index=True)
+    campaign_id = Column(Integer, ForeignKey("mail_campaigns.id", ondelete="CASCADE"),
+                         nullable=False, index=True)
+    position = Column(Integer, nullable=False)   # rang du lien dans le message
+    url = Column(Text, nullable=False)
+    click_count = Column(Integer, default=0, nullable=False)
+
+    campaign = relationship("MailCampaign", back_populates="links")
 
 
 Index("ix_mail_recipients_campagne_ouverture",
