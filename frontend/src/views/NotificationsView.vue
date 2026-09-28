@@ -40,12 +40,29 @@
       <v-card variant="outlined" :disabled="!active" class="mb-4">
         <v-list>
           <v-list-subheader>Je veux être notifié pour…</v-list-subheader>
-          <v-list-item v-for="c in categories" :key="c.key" :prepend-icon="c.icon" :title="c.label" :subtitle="c.desc">
-            <template v-slot:append>
-              <v-switch :model-value="prefs[c.key]" color="primary" hide-details inset
-                @update:model-value="(v) => updatePref(c.key, v)" />
-            </template>
-          </v-list-item>
+          <template v-for="c in categoriesVisibles" :key="c.key">
+            <v-list-item :prepend-icon="c.icon" :title="c.label" :subtitle="c.desc">
+              <template v-slot:append>
+                <v-switch :model-value="prefs[c.key]" color="primary" hide-details inset
+                  @update:model-value="(v) => updatePref(c.key, v)" />
+              </template>
+            </v-list-item>
+
+            <!-- Les visites se règlent ruche par ruche : sans ce détail, il
+                 fallait choisir entre tout recevoir et ne rien recevoir. -->
+            <v-list-item
+              v-for="sc in sousCategoriesVisibles(c)" :key="sc.key"
+              class="pl-12 r-sous-categorie" density="compact"
+            >
+              <v-list-item-title class="text-body-2">{{ sc.label }}</v-list-item-title>
+              <v-list-item-subtitle class="text-caption">{{ sc.desc }}</v-list-item-subtitle>
+              <template v-slot:append>
+                <v-switch :model-value="prefs[sc.key]" color="primary" hide-details inset
+                  density="compact" :disabled="!prefs[c.key]"
+                  @update:model-value="(v) => updatePref(sc.key, v)" />
+              </template>
+            </v-list-item>
+          </template>
         </v-list>
       </v-card>
 
@@ -133,11 +150,11 @@
 </template>
 
 <script setup>
-import { ref, reactive, onMounted } from 'vue'
+import { ref, reactive, computed, onMounted } from 'vue'
 import api from '../services/api'
 import { apiError } from '../services/toast'
 import { useAuthStore } from '../stores/auth'
-import { pushSupported, isStandalone, isIOS, getPushState, enablePush, disablePush, getPrefs, setPrefs, sendTest, resyncSubscription } from '../services/push'
+import { pushSupported, isStandalone, isIOS, getPushState, enablePush, disablePush, getPrefs, setPrefs, getCapabilities, sendTest, resyncSubscription } from '../services/push'
 
 const state = reactive({ supported: pushSupported(), subscribed: false, permission: 'default' })
 const standalone = isStandalone()
@@ -148,7 +165,14 @@ const testing = ref(false)
 const auth = useAuthStore()
 const msg = ref('')
 const msgType = ref('success')
-const prefs = reactive({ enabled: true, visits: true, inventory: true, alerts: true, sanitary: true, treasury: false, events: true })
+const prefs = reactive({
+  enabled: true, visits: true, visits_mine: true, visits_assoc: true,
+  visits_private_others: true, inventory: true, alerts: true, sanitary: true,
+  treasury: false, events: true,
+})
+// Ce que le serveur autorise pour ce compte : on n'affiche pas une case que
+// l'API refuserait, une case sans effet étant pire que pas de case du tout.
+const droits = reactive({ treasury: false, visits_private_others: false })
 
 const categories = [
   { key: 'events', icon: 'mdi-calendar-star', label: 'Événements', desc: 'Une sortie ou réunion est annoncée' },
@@ -156,8 +180,29 @@ const categories = [
   { key: 'inventory', icon: 'mdi-package-variant', label: 'Mouvement de matériel', desc: 'Entrée, sortie, déplacement' },
   { key: 'alerts', icon: 'mdi-alert', label: 'Alerte terrain', desc: 'Problème signalé sur une ruche' },
   { key: 'sanitary', icon: 'mdi-medical-bag', label: 'Sanitaire', desc: 'Traitement ou comptage varroa' },
-  { key: 'treasury', icon: 'mdi-cash-register', label: 'Trésorerie', desc: 'Nouvelle écriture' },
+  { key: 'treasury', icon: 'mdi-cash-register', label: 'Trésorerie', desc: 'Nouvelle écriture',
+    // Les comptes de l'association ne partent pas chez tous les adhérents.
+    requiert: 'treasury' },
 ]
+
+const sousCategories = {
+  visits: [
+    { key: 'visits_mine', label: 'Mes ruches',
+      desc: "Les ruches dont je suis responsable" },
+    { key: 'visits_assoc', label: "Ruches de l'association",
+      desc: 'Les ruches associatives' },
+    { key: 'visits_private_others', label: "Ruches privées des autres",
+      desc: "Au titre de votre rôle d'encadrement",
+      requiert: 'visits_private_others' },
+  ],
+}
+
+const categoriesVisibles = computed(() =>
+  categories.filter((c) => !c.requiert || droits[c.requiert]))
+
+function sousCategoriesVisibles(c) {
+  return (sousCategories[c.key] || []).filter((sc) => !sc.requiert || droits[sc.requiert])
+}
 
 function flash(text, type = 'success') { msg.value = text; msgType.value = type }
 
@@ -171,8 +216,9 @@ async function refresh() {
     try { await resyncSubscription() } catch { /* ignore */ }
   }
   try {
-    const p = await getPrefs()
+    const [p, d] = await Promise.all([getPrefs(), getCapabilities()])
     Object.assign(prefs, p)
+    Object.assign(droits, d)
   } catch { /* ignore */ }
   active.value = state.subscribed && prefs.enabled
 }
@@ -240,3 +286,19 @@ async function loadDiagnostics() {
 
 onMounted(refresh)
 </script>
+
+<style scoped>
+/* Un sous-réglage doit se lire comme tel. À hauteur, graisse et taille
+   d'interrupteur égales, les trois lignes des visites passaient pour des
+   catégories à part entière, simplement décalées vers la droite. */
+.r-sous-categorie {
+  min-height: 38px;
+}
+.r-sous-categorie :deep(.v-list-item-title) {
+  opacity: 0.9;
+}
+.r-sous-categorie :deep(.v-switch) {
+  transform: scale(0.78);
+  transform-origin: right center;
+}
+</style>

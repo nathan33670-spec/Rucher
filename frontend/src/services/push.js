@@ -50,15 +50,36 @@ export async function enablePush() {
 
 /**
  * Ré-enregistre l'abonnement de cet appareil côté serveur (auto-réparation).
- * Utile quand le navigateur a un abonnement mais que le serveur ne l'a pas
- * (ex. abonnement créé pendant que /subscribe renvoyait une erreur). Le point
- * de terminaison /subscribe fait un upsert, l'appel est donc idempotent.
+ *
+ * Deux cas sont rattrapés :
+ *  - le navigateur a un abonnement que le serveur ignore (créé pendant une
+ *    panne de /subscribe) ;
+ *  - le navigateur n'en a plus du tout, alors que la permission est toujours
+ *    accordée. C'est le cas qui faisait « périmer » les notifications :
+ *    l'abonnement disparaissait à l'occasion d'un nettoyage du navigateur ou
+ *    d'une mise à jour, et il fallait le rétablir à la main dans les
+ *    réglages, sans le moindre message pour le dire.
+ *
+ * /subscribe fait un upsert : l'appel est idempotent.
  */
 export async function resyncSubscription() {
   if (!pushSupported()) return false
   const reg = await navigator.serviceWorker.ready
-  const sub = await reg.pushManager.getSubscription()
-  if (!sub) return false
+  let sub = await reg.pushManager.getSubscription()
+  if (!sub) {
+    // Ne jamais demander la permission ici : on ne fait que rétablir un
+    // consentement déjà donné, en silence.
+    if (Notification.permission !== 'granted') return false
+    try {
+      const { data } = await api.get('/notifications/vapid-public-key')
+      sub = await reg.pushManager.subscribe({
+        userVisibleOnly: true,
+        applicationServerKey: urlBase64ToUint8Array(data.publicKey),
+      })
+    } catch (e) {
+      return false
+    }
+  }
   const json = sub.toJSON()
   await api.post('/notifications/subscribe', { endpoint: sub.endpoint, keys: json.keys })
   return true
@@ -77,6 +98,11 @@ export async function disablePush() {
 
 export async function getPrefs() {
   const { data } = await api.get('/notifications/preferences')
+  return data
+}
+/** Catégories réservées auxquelles ce compte a droit. */
+export async function getCapabilities() {
+  const { data } = await api.get('/notifications/preferences/capabilities')
   return data
 }
 export async function setPrefs(partial) {

@@ -81,6 +81,51 @@
         </v-menu>
       </div>
 
+      <v-dialog v-model="showChoixRuches" max-width="520" scrollable>
+        <v-card>
+          <v-card-title class="text-subtitle-1">Ruches de la tournée</v-card-title>
+          <v-card-subtitle class="pb-2 text-left">
+            Décochez celles que vous ne visitez pas : elles sont sorties de la
+            tournée et <b>rien n'y sera modifié</b>.
+          </v-card-subtitle>
+          <v-divider />
+          <v-card-text class="pa-0">
+            <v-list density="compact">
+              <v-list-item
+                v-for="h in toutesRuches" :key="h.id"
+                @click="basculerRuche(h.id)"
+              >
+                <template v-slot:prepend>
+                  <v-checkbox-btn
+                    :model-value="!exclues.has(h.id)" color="primary"
+                    @click.stop="basculerRuche(h.id)"
+                  />
+                </template>
+                <v-list-item-title>{{ hiveLabel(h) }}</v-list-item-title>
+                <template v-slot:append>
+                  <v-icon size="16" :color="h.ownership === 'private' ? 'accent' : 'primary'">
+                    {{ h.ownership === 'private' ? 'mdi-home' : 'mdi-hexagon' }}
+                  </v-icon>
+                </template>
+              </v-list-item>
+            </v-list>
+          </v-card-text>
+          <v-divider />
+          <v-card-actions>
+            <v-btn size="small" variant="text" @click="toutCocher">Tout visiter</v-btn>
+            <v-spacer />
+            <v-btn size="small" variant="text" @click="showChoixRuches = false">Annuler</v-btn>
+            <v-btn
+              size="small" color="primary" variant="flat"
+              :disabled="exclues.size >= toutesRuches.length"
+              @click="appliquerSelection"
+            >
+              Visiter {{ toutesRuches.length - exclues.size }} ruche(s)
+            </v-btn>
+          </v-card-actions>
+        </v-card>
+      </v-dialog>
+
       <v-alert
         v-if="!dateEstAujourdhui"
         type="warning" variant="tonal" density="compact" class="mb-3 text-left"
@@ -88,6 +133,20 @@
         Saisie a posteriori : ces observations seront enregistrées au
         <b>{{ dateLisible }}</b>, et non aujourd'hui.
       </v-alert>
+
+      <div class="d-flex align-center justify-center ga-2 mb-2">
+        <v-chip
+          size="small" variant="tonal" link prepend-icon="mdi-format-list-checks"
+          :color="exclues.size ? 'warning' : undefined"
+          @click="showChoixRuches = true"
+        >
+          <template v-if="exclues.size">
+            {{ hives.length }} ruche(s) sur {{ toutesRuches.length }} —
+            {{ exclues.size }} non visitée(s)
+          </template>
+          <template v-else>Ruches de la tournée</template>
+        </v-chip>
+      </div>
 
       <div class="d-flex align-center justify-center ga-2 mb-4">
         <p class="text-caption r-muted mb-0">{{ currentIndex + 1 }} / {{ hives.length }}</p>
@@ -424,7 +483,10 @@ const router = useRouter()
 const notif = useNotifStore()
 const auth = useAuthStore()
 
-const hives = ref([])
+const hives = ref([])            // ruches réellement parcourues
+const toutesRuches = ref([])     // tout ce que le rucher contient
+const exclues = ref(new Set())   // ruches déclarées non visitées
+const showChoixRuches = ref(false)
 const currentIndex = ref(0)
 const loading = ref(true)
 // ─── Date de la visite ───────────────────────────────────────────────
@@ -776,6 +838,30 @@ function prev() {
   }
 }
 
+/**
+ * Ruches à parcourir. Toutes les ruches d'un rucher ne sont pas visitées à
+ * chaque passage — mauvais temps, ruche déplacée, colonie qu'on ne veut pas
+ * déranger. Les décocher les sort de la tournée : aucune visite n'est
+ * enregistrée pour elles et rien n'est modifié, alors que « Passer » ne vaut
+ * que pour la ruche affichée, une par une.
+ */
+function basculerRuche(id) {
+  const s = new Set(exclues.value)
+  if (s.has(id)) s.delete(id); else s.add(id)
+  exclues.value = s
+}
+
+function toutCocher() { exclues.value = new Set() }
+
+function appliquerSelection() {
+  const gardees = toutesRuches.value.filter((h) => !exclues.value.has(h.id))
+  // Ne jamais aboutir à une tournée vide : ce serait un écran sans issue.
+  if (!gardees.length) return
+  hives.value = gardees
+  if (currentIndex.value >= gardees.length) currentIndex.value = gardees.length - 1
+  showChoixRuches.value = false
+}
+
 function skipHive() {
   if (currentIndex.value < hives.value.length - 1) {
     currentIndex.value++
@@ -799,6 +885,7 @@ onMounted(async () => {
       ? '/apiaries/hives/mine'
       : '/apiaries/' + (props.apiaryId || route.params.apiaryId) + '/hives/editable'
     const { data } = await api.get(url)
+    toutesRuches.value = data
     hives.value = data
     if (data.length) {
       // Un seul appel pour toute la tournée : la suite fonctionne même si le

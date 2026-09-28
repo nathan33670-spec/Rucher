@@ -31,10 +31,20 @@ class NotificationPref(Base):
 
     user_id = Column(Integer, ForeignKey("users.id", ondelete="CASCADE"), primary_key=True)
     enabled = Column(Boolean, default=True)          # interrupteur général
-    visits = Column(Boolean, default=True)           # nouvelle visite
+    visits = Column(Boolean, default=True)           # nouvelle visite (interrupteur)
+    # Deux sous-catégories : sans elles, il fallait choisir entre tout
+    # recevoir et ne rien recevoir, et surtout, chacun était notifié des
+    # visites sur les ruches privées des autres.
+    visits_mine = Column(Boolean, default=True)      # ruches dont je suis responsable
+    visits_assoc = Column(Boolean, default=True)     # ruches de l'association
+    # Réservée aux administrateurs et responsables de rucher : les adhérents
+    # simples ne doivent jamais être notifiés des ruches privées d'autrui.
+    visits_private_others = Column(Boolean, default=True)
     inventory = Column(Boolean, default=True)        # mouvement de matériel
     alerts = Column(Boolean, default=True)           # alerte terrain
     sanitary = Column(Boolean, default=True)         # traitement / comptage
+    # Réservée au bureau : les comptes de l'association n'ont pas à partir en
+    # notification chez tous les adhérents.
     treasury = Column(Boolean, default=False)        # écriture de trésorerie
     events = Column(Boolean, default=True)           # événement de l'association
     updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)

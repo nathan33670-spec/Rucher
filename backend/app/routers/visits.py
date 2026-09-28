@@ -14,7 +14,7 @@ from app.models.user import User, RoleEnum
 from app.schemas.visit import VisitCreate, VisitUpdate, VisitOut, HiveAlertIn
 from app.utils.auth import get_current_user, get_user_roles
 from app.utils.audit import log_action
-from app.utils.push import notify, notify_users
+from app.utils.push import notify, notify_users, notify_visit
 from app.utils.hive_numbers import hive_label
 
 
@@ -167,9 +167,11 @@ async def create_visit(
 
     # Notifications push (aux abonnés ayant activé la catégorie)
     label = _hive_label(hive)
-    notify("visits", "🐝 Nouvelle visite",
-           f"{user.first_name} a saisi une visite — {label}", "/app/visits",
-           exclude_user_id=user.id)
+    # Filtrée selon la ruche : le responsable, l'association, ou — pour une
+    # ruche privée d'autrui — les seuls encadrants qui l'ont accepté.
+    notify_visit(hive.id, "🐝 Nouvelle visite",
+                 f"{user.first_name} a saisi une visite — {label}", "/app/visits",
+                 exclude_user_id=user.id)
     if visit.is_alert:
         notify("alerts", "⚠️ Alerte rucher",
                f"{label} : {visit.alert_message or 'à vérifier'}", "/app",
@@ -262,9 +264,10 @@ async def sync_visits(
         _record_treatment(db, visit, user)
         out.append(_visit_out(visit, user, hive))
     if out:
-        notify("visits", "🐝 Visites synchronisées",
-               f"{user.first_name} a synchronisé {len(out)} visite(s).", "/app/visits",
-               exclude_user_id=user.id)
+        notify_visit([v.hive_id for v in out if v.hive_id],
+                     "🐝 Visites synchronisées",
+                     f"{user.first_name} a synchronisé {len(out)} visite(s).",
+                     "/app/visits", exclude_user_id=user.id)
     return out
 
 
