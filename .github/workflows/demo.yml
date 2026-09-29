@@ -79,11 +79,12 @@ jobs:
         # souligné, ce que produit parfois l'outil de construction.
         run: touch dist/.nojekyll
 
+      # Pages doit être activé **à la main** une seule fois, dans
+      # Settings → Pages → Source : GitHub Actions. Le jeton du flux n'a pas
+      # le droit de créer un site Pages (« Resource not accessible by
+      # integration »), et « enablement: true » échoue donc aussi. Sans cette
+      # activation, ce pas s'arrête avec un message qui le dit.
       - uses: actions/configure-pages@v5
-        with:
-          # Active Pages sur le dépôt si ce n'est pas déjà fait, plutôt que
-          # d'échouer en demandant un réglage manuel dans les préférences.
-          enablement: true
       - uses: actions/upload-pages-artifact@v3
         with:
           path: frontend/dist
