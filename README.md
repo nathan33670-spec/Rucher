@@ -2,6 +2,25 @@
 
 Application web complète (PWA) de gestion d'une association apicole — ruches, visites, inventaire, trésorerie, suivi sanitaire.
 
+## 👀 Essayer sans rien installer
+
+**[Ouvrir la démonstration →](https://nathan33670-spec.github.io/Rucher/)**
+
+Toute l'interface est là et se manipule librement : ruchers, visites, miellée,
+trésorerie, événements, documentation. Ce que vous saisissez reste dans votre
+navigateur et disparaît au rechargement.
+
+Deux précisions honnêtes :
+
+- **les données sont inventées** — personnes, ruchers et montants ne
+  correspondent à aucune association réelle ;
+- **il n'y a pas de serveur derrière.** GitHub Pages ne sert que des fichiers
+  statiques : l'API est simulée dans le navigateur. Les fonctions qui
+  demandent vraiment un serveur (envoi de courriels, notifications sur le
+  téléphone, import bancaire) s'affichent mais ne partent nulle part.
+
+La démonstration est reconstruite à chaque modification du frontend sur `main`.
+
 ## 🚀 Démarrage rapide
 
 ### Prérequis

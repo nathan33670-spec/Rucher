@@ -3,6 +3,10 @@ import vue from '@vitejs/plugin-vue'
 import vuetify from 'vite-plugin-vuetify'
 
 export default defineConfig({
+  // GitHub Pages sert le site dans un sous-dossier (/Rucher/). Sans cette
+  // base, tous les liens vers les ressources pointeraient à la racine du
+  // domaine et la page resterait blanche.
+  base: process.env.VITE_BASE || '/',
   plugins: [vue(), vuetify({ autoImport: true })],
   appType: 'spa',
   optimizeDeps: {

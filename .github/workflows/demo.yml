@@ -1,0 +1,96 @@
+# Démonstration publique de Rucher Manager.
+#
+# Publie sur GitHub Pages une version de l'application que n'importe qui peut
+# essayer depuis la page du projet, sans compte et sans rien installer.
+#
+# Ce que ce n'est pas : une instance complète. GitHub Pages ne sert que des
+# fichiers statiques — pas de Python, pas de PostgreSQL. L'API est donc
+# simulée dans le navigateur à partir d'un jeu de données inventé
+# (tools/demo/generer-donnees.py). Rien de ce qu'un visiteur saisit ne sort de
+# son navigateur, et tout repart à zéro au rechargement.
+#
+# Aucune incidence sur la production : ce flux ne construit ni ne déploie quoi
+# que ce soit d'autre, et n'a accès à aucun secret.
+
+name: Démonstration
+
+on:
+  push:
+    branches: [main]
+    # Inutile de reconstruire la démo quand seul le backend change : elle n'en
+    # embarque pas une ligne.
+    paths:
+      - 'frontend/**'
+      - 'tools/demo/**'
+      - 'backend/app/releases.py'   # les notes de version y sont lues
+      - '.github/workflows/demo.yml'
+  workflow_dispatch:                # reconstruction à la demande
+
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+
+# Une seule publication à la fois ; on n'annule pas celle en cours, sinon un
+# enchaînement de poussées pourrait laisser la démo à moitié déployée.
+concurrency:
+  group: pages
+  cancel-in-progress: false
+
+jobs:
+  construire:
+    name: Construire la démonstration
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: npm
+          cache-dependency-path: frontend/package-lock.json
+
+      - name: Régénérer le jeu de données
+        run: python3 tools/demo/generer-donnees.py
+
+      - name: Installer les dépendances
+        working-directory: frontend
+        run: npm ci
+
+      - name: Construire
+        working-directory: frontend
+        env:
+          VITE_DEMO: '1'
+          # Pages sert le site sous /<dépôt>/ : sans cette base, la page
+          # resterait blanche, toutes les ressources pointant à la racine.
+          VITE_BASE: /${{ github.event.repository.name }}/
+        run: npm run build
+
+      - name: Repli des liens profonds
+        working-directory: frontend
+        # Pages sert 404.html pour toute adresse inconnue. En y mettant la
+        # page d'accueil, un lien direct vers /app/visites démarre bien
+        # l'application au lieu d'afficher une erreur.
+        run: cp dist/index.html dist/404.html
+
+      - name: Empêcher le traitement Jekyll
+        working-directory: frontend
+        # Sans ce fichier, Pages ignore les dossiers commençant par un blanc
+        # souligné, ce que produit parfois l'outil de construction.
+        run: touch dist/.nojekyll
+
+      - uses: actions/configure-pages@v5
+      - uses: actions/upload-pages-artifact@v3
+        with:
+          path: frontend/dist
+
+  publier:
+    name: Publier sur GitHub Pages
+    needs: construire
+    runs-on: ubuntu-latest
+    environment:
+      name: github-pages
+      url: ${{ steps.deploiement.outputs.page_url }}
+    steps:
+      - id: deploiement
+        uses: actions/deploy-pages@v4
