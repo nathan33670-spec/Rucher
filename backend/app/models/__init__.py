@@ -11,7 +11,8 @@ from app.models.doc import DocPage
 from app.models.visit_plan import VisitPlan
 from app.models.notification import AppSetting, PushSubscription, NotificationPref
 from app.models.event import Event, EventRSVP
-from app.models.mailing import MailCampaign, MailRecipient, MailAttachment, MailLink
+from app.models.mailing import (MailCampaign, MailRecipient, MailAttachment,
+                                MailLink, MailPoll, MailPollOption, MailVote)
 
 __all__ = [
     "DocPage",
@@ -19,6 +20,7 @@ __all__ = [
     "AppSetting", "PushSubscription", "NotificationPref",
     "Event", "EventRSVP",
     "MailCampaign", "MailRecipient", "MailAttachment", "MailLink",
+    "MailPoll", "MailPollOption", "MailVote",
     "User", "UserRole", "RoleEnum",
     "Apiary", "Hive", "hive_managers", "OwnershipType",
     "Visit",

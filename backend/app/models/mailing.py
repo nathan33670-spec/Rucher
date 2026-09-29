@@ -25,7 +25,7 @@ lectures que le pixel manque.
 from datetime import datetime
 
 from sqlalchemy import (Column, Integer, String, DateTime, ForeignKey, Text,
-                        Boolean, Index)
+                        Boolean, Index, UniqueConstraint)
 from sqlalchemy.orm import relationship
 
 from app.database import Base
@@ -56,6 +56,8 @@ class MailCampaign(Base):
                                cascade="all, delete-orphan", lazy="selectin")
     links = relationship("MailLink", back_populates="campaign",
                          cascade="all, delete-orphan", lazy="selectin")
+    poll = relationship("MailPoll", back_populates="campaign", uselist=False,
+                        cascade="all, delete-orphan", lazy="selectin")
 
 
 class MailRecipient(Base):
@@ -124,6 +126,72 @@ class MailLink(Base):
     click_count = Column(Integer, default=0, nullable=False)
 
     campaign = relationship("MailCampaign", back_populates="links")
+
+
+class MailPoll(Base):
+    """Sondage attaché à une campagne : une question, des réponses possibles.
+
+    Le vote se fait **depuis le message**, sans connexion : c'est le jeton du
+    destinataire qui l'identifie. Un adhérent qui ne retrouve pas son mot de
+    passe doit pouvoir répondre, sinon on ne recueille l'avis que des plus
+    assidus. En contrepartie, quiconque reçoit le message transféré peut voter
+    à la place de son destinataire : l'interface le dit, et c'est pourquoi ce
+    dispositif convient à un sondage d'organisation, pas à une élection.
+    """
+    __tablename__ = "mail_polls"
+
+    id = Column(Integer, primary_key=True, index=True)
+    campaign_id = Column(Integer, ForeignKey("mail_campaigns.id", ondelete="CASCADE"),
+                         nullable=False, unique=True, index=True)
+    question = Column(String(300), nullable=False)
+    # Plusieurs réponses possibles (ex. « quelles dates vous conviennent ? »).
+    multiple = Column(Boolean, default=False, nullable=False)
+    closes_at = Column(DateTime, nullable=True)
+    created_at = Column(DateTime, default=datetime.utcnow)
+
+    campaign = relationship("MailCampaign", back_populates="poll")
+    options = relationship("MailPollOption", back_populates="poll",
+                           cascade="all, delete-orphan", lazy="selectin",
+                           order_by="MailPollOption.position")
+    votes = relationship("MailVote", back_populates="poll",
+                         cascade="all, delete-orphan", lazy="selectin")
+
+
+class MailPollOption(Base):
+    """Une réponse possible."""
+    __tablename__ = "mail_poll_options"
+
+    id = Column(Integer, primary_key=True, index=True)
+    poll_id = Column(Integer, ForeignKey("mail_polls.id", ondelete="CASCADE"),
+                     nullable=False, index=True)
+    position = Column(Integer, nullable=False)
+    label = Column(String(200), nullable=False)
+
+    poll = relationship("MailPoll", back_populates="options")
+
+
+class MailVote(Base):
+    """Le choix d'un destinataire.
+
+    Rattaché au destinataire et non à l'utilisateur : c'est le jeton du
+    message qui fait foi, et un même adhérent peut figurer dans plusieurs
+    campagnes.
+    """
+    __tablename__ = "mail_votes"
+    __table_args__ = (
+        UniqueConstraint("poll_id", "recipient_id", "option_id", name="uq_vote_unique"),
+    )
+
+    id = Column(Integer, primary_key=True, index=True)
+    poll_id = Column(Integer, ForeignKey("mail_polls.id", ondelete="CASCADE"),
+                     nullable=False, index=True)
+    recipient_id = Column(Integer, ForeignKey("mail_recipients.id", ondelete="CASCADE"),
+                          nullable=False, index=True)
+    option_id = Column(Integer, ForeignKey("mail_poll_options.id", ondelete="CASCADE"),
+                       nullable=False, index=True)
+    voted_at = Column(DateTime, default=datetime.utcnow)
+
+    poll = relationship("MailPoll", back_populates="votes")
 
 
 Index("ix_mail_recipients_campagne_ouverture",

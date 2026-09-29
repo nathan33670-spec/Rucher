@@ -193,6 +193,7 @@ function traiter(config) {
         body: "Ceci est le corps du message tel qu'il a été envoyé.",
         body_html: '<p>Ceci est le corps du message tel qu\'il a été envoyé.</p>',
         attachments: [], recipients: [],
+        poll: base._poll_by_campaign?.[String(c.id)] || null,
       })
     }
 
