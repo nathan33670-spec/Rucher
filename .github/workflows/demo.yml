@@ -80,6 +80,10 @@ jobs:
         run: touch dist/.nojekyll
 
       - uses: actions/configure-pages@v5
+        with:
+          # Active Pages sur le dépôt si ce n'est pas déjà fait, plutôt que
+          # d'échouer en demandant un réglage manuel dans les préférences.
+          enablement: true
       - uses: actions/upload-pages-artifact@v3
         with:
           path: frontend/dist
