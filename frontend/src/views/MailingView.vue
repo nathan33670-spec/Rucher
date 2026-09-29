@@ -51,6 +51,53 @@
           class="mb-2"
         />
 
+        <!-- ── Sondage (facultatif) ───────────────────────────── -->
+        <v-expansion-panels variant="accordion" class="mb-4">
+          <v-expansion-panel>
+            <v-expansion-panel-title>
+              <v-icon class="mr-2">mdi-poll</v-icon>
+              Joindre un sondage
+              <v-chip v-if="sondageActif" size="x-small" color="primary" variant="tonal"
+                      class="ml-2">{{ reponsesSondage.length }} réponse(s)</v-chip>
+            </v-expansion-panel-title>
+            <v-expansion-panel-text>
+              <p class="text-caption r-muted mb-3">
+                Les adhérents répondent <b>depuis le message</b>, sans avoir à se
+                connecter. Les résultats s'affichent dans le détail de la campagne.
+              </p>
+              <v-text-field
+                v-model="form.poll_question"
+                label="Question"
+                prepend-inner-icon="mdi-help-circle-outline"
+                counter="300" maxlength="300"
+                density="compact" class="mb-2"
+              />
+              <v-textarea
+                v-model="form.poll_options"
+                label="Réponses possibles"
+                hint="Une réponse par ligne — deux au minimum, douze au maximum."
+                persistent-hint rows="4" density="compact" class="mb-3"
+              />
+              <v-checkbox
+                v-model="form.poll_multiple" color="primary" density="compact"
+                hide-details label="Plusieurs réponses possibles"
+              />
+              <v-text-field
+                v-model="form.poll_closes_at"
+                type="date" label="Clôture (facultative)"
+                :min="aujourdhui" density="compact" class="mt-3"
+                hint="Passé cette date, la page affiche les résultats sans permettre de voter."
+                persistent-hint
+              />
+              <v-alert type="info" variant="tonal" density="compact" class="mt-4">
+                Le lien de réponse identifie son destinataire : quelqu'un à qui le
+                message serait <b>transféré</b> pourrait répondre à sa place.
+                C'est bon pour organiser une date, pas pour une élection.
+              </v-alert>
+            </v-expansion-panel-text>
+          </v-expansion-panel>
+        </v-expansion-panels>
+
         <v-checkbox
           v-model="form.tracking"
           color="primary"
@@ -130,6 +177,8 @@
                     prepend-icon="mdi-eye-outline">
               {{ c.opened_count }} ouverture(s) — {{ tauxOuverture(c) }}
             </v-chip>
+            <v-chip v-if="c.has_poll" size="small" color="primary" variant="tonal"
+                    prepend-icon="mdi-poll">Sondage</v-chip>
             <v-chip v-if="c.tracking && c.clicked_count" size="small" color="secondary"
                     variant="tonal" prepend-icon="mdi-cursor-default-click-outline">
               {{ c.clicked_count }} clic(s)
@@ -210,6 +259,43 @@
             </p>
           </div>
 
+          <!-- Sondage : résultats, s'il y en avait un. Pas d'entrée de menu
+               dédiée — ils se lisent là où la question a été posée. -->
+          <v-card v-if="detail.poll" variant="outlined" class="pa-3 mb-4">
+            <div class="d-flex flex-wrap align-center ga-2 mb-2">
+              <v-icon size="18" color="primary">mdi-poll</v-icon>
+              <b>{{ detail.poll.question }}</b>
+              <v-chip size="x-small" variant="tonal">
+                {{ detail.poll.multiple ? 'plusieurs réponses' : 'une réponse' }}
+              </v-chip>
+              <v-chip v-if="detail.poll.closed" size="x-small" color="error" variant="tonal">
+                clos
+              </v-chip>
+              <v-chip v-else-if="detail.poll.closes_at" size="x-small" variant="tonal">
+                jusqu'au {{ dateCourte(detail.poll.closes_at) }}
+              </v-chip>
+            </div>
+
+            <p class="text-caption r-muted mb-3">
+              <b>{{ detail.poll.voters }}</b> réponse(s) sur
+              {{ detail.sent_count }} envoi(s) — {{ tauxReponse(detail) }}.
+            </p>
+
+            <div v-for="o in detail.poll.options" :key="o.id" class="mb-2">
+              <div class="d-flex justify-space-between text-body-2">
+                <span>{{ o.label }}</span>
+                <span class="r-muted">{{ o.votes }} — {{ partSondage(detail.poll, o) }}</span>
+              </div>
+              <v-progress-linear
+                :model-value="partBrute(detail.poll, o)" height="8" rounded color="primary"
+              />
+            </div>
+
+            <p v-if="!detail.poll.voters" class="text-caption r-muted mb-0 mt-2">
+              Personne n'a encore répondu.
+            </p>
+          </v-card>
+
           <v-card variant="tonal" class="pa-3 mb-4">
             <!-- Le HTML a été désinfecté par le serveur au moment de l'envoi ;
                  on montre ici exactement ce qui est parti. -->
@@ -288,7 +374,16 @@ const editeur = ref(null)
 // tranche, l'interface ne fait qu'annoncer à l'avance ce qu'il décidera.
 const SEUIL_HEBERGE = 5 * 1024 * 1024
 
-const form = ref({ audience: 'all', subject: '', body_html: '', tracking: true })
+const aujourdhui = new Date().toLocaleDateString('sv-SE')
+const form = ref({
+  audience: 'all', subject: '', body_html: '', tracking: true,
+  poll_question: '', poll_options: '', poll_multiple: false, poll_closes_at: '',
+})
+
+const reponsesSondage = computed(() =>
+  form.value.poll_options.split('\n').map((l) => l.trim()).filter(Boolean))
+const sondageActif = computed(() =>
+  !!form.value.poll_question.trim() && reponsesSondage.value.length > 0)
 const erreurs = ref({ subject: '', body: '' })
 
 const publicCourant = computed(() =>
@@ -365,6 +460,22 @@ function dateHeure(d) {
     + ' à ' + x.toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' })
 }
 
+// La part se calcule sur le nombre de **votants**, pas sur le total des voix :
+// avec plusieurs réponses possibles, les additionner dépasserait 100 %.
+function partBrute(sondage, option) {
+  if (!sondage.voters) return 0
+  return Math.round((option.votes / sondage.voters) * 100)
+}
+
+function partSondage(sondage, option) {
+  return sondage.voters ? partBrute(sondage, option) + ' %' : '—'
+}
+
+function tauxReponse(c) {
+  if (!c.sent_count || !c.poll) return '—'
+  return Math.round((c.poll.voters / c.sent_count) * 100) + ' %'
+}
+
 function tauxOuverture(c) {
   if (!c.sent_count) return '—'
   return Math.round((c.opened_count / c.sent_count) * 100) + ' %'
@@ -403,11 +514,23 @@ async function demanderEnvoi() {
     fd.append('body_html', form.value.body_html)
     fd.append('audience', form.value.audience)
     fd.append('tracking', form.value.tracking ? 'true' : 'false')
+    if (sondageActif.value) {
+      fd.append('poll_question', form.value.poll_question.trim())
+      fd.append('poll_options', reponsesSondage.value.join('\n'))
+      fd.append('poll_multiple', form.value.poll_multiple ? 'true' : 'false')
+      // Le serveur attend une date-heure ; minuit marque la fin du jour choisi.
+      if (form.value.poll_closes_at) {
+        fd.append('poll_closes_at', form.value.poll_closes_at + 'T23:59:00')
+      }
+    }
     for (const f of fichiers.value || []) fd.append('files', f)
     const { data } = await api.post('/mail/campaigns', fd,
       { headers: { 'Content-Type': 'multipart/form-data' } })
     bilan.value = data
-    form.value = { audience: form.value.audience, subject: '', body_html: '', tracking: true }
+    form.value = {
+      audience: form.value.audience, subject: '', body_html: '', tracking: true,
+      poll_question: '', poll_options: '', poll_multiple: false, poll_closes_at: '',
+    }
     editeur.value?.vider()
     fichiers.value = []
     await charger()

@@ -9,14 +9,14 @@ from datetime import datetime, timedelta
 
 from fastapi import (APIRouter, Depends, HTTPException, Request, UploadFile,
                      File, Form)
-from fastapi.responses import Response, RedirectResponse
-from sqlalchemy import select, func
+from fastapi.responses import Response, RedirectResponse, HTMLResponse
+from sqlalchemy import select, func, delete
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.database import get_db
 from app.models.event import Event, EventRSVP
 from app.models.mailing import (MailCampaign, MailRecipient, MailAttachment,
-                                MailLink)
+                                MailLink, MailPoll, MailPollOption, MailVote)
 from app.models.user import User, UserRole, RoleEnum
 from app.schemas.mailing import (CampaignOut, CampaignDetail, RecipientOut,
                                  AudienceOut)
@@ -131,12 +131,19 @@ def _pister_liens(html: str, app_url: str, jeton: str) -> str:
     peut pas être déclenché par un préchargement d'images, et il fonctionne
     même chez qui bloque les images. C'est ce qui rattrape l'essentiel de ce
     que le pixel ne voit pas.
+
+    Les liens du **sondage** en sont exclus : ils portent déjà le jeton du
+    destinataire, et les faire transiter par la redirection les ferait tous
+    pointer vers le même bulletin. Ils ne sont pas non plus comptés, pour que
+    le rang des autres liens reste celui du corps de référence.
     """
     if not app_url or not jeton:
         return html
     compteur = {"n": -1}
 
     def remplace(m):
+        if "/api/mail/v/" in m.group(1):
+            return m.group(0)
         compteur["n"] += 1
         return f'href="{app_url}/api/mail/c/{jeton}/{compteur["n"]}"'
 
@@ -171,8 +178,44 @@ def _taille_lisible(octets: int) -> str:
     return f"{max(1, round(octets / 1024))} Ko"
 
 
+def _bloc_sondage(sondage, app_url: str, jeton: str) -> str:
+    """Encart du sondage : la question et un bouton par réponse.
+
+    Chaque bouton mène à une page de confirmation plutôt que d'enregistrer le
+    vote directement. C'est indispensable : de nombreuses messageries
+    **préchargent les liens** d'un message pour les analyser, et un vote posé
+    au simple chargement serait faussé par ces visites automatiques. La page
+    demande donc un clic de confirmation, que seule une personne peut faire.
+    """
+    if not sondage or not app_url:
+        return ""
+    boutons = "".join(
+        f'<tr><td style="padding:4px 0;">'
+        f'<a href="{app_url}/api/mail/v/{jeton}?o={o["id"]}" '
+        'style="display:block;padding:10px 16px;border:1px solid #B8860B;'
+        'border-radius:8px;color:#8a6508;text-decoration:none;font-weight:600;">'
+        f'{escape(o["label"])}</a></td></tr>'
+        for o in sondage["options"]
+    )
+    note = ("Plusieurs réponses possibles."
+            if sondage["multiple"] else "Une seule réponse.")
+    limite = ""
+    if sondage.get("closes_at"):
+        limite = (' Réponses attendues avant le '
+                  f'{sondage["closes_at"][:10].replace("-", "/")}.')
+    return (
+        '<div style="background:#FAF6EF;border:1px solid #E6DFD4;border-radius:8px;'
+        'padding:16px 18px;margin:22px 0;">'
+        f'<p style="margin:0 0 4px;font-weight:600;">🗳️ {escape(sondage["question"])}</p>'
+        f'<p style="margin:0 0 10px;font-size:12px;color:#8A7F72;">{note}{limite}</p>'
+        f'<table style="width:100%;border-collapse:collapse;">{boutons}</table>'
+        '</div>'
+    )
+
+
 def _html(corps_html: str, pixel: str | None, app_url: str,
-          fichiers: list[dict] | None = None) -> str:
+          fichiers: list[dict] | None = None, sondage: dict | None = None,
+          jeton: str = "") -> str:
     """Message complet. Le pixel de suivi ferme le corps s'il est demandé."""
     suivi = (f'<img src="{pixel}" width="1" height="1" alt="" '
              'style="display:block;width:1px;height:1px;border:0;" />') if pixel else ""
@@ -182,7 +225,8 @@ def _html(corps_html: str, pixel: str | None, app_url: str,
         '<div style="font-family:-apple-system,Segoe UI,Roboto,Arial,sans-serif;'
         'max-width:560px;margin:0 auto;padding:24px;color:#2B2520;line-height:1.6;">'
         '<div style="text-align:center;font-size:30px;">🐝</div>'
-        f'{corps_html}{_bloc_fichiers(fichiers or [])}{lien}'
+        f'{corps_html}{_bloc_sondage(sondage, app_url, jeton)}'
+        f'{_bloc_fichiers(fichiers or [])}{lien}'
         '<hr style="border:0;border-top:1px solid #E6DFD4;margin:24px 0 10px;" />'
         '<p style="font-size:12px;color:#8A7F72;">Message envoyé depuis '
         'Rucher Manager par votre association.</p>'
@@ -190,13 +234,23 @@ def _html(corps_html: str, pixel: str | None, app_url: str,
     )
 
 
-def _texte_complet(corps_texte: str, app_url: str, fichiers: list[dict] | None) -> str:
-    """Partie texte du message, liens de téléchargement compris.
+def _texte_complet(corps_texte: str, app_url: str, fichiers: list[dict] | None,
+                   sondage: dict | None = None, jeton: str = "") -> str:
+    """Partie texte du message : fichiers et sondage compris.
 
-    Qui lit en texte seul doit pouvoir récupérer les fichiers lui aussi :
-    sans cela, l'encart HTML serait sa seule chance de les voir.
+    Qui lit en texte seul doit pouvoir récupérer les fichiers et répondre au
+    sondage lui aussi : sans cela, l'encart HTML serait sa seule chance de les
+    voir, et on ne recueillerait l'avis que des lecteurs en HTML.
     """
     parties = [corps_texte]
+    if sondage and app_url and jeton:
+        choix = "\n".join(
+            f"- {o['label']} : {app_url}/api/mail/v/{jeton}?o={o['id']}"
+            for o in sondage["options"]
+        )
+        combien = ("Plusieurs réponses possibles."
+                   if sondage["multiple"] else "Une seule réponse.")
+        parties.append(f"{sondage['question']}\n{combien}\n{choix}")
     if fichiers:
         lignes = "\n".join(
             f"- {f['filename']} ({_taille_lisible(f['size'])}) : {f['url']}"
@@ -276,6 +330,10 @@ async def send_campaign(
     body_html: str = Form(""),
     audience: str = Form("all"),
     tracking: bool = Form(True),
+    poll_question: str = Form(""),
+    poll_options: str = Form(""),        # une réponse par ligne
+    poll_multiple: bool = Form(False),
+    poll_closes_at: str = Form(""),
     files: list[UploadFile] = File(default=[]),
     db: AsyncSession = Depends(get_db),
     user: User = Depends(require_roles(RoleEnum.ADMIN)),
@@ -296,6 +354,29 @@ async def send_campaign(
     corps_html, corps_texte = _corps_propre(body, body_html)
     if not corps_texte.strip():
         raise HTTPException(400, "Le message est vide.")
+
+    question = (poll_question or "").strip()
+    reponses = [r.strip() for r in (poll_options or "").splitlines() if r.strip()]
+    if question and len(reponses) < 2:
+        raise HTTPException(
+            400,
+            "Un sondage demande au moins deux réponses possibles : sans choix, "
+            "il n'y a rien à demander.",
+        )
+    if reponses and not question:
+        raise HTTPException(400, "Le sondage n'a pas de question.")
+    if len(reponses) > 12:
+        raise HTTPException(
+            400,
+            "Douze réponses au maximum : au-delà, le message devient illisible "
+            "sur un téléphone.",
+        )
+    limite = None
+    if question and (poll_closes_at or "").strip():
+        try:
+            limite = datetime.fromisoformat(poll_closes_at.strip())
+        except ValueError:
+            raise HTTPException(400, "La date de clôture du sondage est illisible.")
 
     cfg = await load_mail(db)
     if not mailer.mail_enabled(cfg):
@@ -323,6 +404,24 @@ async def send_campaign(
     db.add(campagne)
     await db.flush()
 
+    sondage_out = None
+    if question:
+        sondage = MailPoll(campaign_id=campagne.id, question=question,
+                           multiple=bool(poll_multiple), closes_at=limite)
+        db.add(sondage)
+        await db.flush()
+        options = []
+        for rang, libelle in enumerate(reponses):
+            o = MailPollOption(poll_id=sondage.id, position=rang, label=libelle)
+            db.add(o)
+            options.append(o)
+        await db.flush()
+        sondage_out = {
+            "question": question, "multiple": bool(poll_multiple),
+            "closes_at": limite.isoformat() if limite else None,
+            "options": [{"id": o.id, "label": o.label} for o in options],
+        }
+
     app_url = resolve_app_url(request, cfg)
     expire = datetime.utcnow() + timedelta(days=JOURS_VALIDITE_LIEN)
     fichiers_lies: list[dict] = []
@@ -342,6 +441,8 @@ async def send_campaign(
 
     # Le corps final (encart des fichiers compris) sert de référence pour les
     # liens : leur rang doit être le même ici et dans le message envoyé.
+    # Référence des liens : sans le sondage, dont les adresses sont propres à
+    # chaque destinataire et jamais pistées.
     corps_complet = _html(corps_html, None, app_url, fichiers_lies)
     for rang, url in enumerate(_urls_du_corps(corps_complet)):
         db.add(MailLink(campaign_id=campagne.id, position=rang, url=url))
@@ -357,14 +458,15 @@ async def send_campaign(
         db.add(ligne)
         lignes.append(ligne)
         pixel = f"{app_url}/api/mail/o/{jeton}.gif" if campagne.tracking and app_url else None
-        html = _html(corps_html, pixel, app_url, fichiers_lies)
+        html = _html(corps_html, pixel, app_url, fichiers_lies, sondage_out, jeton)
         if campagne.tracking:
             html = _pister_liens(html, app_url, jeton)
         messages.append({
             "to": u.contact_email,
             "subject": subject,
             "html": html,
-            "text": _texte_complet(corps_texte, app_url, fichiers_lies),
+            "text": _texte_complet(corps_texte, app_url, fichiers_lies,
+                                   sondage_out, jeton),
             "attachments": [{"filename": p["filename"], "mime_type": p["mime_type"],
                              "content": p["content"]}
                             for p in pieces if not p["hosted"]],
@@ -402,9 +504,36 @@ async def _detail(db: AsyncSession, campagne: MailCampaign) -> CampaignDetail:
     pieces_jointes = list(res.scalars().all())
     ouverts = sum(1 for r in lignes if r.first_opened_at)
     clics = sum(1 for r in lignes if r.first_clicked_at)
+
+    res = await db.execute(select(MailPoll).where(MailPoll.campaign_id == campagne.id))
+    sondage = res.scalar_one_or_none()
+    sondage_out = None
+    if sondage:
+        res = await db.execute(
+            select(MailPollOption).where(MailPollOption.poll_id == sondage.id)
+            .order_by(MailPollOption.position))
+        options = list(res.scalars().all())
+        res = await db.execute(select(MailVote).where(MailVote.poll_id == sondage.id))
+        votes = list(res.scalars().all())
+        votants = {v.recipient_id for v in votes}
+        sondage_out = {
+            "question": sondage.question,
+            "multiple": sondage.multiple,
+            "closes_at": sondage.closes_at.isoformat() if sondage.closes_at else None,
+            "closed": bool(sondage.closes_at and datetime.utcnow() > sondage.closes_at),
+            # Le nombre de votants, et non le nombre de voix : avec plusieurs
+            # réponses possibles, les additionner gonflerait artificiellement
+            # la participation.
+            "voters": len(votants),
+            "options": [
+                {"id": o.id, "label": o.label,
+                 "votes": sum(1 for v in votes if v.option_id == o.id)}
+                for o in options
+            ],
+        }
     return CampaignDetail(
         id=campagne.id, subject=campagne.subject, body=campagne.body,
-        body_html=campagne.body_html, clicked_count=clics,
+        body_html=campagne.body_html, clicked_count=clics, poll=sondage_out,
         audience=campagne.audience,
         audience_label=AUDIENCES.get(campagne.audience, campagne.audience),
         tracking=campagne.tracking, sent_at=campagne.sent_at,
@@ -447,6 +576,7 @@ async def list_campaigns(
             tracking=c.tracking, sent_at=c.sent_at,
             sent_count=c.sent_count, failed_count=c.failed_count,
             opened_count=ouverts, clicked_count=clics,
+            has_poll=bool(c.poll),
             attachments_count=len(c.attachments),
             author_name=(f"{auteur.first_name or ''} {auteur.last_name or ''}".strip()
                          if auteur else None),
@@ -688,6 +818,172 @@ async def download_hosted(
         media_type=piece.mime_type or "application/octet-stream",
         headers={"Content-Disposition": f'attachment; filename="{nom}"'},
     )
+
+
+def _page(titre: str, contenu: str, statut: int = 200) -> HTMLResponse:
+    """Page autonome servie au destinataire d'un sondage.
+
+    Elle ne dépend ni de l'application ni d'une session : le destinataire
+    arrive depuis sa messagerie, souvent sans être connecté, parfois depuis un
+    navigateur qui n'a jamais vu le site.
+    """
+    return HTMLResponse(status_code=statut, content=f"""<!doctype html>
+<html lang="fr"><head>
+<meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>{escape(titre)}</title>
+<style>
+  body {{ margin:0; background:#FAF6EF; color:#2B2520; font-family:-apple-system,
+         Segoe UI, Roboto, Arial, sans-serif; line-height:1.6; }}
+  .boite {{ max-width:520px; margin:6vh auto; background:#fff; border:1px solid #E6DFD4;
+            border-radius:12px; padding:28px 26px; }}
+  h1 {{ font-size:1.25rem; margin:0 0 4px; }}
+  .abeille {{ font-size:30px; text-align:center; margin-bottom:8px; }}
+  .discret {{ color:#8A7F72; font-size:0.85rem; }}
+  button, .bouton {{ display:block; width:100%; box-sizing:border-box; margin:8px 0;
+            padding:12px 16px; border:1px solid #B8860B; border-radius:8px;
+            background:#fff; color:#8a6508; font:inherit; font-weight:600;
+            text-align:left; cursor:pointer; text-decoration:none; }}
+  button.choisi {{ background:#B8860B; color:#fff; }}
+  .valider {{ background:#B8860B; color:#fff; text-align:center; border:0; margin-top:16px; }}
+  .barre {{ background:#F0E9DD; border-radius:4px; height:8px; margin-top:4px; }}
+  .barre span {{ display:block; height:8px; background:#B8860B; border-radius:4px; }}
+  .ligne {{ margin:12px 0; }}
+</style></head>
+<body><div class="boite"><div class="abeille">🐝</div>{contenu}</div></body></html>""")
+
+
+def _resultats(sondage: MailPoll, votes: list[MailVote]) -> str:
+    """Récapitulatif chiffré, montré après le vote."""
+    total = len({v.recipient_id for v in votes}) or 1
+    lignes = []
+    for o in sorted(sondage.options, key=lambda x: x.position):
+        n = sum(1 for v in votes if v.option_id == o.id)
+        pct = round(n * 100 / total)
+        lignes.append(
+            f'<div class="ligne"><b>{escape(o.label)}</b> — {n} '
+            f'<span class="discret">({pct} %)</span>'
+            f'<div class="barre"><span style="width:{pct}%"></span></div></div>'
+        )
+    return "".join(lignes)
+
+
+async def _charger_vote(db: AsyncSession, token: str):
+    """(destinataire, sondage) à partir du jeton du message."""
+    if not re.fullmatch(r"[A-Za-z0-9_\-]{10,64}", token or ""):
+        return None, None
+    res = await db.execute(select(MailRecipient).where(MailRecipient.token == token))
+    ligne = res.scalar_one_or_none()
+    if not ligne:
+        return None, None
+    res = await db.execute(select(MailPoll).where(MailPoll.campaign_id == ligne.campaign_id))
+    return ligne, res.scalar_one_or_none()
+
+
+@router.get("/v/{token}", response_class=HTMLResponse)
+async def page_vote(
+    token: str,
+    o: int | None = None,
+    db: AsyncSession = Depends(get_db),
+):
+    """Page de vote. **Publique** : le jeton du message fait l'identité.
+
+    Cette page n'enregistre rien. Beaucoup de messageries préchargent les
+    liens d'un message pour les analyser ; un vote posé au simple chargement
+    serait faussé par ces visites automatiques, sans que personne ne s'en
+    aperçoive. Le vote demande donc une confirmation.
+    """
+    ligne, sondage = await _charger_vote(db, token)
+    if not ligne or not sondage:
+        return _page("Sondage introuvable",
+                     "<h1>Ce lien n'est plus valable</h1>"
+                     "<p class=\"discret\">Le sondage n'existe plus, ou l'adresse a été "
+                     "tronquée par votre messagerie.</p>", 404)
+
+    res = await db.execute(select(MailVote).where(MailVote.poll_id == sondage.id))
+    tous = list(res.scalars().all())
+    miens = {v.option_id for v in tous if v.recipient_id == ligne.id}
+    clos = bool(sondage.closes_at and datetime.utcnow() > sondage.closes_at)
+
+    if clos:
+        return _page(
+            sondage.question,
+            f"<h1>{escape(sondage.question)}</h1>"
+            "<p class=\"discret\">Ce sondage est clos. Voici les réponses reçues.</p>"
+            + _resultats(sondage, tous))
+
+    presel = {o} if o else miens
+    choix = "".join(
+        f'<label class="bouton{" choisi" if opt.id in presel else ""}">'
+        f'<input type="{"checkbox" if sondage.multiple else "radio"}" name="choix" '
+        f'value="{opt.id}"{" checked" if opt.id in presel else ""} '
+        'style="margin-right:8px;"> ' + escape(opt.label) + "</label>"
+        for opt in sorted(sondage.options, key=lambda x: x.position)
+    )
+    deja = ('<p class="discret">Vous avez déjà répondu. Vous pouvez changer votre '
+            'réponse ci-dessous.</p>') if miens else ""
+    return _page(
+        sondage.question,
+        f"<h1>{escape(sondage.question)}</h1>"
+        f'<p class="discret">Bonjour {escape(ligne.name or "")}. '
+        + ("Plusieurs réponses possibles." if sondage.multiple else "Une seule réponse.")
+        + "</p>" + deja
+        + f'<form method="post">{choix}'
+        '<button class="valider" type="submit">Confirmer ma réponse</button></form>')
+
+
+@router.post("/v/{token}", response_class=HTMLResponse)
+async def enregistrer_vote(
+    token: str,
+    request: Request,
+    db: AsyncSession = Depends(get_db),
+):
+    """Enregistre la réponse, puis montre le résultat."""
+    ligne, sondage = await _charger_vote(db, token)
+    if not ligne or not sondage:
+        return _page("Sondage introuvable",
+                     "<h1>Ce lien n'est plus valable</h1>", 404)
+    if sondage.closes_at and datetime.utcnow() > sondage.closes_at:
+        return _page(sondage.question,
+                     f"<h1>{escape(sondage.question)}</h1>"
+                     "<p class=\"discret\">Ce sondage est clos : votre réponse n'a pas "
+                     "pu être prise en compte.</p>", 409)
+
+    formulaire = await request.form()
+    valides = {o.id for o in sondage.options}
+    choisis = [int(v) for v in formulaire.getlist("choix")
+               if str(v).isdigit() and int(v) in valides]
+    if not sondage.multiple:
+        choisis = choisis[:1]
+    if not choisis:
+        return _page(sondage.question,
+                     f"<h1>{escape(sondage.question)}</h1>"
+                     "<p class=\"discret\">Aucune réponse n'a été sélectionnée. "
+                     "Revenez en arrière pour en choisir une.</p>", 400)
+
+    # Changer d'avis doit rester possible : on remplace la réponse précédente
+    # plutôt que d'en empiler une seconde.
+    await db.execute(delete(MailVote).where(MailVote.poll_id == sondage.id,
+                                            MailVote.recipient_id == ligne.id))
+    for oid in choisis:
+        db.add(MailVote(poll_id=sondage.id, recipient_id=ligne.id, option_id=oid))
+
+    # Répondre prouve la lecture, bien mieux que le pixel.
+    maintenant = datetime.utcnow()
+    ligne.last_opened_at = maintenant
+    if not ligne.first_opened_at:
+        ligne.first_opened_at = maintenant
+        ligne.open_count = (ligne.open_count or 0) + 1
+    await db.commit()
+
+    res = await db.execute(select(MailVote).where(MailVote.poll_id == sondage.id))
+    tous = list(res.scalars().all())
+    return _page(
+        sondage.question,
+        f"<h1>Merci, c'est enregistré</h1>"
+        f'<p class="discret">{escape(sondage.question)}</p>'
+        + _resultats(sondage, tous)
+        + '<p class="discret" style="margin-top:18px;">Vous pouvez revenir sur ce '
+          'lien pour changer votre réponse tant que le sondage est ouvert.</p>')
 
 
 @router.get("/o/{token}.gif")

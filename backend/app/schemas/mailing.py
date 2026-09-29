@@ -38,6 +38,7 @@ class CampaignOut(BaseModel):
     opened_count: int = 0
     # Ouvertures dont un clic témoigne : la part certaine du chiffre ci-dessus.
     clicked_count: int = 0
+    has_poll: bool = False
     attachments_count: int = 0
     author_name: Optional[str] = None
 
@@ -45,6 +46,8 @@ class CampaignOut(BaseModel):
 class CampaignDetail(CampaignOut):
     body: str = ""
     body_html: Optional[str] = None
+    # Sondage et ses résultats, ou None si la campagne n'en portait pas.
+    poll: Optional[dict] = None
     attachments: list[dict] = []
     recipients: list[RecipientOut] = []
     attachments_count: int = 0

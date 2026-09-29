@@ -433,8 +433,25 @@ campagnes = [
      "audience_label": "Administrateurs", "tracking": False,
      "sent_at": iso(AUJOURDHUI - timedelta(days=40)),
      "sent_count": 3, "failed_count": 0, "opened_count": 0, "clicked_count": 0,
-     "attachments_count": 2, "author_name": "Paul Leroy"},
+     "attachments_count": 2, "author_name": "Paul Leroy", "has_poll": False},
 ]
+for _c in campagnes:
+    _c.setdefault("has_poll", False)
+campagnes[0]["has_poll"] = True
+
+# Le sondage de la première campagne, avec ses résultats.
+SONDAGE_DEMO = {
+    "question": "Quelle date vous convient le mieux pour l'assemblée générale ?",
+    "multiple": False,
+    "closes_at": iso(datetime(2026, 10, 5, 23, 59)),
+    "closed": False,
+    "voters": 19,
+    "options": [
+        {"id": 1, "label": "Samedi 12 octobre, 14 h", "votes": 11},
+        {"id": 2, "label": "Samedi 19 octobre, 14 h", "votes": 6},
+        {"id": 3, "label": "Samedi 26 octobre, 10 h", "votes": 2},
+    ],
+}
 
 # ─────────────────────────── Journal et cloche ───────────────────────────
 journal = []
@@ -547,6 +564,7 @@ donnees = {
         {"key": "user", "label": "Usagers", "count": 7},
     ],
     "/mail/campaigns": campagnes,
+    "_poll_by_campaign": {"1": SONDAGE_DEMO},
 }
 
 sortie = os.path.join(os.path.dirname(__file__), "..", "..",

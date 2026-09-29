@@ -10,6 +10,18 @@ Convention : la version la plus récente en tête.
 
 RELEASES = [
     {
+        "version": "2.1.0",
+        "date": "2026-09-29",
+        "title": "Des sondages auxquels on répond depuis le message",
+        "highlights": [
+            "Un courriel peut porter un sondage : une question, de deux à douze réponses, choix unique ou multiple, avec une date de clôture facultative.",
+            "Les adhérents répondent en cliquant depuis le message, sans avoir à se connecter — et peuvent changer d'avis tant que le sondage est ouvert.",
+            "Cliquer n'enregistre rien : une page de confirmation s'interpose, car de nombreuses messageries préchargent les liens et fausseraient les résultats.",
+            "Les résultats se lisent dans le détail de la campagne, là où la question a été posée : pas d'écran supplémentaire.",
+            "Le lien de réponse identifie son destinataire : l'application le dit, car un message transféré permettrait de répondre à sa place. C'est fait pour organiser une date, pas pour une élection.",
+        ],
+    },
+    {
         "version": "2.0.0",
         "date": "2026-09-28",
         "title": "Notifications justes, tournées partielles",
