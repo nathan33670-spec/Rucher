@@ -2,7 +2,7 @@
   <div>
     <div class="d-flex flex-wrap align-center justify-space-between ga-2 mb-4">
       <h2>Événements</h2>
-      <v-btn v-if="auth.isAdmin" color="primary" prepend-icon="mdi-calendar-plus" @click="openCreate">
+      <v-btn v-if="peutOrganiser" color="primary" prepend-icon="mdi-calendar-plus" @click="openCreate">
         Nouvel événement
       </v-btn>
     </div>
@@ -14,19 +14,19 @@
       <v-icon size="64" color="primary" class="mb-3">mdi-calendar-blank</v-icon>
       <h3 class="text-h6 mb-1">Aucun événement pour le moment</h3>
       <p class="text-medium-emphasis mb-0">
-        {{ auth.isAdmin ? 'Créez un événement pour prévenir les adhérents.' : 'Les événements de l\'association apparaîtront ici.' }}
+        {{ peutOrganiser ? 'Créez un événement pour prévenir les adhérents.' : 'Les événements de l\'association apparaîtront ici.' }}
       </p>
     </v-card>
 
     <template v-else>
       <template v-if="upcoming.length">
         <div class="text-overline text-primary mt-2 mb-1">À venir</div>
-        <EventCardList :events="upcoming" @rsvp="doRsvp" @edit="openEdit" @remove="removeEvent" @participants="openParticipants" @calendar-ics="downloadICS" @calendar-google="openGoogle" @notify="openNotify" @shared="flash" :is-admin="auth.isAdmin" :user-id="auth.user?.id" :busy-id="busyId" />
+        <EventCardList :events="upcoming" @rsvp="doRsvp" @edit="openEdit" @remove="removeEvent" @participants="openParticipants" @calendar-ics="downloadICS" @calendar-google="openGoogle" @notify="openNotify" @shared="flash" :is-admin="auth.isAdmin" :peut-organiser="peutOrganiser" :user-id="auth.user?.id" :busy-id="busyId" />
       </template>
 
       <template v-if="past.length">
         <div class="text-overline text-medium-emphasis mt-4 mb-1">Passés</div>
-        <EventCardList :events="past" past @rsvp="doRsvp" @edit="openEdit" @remove="removeEvent" @participants="openParticipants" @calendar-ics="downloadICS" @calendar-google="openGoogle" @notify="openNotify" @shared="flash" :is-admin="auth.isAdmin" :user-id="auth.user?.id" :busy-id="busyId" />
+        <EventCardList :events="past" past @rsvp="doRsvp" @edit="openEdit" @remove="removeEvent" @participants="openParticipants" @calendar-ics="downloadICS" @calendar-google="openGoogle" @notify="openNotify" @shared="flash" :is-admin="auth.isAdmin" :peut-organiser="peutOrganiser" :user-id="auth.user?.id" :busy-id="busyId" />
       </template>
     </template>
 
@@ -158,6 +158,12 @@ import { downloadICS as icsDownload, googleCalendarUrl } from '../services/calen
 import EventCardList from '../components/EventCardList.vue'
 
 const auth = useAuthStore()
+
+// Qui organise la vie de l'association. Le serveur autorisait déjà le
+// responsable de rucher, mais cet écran ne montrait le bouton qu'aux
+// administrateurs : le droit existait sans que personne ne puisse s'en servir.
+const peutOrganiser = computed(() =>
+  auth.isAdmin || auth.isTreasurer || auth.isYardManager)
 
 const events = ref([])
 const loading = ref(true)

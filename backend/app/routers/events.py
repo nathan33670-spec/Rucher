@@ -3,7 +3,7 @@
 from datetime import datetime
 from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.ext.asyncio import AsyncSession
-from sqlalchemy import select, func, delete
+from sqlalchemy import select, func, delete, or_
 
 from app.database import get_db
 from app.models.event import Event, EventRSVP
@@ -21,6 +21,17 @@ router = APIRouter(prefix="/api/events", tags=["events"])
 
 def _is_admin(user: User) -> bool:
     return RoleEnum.ADMIN.value in get_user_roles(user)
+
+
+# Qui organise la vie de l'association : ceux-là créent et modifient les
+# événements. Le responsable de rucher y figurait déjà côté serveur, mais
+# l'écran ne proposait le bouton qu'aux administrateurs — il avait le droit
+# sans jamais voir où cliquer.
+ROLES_ORGANISATEURS = (RoleEnum.ADMIN, RoleEnum.TREASURER, RoleEnum.YARD_MANAGER)
+
+
+def _peut_organiser(user: User) -> bool:
+    return bool({r.value for r in ROLES_ORGANISATEURS} & set(get_user_roles(user)))
 
 
 async def _counts_map(db: AsyncSession, event_ids: list[int]) -> dict[int, RSVPCounts]:
@@ -70,11 +81,16 @@ async def list_events(
     """Liste des événements, triés par date de début (les plus proches d'abord).
 
     - Admins : tous les événements (publics et privés).
-    - Autres : uniquement les événements publics.
+    - Autres : les événements publics, **et les leurs**.
+
+    Cette dernière exception n'est pas un détail : sans elle, un responsable
+    de rucher qui créait un événement privé le voyait disparaître aussitôt
+    enregistré.
     """
     stmt = select(Event).order_by(Event.start_at.asc())
     if not _is_admin(user):
-        stmt = stmt.where(Event.is_public.is_(True))
+        stmt = stmt.where(or_(Event.is_public.is_(True),
+                              Event.created_by == user.id))
     events = list((await db.execute(stmt)).scalars().all())
 
     ids = [e.id for e in events]
@@ -87,7 +103,7 @@ async def list_events(
 async def create_event(
     body: EventCreate,
     db: AsyncSession = Depends(get_db),
-    user: User = Depends(require_roles(RoleEnum.ADMIN, RoleEnum.YARD_MANAGER)),
+    user: User = Depends(require_roles(*ROLES_ORGANISATEURS)),
 ):
     ev = Event(
         title=body.title,
@@ -124,7 +140,7 @@ async def update_event(
     event_id: int,
     body: EventUpdate,
     db: AsyncSession = Depends(get_db),
-    user: User = Depends(require_roles(RoleEnum.ADMIN, RoleEnum.YARD_MANAGER)),
+    user: User = Depends(require_roles(*ROLES_ORGANISATEURS)),
 ):
     ev = await db.get(Event, event_id)
     if not ev:
@@ -154,11 +170,23 @@ async def update_event(
 async def delete_event(
     event_id: int,
     db: AsyncSession = Depends(get_db),
-    user: User = Depends(require_roles(RoleEnum.ADMIN)),
+    user: User = Depends(require_roles(*ROLES_ORGANISATEURS)),
 ):
+    """Supprime un événement.
+
+    Réservé aux **administrateurs** et à l'**organisateur** de l'événement :
+    qui peut en créer doit pouvoir défaire sa propre erreur, mais annuler la
+    sortie d'un autre ne va pas de soi.
+    """
     ev = await db.get(Event, event_id)
     if not ev:
         raise HTTPException(404, "Événement introuvable")
+    if not _is_admin(user) and ev.created_by != user.id:
+        raise HTTPException(
+            403,
+            "Seul l'organisateur de cet événement, ou un administrateur, peut "
+            "l'annuler.",
+        )
 
     # Mémoriser avant suppression : l'objet n'est plus lisible ensuite.
     title = ev.title
@@ -275,7 +303,7 @@ async def rsvp(
 async def participants(
     event_id: int,
     db: AsyncSession = Depends(get_db),
-    user: User = Depends(require_roles(RoleEnum.ADMIN)),
+    user: User = Depends(require_roles(*ROLES_ORGANISATEURS)),
 ):
     """Liste des adhérents ayant répondu (réservé aux admins)."""
     ev = await db.get(Event, event_id)
