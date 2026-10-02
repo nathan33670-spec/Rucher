@@ -10,6 +10,16 @@ Convention : la version la plus récente en tête.
 
 RELEASES = [
     {
+        "version": "2.1.1",
+        "date": "2026-10-02",
+        "title": "Événements : les organisateurs retrouvent leur bouton",
+        "highlights": [
+            "Les trésoriers et les responsables de rucher peuvent créer et modifier les événements, et voir qui vient. Le serveur l'autorisait déjà pour les responsables de rucher, mais l'écran ne proposait le bouton qu'aux administrateurs : le droit existait sans que personne ne puisse s'en servir.",
+            "Un organisateur peut annuler ses propres événements ; annuler ceux des autres reste réservé aux administrateurs.",
+            "Corrigé : un événement privé créé par un non-administrateur disparaissait de la liste de son propre auteur.",
+        ],
+    },
+    {
         "version": "2.1.0",
         "date": "2026-09-29",
         "title": "Des sondages auxquels on répond depuis le message",

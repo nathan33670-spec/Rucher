@@ -106,10 +106,15 @@
             Notifier
           </v-btn>
 
-          <template v-if="isAdmin">
+          <template v-if="peutOrganiser">
             <v-btn size="small" variant="text" prepend-icon="mdi-account-group" @click="$emit('participants', ev)">Participants</v-btn>
             <v-btn icon size="small" variant="text" @click="$emit('edit', ev)"><v-icon>mdi-pencil</v-icon></v-btn>
-            <v-btn icon size="small" variant="text" @click="$emit('remove', ev)"><v-icon color="error">mdi-delete</v-icon></v-btn>
+            <!-- Annuler l'événement d'un autre ne va pas de soi : réservé aux
+                 administrateurs et à l'organisateur. -->
+            <v-btn
+              v-if="isAdmin || (userId != null && ev.created_by === userId)"
+              icon size="small" variant="text" @click="$emit('remove', ev)"
+            ><v-icon color="error">mdi-delete</v-icon></v-btn>
           </template>
         </v-card-actions>
       </v-card>
@@ -124,6 +129,10 @@ const props = defineProps({
   events: { type: Array, default: () => [] },
   past: { type: Boolean, default: false },
   isAdmin: { type: Boolean, default: false },
+  // Administrateurs, trésoriers et responsables de rucher : ceux qui créent
+  // et modifient les événements. Distinct de « isAdmin », qui garde ce qui
+  // relève vraiment de l'administration (voir un événement privé d'autrui).
+  peutOrganiser: { type: Boolean, default: false },
   // Identifiant de l'utilisateur courant : l'organisateur d'un événement peut
   // le relancer, même s'il n'est pas administrateur.
   userId: { type: [Number, null], default: null },

@@ -108,13 +108,19 @@ const sections = [
       { img: 'g-partage-evenement.jpg', cap: "Les manières de partager un événement." },
       { note: "Le texte partagé reprend le <b>titre</b>, la <b>date</b>, l'<b>heure</b>, le <b>lieu</b>, la description et un <b>lien vers l'application</b> — de quoi décider de venir sans rien demander à personne." },
       { h3: 'Créer un événement' },
-      { p: "Réservé aux <b>administrateurs</b> et aux <b>responsables de rucher</b>." },
+      { p: "Ouvert aux <b>administrateurs</b>, aux <b>trésoriers</b> et aux <b>responsables de rucher</b> — ceux qui organisent la vie de l'association." },
       { steps: [
         "Cliquez sur <b>Nouvel événement</b>.",
         "Renseignez l'<b>intitulé</b>, la <b>date</b>, les <b>horaires</b>, le <b>lieu</b> et la <b>description</b>.",
-        "Indiquez s'il est <b>public</b> (visible de tous les adhérents) ou <b>privé</b> (visible des seuls administrateurs).",
+        "Indiquez s'il est <b>public</b> (visible de tous les adhérents) ou <b>privé</b> (visible des administrateurs et de son organisateur).",
         "Enregistrez. La <b>liste des participants</b> est ensuite consultable sur la carte de l'événement.",
       ] },
+      { table: { head: ['Qui', 'Peut faire quoi'], rows: [
+        ['<b>Administrateur</b>', "Créer, modifier et annuler <b>tout</b> événement, voir les privés"],
+        ['<b>Trésorier</b>, <b>responsable de rucher</b>', "Créer, modifier, voir les participants ; annuler <b>les siens</b>"],
+        ['<b>Adhérent</b>', 'Répondre présent, ajouter à son calendrier, partager'],
+      ] } },
+      { warn: "Vous ne voyez pas le bouton <b>Nouvel événement</b> alors que vous en avez le rôle ? Regardez le <b>sélecteur de rôle</b> en haut à droite : s'il indique « Usager », vous travaillez volontairement avec les droits réduits. Reprenez votre rôle et le bouton réapparaît." },
       { h3: 'Relancer : envoyer une notification sur les téléphones' },
       { p: "Une annonce faite trois semaines à l'avance se perd. Le bouton <b>Notifier</b> envoie une nouvelle notification quand vous le décidez : la veille d'une sortie, ou pour un détail de dernière minute." },
       { steps: [
